@@ -1,4 +1,4 @@
-# Trading 2026 Radar v2
+# Trading 2026 Radar v2.1
 
 Versió sense TradingView Webhooks.
 
@@ -32,3 +32,10 @@ Després fes commit. Vercel farà redeploy automàtic.
 
 ## Nota
 El motor v2 replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. Els senyals són deterministes segons aquest motor i no són probabilitats de guany.
+
+
+## v2.1
+- Corregeix la truncació d'Alpaca quan s'escanegen molts símbols alhora.
+- Les dades 1D/4H/1H es demanen en lots de 7 tickers.
+- `undefined` passa a mostrar-se com `SENSE DADES` amb diagnòstic intern.
+- Lookback intradia ampliat a 60 dies.
