@@ -1,5 +1,16 @@
 
 const ALPACA = 'https://data.alpaca.markets/v2/stocks/bars';
+const BENCHMARK = {
+  ANET:'QQQ', CRDO:'SOXX', AAOI:'SOXX', CLS:'QQQ', MU:'SOXX', AVGO:'SOXX',
+  VRT:'XLI', ETN:'XLI', GEV:'XLI', POWL:'XLI', NVT:'XLI', HUBB:'XLI', FIX:'XLI', STRL:'XLI', EME:'XLI', MOD:'XLI', CARR:'XLI',
+  BE:'XLU', CEG:'XLU', VST:'XLU', CCJ:'URA', LEU:'URA', BWXT:'URA',
+  PANW:'CIBR', CRWD:'CIBR', VRNS:'CIBR', ZS:'CIBR', QLYS:'CIBR',
+  PLTR:'QQQ', SNOW:'IGV', NOW:'IGV', CRM:'IGV', NBIS:'QQQ',
+  RKLB:'ITA', KTOS:'ITA', KRMN:'ITA', HWM:'ITA',
+  LLY:'XLV', UNH:'XLV',
+  SMH:'SPY', SOXX:'SPY', IGV:'SPY', CIBR:'SPY', ITA:'SPY', URA:'SPY', PAVE:'SPY', XLI:'SPY', XLU:'SPY', IWM:'SPY', QQQ:'SPY'
+};
+
 
 function ema(values, len) {
   if (!values?.length) return null;
@@ -48,6 +59,17 @@ function pivotLow(bars, len=3){
   }
   return null;
 }
+function sma(values, len){
+  if(!values || values.length < len) return null;
+  const s = values.slice(-len).reduce((a,b)=>a+b,0);
+  return s/len;
+}
+function returnPct(values, bars=20){
+  if(!values || values.length < bars+1) return null;
+  const a = values[values.length-bars-1], b = values[values.length-1];
+  return a ? ((b/a)-1)*100 : null;
+}
+
 function pivotHigh(bars, len=3){
   if(!bars || bars.length < 2*len+1) return null;
   for(let i=bars.length-len-1;i>=len;i--){
@@ -106,7 +128,7 @@ async function fetchBars(symbols, timeframe, start, limit=10000){
 }
 function addDays(d,n){ const x=new Date(d); x.setUTCDate(x.getUTCDate()+n); return x.toISOString(); }
 
-function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
+function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
   const dBars=latestCompleted(dBarsRaw,'1Day');
   const h4Bars=latestCompleted(h4BarsRaw,'4Hour');
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
@@ -117,6 +139,13 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
   const d20=ema(dc,20), d50=ema(dc,50), h420=ema(c4,20), h450=ema(c4,50), h120=ema(c1,20), h150=ema(c1,50);
   const a4=atr(h4Bars,14)||Math.max(h4.c*0.01,0.01), a1=atr(h1Bars,14)||Math.max(h1.c*0.007,0.01);
   const rsi1=rsi(c1,14), rsi4=rsi(c4,14);
+  const vols1=h1Bars.map(x=>x.v||0);
+  const avgVol20=vols1.length>=21 ? vols1.slice(-21,-1).reduce((a,b)=>a+b,0)/20 : null;
+  const rvol=avgVol20 ? last(vols1)/avgVol20 : null;
+  const rs20=returnPct(c1,20);
+  const benchBars=latestCompleted(benchH1Raw,'1Hour');
+  const benchRet20=returnPct(benchBars.map(x=>x.c),20);
+  const rsMarket=(Number.isFinite(rs20)&&Number.isFinite(benchRet20)) ? rs20-benchRet20 : null;
   const pLow=pivotLow(h4Bars,3), pHigh=pivotHigh(h4Bars,3);
 
   let trend=0;
@@ -170,6 +199,10 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
   if(trend<45) quality-=12;
   quality=clamp(Math.round(quality),0,100);
 
+  const extensionAtr = a1 ? (h1.c - h120) / a1 : 0;
+  const zoneDistanceAtr = a4 ? (h4.c - zoneHigh) / a4 : 0;
+  const tooExtended = extensionAtr > 2.2 || zoneDistanceAtr > 1.8;
+
   // Jerarquia v2.3:
   // NO SETUP → WATCH → PRE → READY → A → A+
   // INVALIDAT queda reservat per una ruptura estructural real.
@@ -206,6 +239,28 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
     status='WATCH';
   }
 
+  const statusWeight = {'A+':30,'A':26,'READY':22,'PRE':15,'WATCH':8,'NO SETUP':2,'INVALIDAT':0}[status] ?? 0;
+  let radarScore = 0;
+  radarScore += statusWeight;
+  radarScore += (quality/100)*28;
+  radarScore += (trend/100)*18;
+  if(Number.isFinite(distToTrigger)){
+    radarScore += distToTrigger<=0 ? 12 : distToTrigger<=1 ? 11 : distToTrigger<=2 ? 9 : distToTrigger<=4 ? 5 : 1;
+  }
+  if(Number.isFinite(rvol)) radarScore += rvol>=1.8 ? 6 : rvol>=1.3 ? 4 : rvol>=1 ? 2 : 0;
+  if(Number.isFinite(rsMarket)) radarScore += rsMarket>=3 ? 6 : rsMarket>=1 ? 4 : rsMarket>=0 ? 2 : 0;
+  if(tooExtended) radarScore -= 14;
+  radarScore = clamp(Math.round(radarScore),0,100);
+
+  let actionNow='ESPERA';
+  if(status==='INVALIDAT') actionNow='INVALIDAT';
+  else if(status==='NO SETUP') actionNow='NO SETUP';
+  else if(tooExtended) actionNow='NO PERSEGUIR';
+  else if((status==='A+'||status==='A') && distToTrigger<=0) actionNow='TRIGGER SUPERAT';
+  else if(status==='READY' && distToTrigger<=1.25) actionNow="PROP D'ENTRADA";
+  else if((status==='READY'||status==='PRE') && distToTrigger<=2.5) actionNow='VIGILA';
+  else if(status==='WATCH' && distToTrigger<=2) actionNow='VIGILA';
+
   let age=0;
   // Approximate age: consecutive 1H bars that remain in a viable setup.
   for(let i=h1Bars.length-1;i>=Math.max(0,h1Bars.length-20);i--){
@@ -213,6 +268,9 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
     if(b.c>h150 && b.c>stop){age++;} else break;
   }
   const ageLabel=age<=3?'Nou':age<=6?'Madur':age<=10?'Envellit':'Antic';
+  if(age>=11) radarScore=clamp(radarScore-10,0,100);
+  else if(age>=7) radarScore=clamp(radarScore-6,0,100);
+  else if(age>=4) radarScore=clamp(radarScore-2,0,100);
   const dayChange=pct(d.c, dBars[dBars.length-2].c);
 
   return {
@@ -233,6 +291,8 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
     rr,target1,target2,
     ageHours:age,ageLabel,
     rsi1h:rsi1,rsi4h:rsi4,
+    rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,
+    benchmark:BENCHMARK[symbol]||'QQQ',
     updatedAt:h1.t
   };
 }
@@ -246,10 +306,12 @@ export default async function handler(req,res){
     if(!raw.length) return res.status(400).json({error:'Cal indicar ?symbols=PLTR,CRM,...'});
     const startDay=addDays(new Date(),-130);
     const startIntraday=addDays(new Date(),-60);
-    const [d,h4,h1]=await Promise.all([
+    const benchSymbols=[...new Set(raw.map(s=>BENCHMARK[s]||'QQQ'))];
+    const [d,h4,h1,bh1]=await Promise.all([
       fetchBars(raw,'1Day',startDay,10000),
       fetchBars(raw,'4Hour',startIntraday,10000),
-      fetchBars(raw,'1Hour',startIntraday,10000)
+      fetchBars(raw,'1Hour',startIntraday,10000),
+      fetchBars(benchSymbols,'1Hour',startIntraday,10000)
     ]);
     // Fallback v2.2: Alpaca/IEX de vegades omet un símbol dins d'una petició múltiple.
     // Si un actiu arriba amb historial insuficient, el repetim individualment abans de marcar-lo SENSE DADES.
@@ -270,7 +332,7 @@ export default async function handler(req,res){
     }
 
     const out=raw.map(s=>{
-      const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[]);
+      const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],bh1[BENCHMARK[s]||'QQQ']||[]);
       if(r.status==='SENSE DADES'){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
         r.dataCounts=counts;
@@ -281,7 +343,7 @@ export default async function handler(req,res){
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.2',results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.6',results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
