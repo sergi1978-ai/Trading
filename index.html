@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trading 2026 · Radar</title>
+  <style>
+    :root{--bg:#0b1020;--panel:#11182a;--panel2:#151e34;--text:#eef3ff;--muted:#94a3b8;--line:#26324a;--green:#34d399;--yellow:#fbbf24;--blue:#60a5fa;--red:#fb7185;--purple:#a78bfa;--cyan:#22d3ee}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#0a0f1f,#0d1426 60%,#0b1020);color:var(--text)}
+    .wrap{max-width:1500px;margin:auto;padding:22px}.top{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:18px}.brand h1{margin:0;font-size:26px}.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}.btn{background:#1a2540;border:1px solid #2a3a5f;color:#fff;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer}.btn:hover{background:#223051}.btn.primary{background:#2563eb;border-color:#2563eb}
+    .cards{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:10px;margin-bottom:14px}.card{background:rgba(17,24,42,.92);border:1px solid var(--line);border-radius:14px;padding:14px}.card .k{color:var(--muted);font-size:12px}.card .v{font-size:24px;font-weight:800;margin-top:5px}.card .s{font-size:11px;color:var(--muted);margin-top:2px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.input,.select{background:#0f172a;color:#fff;border:1px solid #334155;border-radius:10px;padding:9px 11px}.input{min-width:220px}.select{min-width:150px}
+    .tabs{display:flex;gap:6px;margin:12px 0}.tab{padding:8px 11px;border-radius:10px;background:#11182a;border:1px solid #27334a;color:#b8c4d9;cursor:pointer}.tab.active{background:#1d4ed8;color:white;border-color:#1d4ed8}
+    .tablebox{border:1px solid var(--line);border-radius:14px;overflow:auto;background:rgba(17,24,42,.96)} table{width:100%;border-collapse:collapse;min-width:1250px} th,td{padding:10px 10px;border-bottom:1px solid #202a40;text-align:left;font-size:12px;white-space:nowrap} th{position:sticky;top:0;background:#121b30;color:#9fb0c8;font-size:11px;z-index:2}.ticker{font-weight:900;font-size:13px}.sector{color:#c6d0e1}.muted{color:var(--muted)}
+    .status{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 8px;font-weight:800}.watch{background:#17315a;color:#93c5fd}.pre{background:#4a3d12;color:#fde68a}.ready{background:#5b4511;color:#fcd34d}.a{background:#103d2e;color:#6ee7b7}.aplus{background:#243f2f;color:#a7f3d0}.invalid{background:#4b1f2a;color:#fda4af}
+    .pos{color:var(--green);font-weight:800}.neg{color:var(--red);font-weight:800}.near{color:#fde68a;font-weight:800}.sectionTitle{display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px}.sectionTitle h2{font-size:15px;margin:0}.pill{font-size:11px;color:#cbd5e1;background:#1e293b;border-radius:999px;padding:4px 8px}
+    .grid2{display:grid;grid-template-columns:2fr 1fr;gap:12px}.panel{background:#11182a;border:1px solid var(--line);border-radius:14px;padding:14px}.sectorrow{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #222d43}.sectorrow:last-child{border:0}.legend{color:var(--muted);font-size:11px;line-height:1.5}
+    .toast{position:fixed;right:18px;bottom:18px;background:#172033;border:1px solid #334155;padding:12px 14px;border-radius:12px;display:none;max-width:380px}.small{font-size:11px;color:#94a3b8}
+    @media(max-width:1000px){.cards{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}} @media(max-width:600px){.cards{grid-template-columns:repeat(2,1fr)}.wrap{padding:12px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><h1>Trading 2026 · Radar</h1><p>Preus reals via Alpaca + seguiment de triggers del LONG AI ASSISTANT</p></div>
+    <div class="actions"><button class="btn primary" id="refreshBtn">↻ Actualitza preus</button><button class="btn" id="exportBtn">Exporta configuració</button><button class="btn" id="resetBtn">Reset</button></div>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="tabs"><button class="tab active" data-tab="radar">Radar</button><button class="tab" data-tab="near">🔥 Propers a entrada</button><button class="tab" data-tab="sectors">Sectors</button></div>
+  <div class="toolbar">
+    <input class="input" id="search" placeholder="Cerca ticker, sector o subtema…">
+    <select class="select" id="sectorFilter"><option value="">Tots els sectors</option></select>
+    <select class="select" id="statusFilter"><option value="">Tots els estats</option><option>WATCH</option><option>PRE</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option></select>
+    <select class="select" id="riskFilter"><option value="">Tot risc</option><option>Baix</option><option>Mitjà</option><option>Alt</option></select>
+    <select class="select" id="divFilter"><option value="">Dividend: tots</option><option value="0.5">≥0,5%</option><option value="1">≥1%</option><option value="2">≥2%</option></select>
+  </div>
+
+  <section id="radarTab">
+    <div class="sectionTitle"><h2>Radar actiu</h2><span class="pill" id="updatedAt">Sense actualitzar</span></div>
+    <div class="tablebox"><table><thead><tr>
+      <th>Ticker</th><th>Preu</th><th>% dia</th><th>Sector</th><th>Subtema</th><th>Div.</th><th>Risc</th><th>Estat</th><th>Entry Q.</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>R:R</th>
+    </tr></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+
+  <section id="nearTab" style="display:none">
+    <div class="sectionTitle"><h2>🔥 Propers a entrada</h2><span class="pill">Ordenat per estat + distància al trigger</span></div>
+    <div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Preu</th><th>Sector</th><th>Estat</th><th>Entry Q.</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>R:R</th></tr></thead><tbody id="nearBody"></tbody></table></div>
+  </section>
+
+  <section id="sectorsTab" style="display:none">
+    <div class="grid2">
+      <div class="panel"><div class="sectionTitle"><h2>Mapa sectorial del radar</h2><span class="pill">Nombre d’actius i senyals</span></div><div id="sectorList"></div></div>
+      <div class="panel"><div class="sectionTitle"><h2>Com usar-lo</h2></div><div class="legend">1. Busca sectors amb diversos <b>READY/A</b> alhora.<br><br>2. Dins del sector prioritza menor distància al trigger, setup més nou i millor R:R.<br><br>3. El dividend és context, no una autorització d’entrada.<br><br>4. Les dades de trigger, stop, Entry Quality i edat provenen del teu LONG AI ASSISTANT i es poden editar fent doble clic a la cel·la.</div></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const initial = [
+['ANET','Tecnologia','Networking IA / data centers',0,'Mitjà'],['CRDO','Tecnologia','Connectivitat IA',0,'Alt'],['AAOI','Tecnologia','Fibra òptica / IA',0,'Alt'],['CLS','Tecnologia','Manufactura electrònica / IA',0,'Mitjà'],['MU','Semiconductors','Memòria HBM / IA',0.4,'Mitjà'],['AVGO','Semiconductors','ASIC / networking / IA',0.7,'Baix'],['VRT','Industrials','Refrigeració / data centers',0.1,'Mitjà'],['ETN','Industrials','Electrificació / data centers',1.1,'Baix'],['GEV','Energia / Industrials','Xarxa elèctrica',0,'Mitjà'],['POWL','Industrials','Equipament elèctric',0.2,'Mitjà'],['NVT','Industrials','Electrificació',0.6,'Baix'],['HUBB','Industrials','Grid / distribució elèctrica',1.3,'Baix'],['FIX','Industrials','Construcció data centers',0.3,'Mitjà'],['STRL','Industrials','Infraestructura',0,'Mitjà'],['EME','Industrials','Enginyeria elèctrica',0.3,'Baix'],['MOD','Industrials','Thermal management',0,'Mitjà'],['CARR','Industrials','HVAC / refrigeració',1.0,'Baix'],['BE','Energia','Fuel cells / data centers',0,'Alt'],['CEG','Utilities / Energia','Nuclear / electricitat IA',0.5,'Mitjà'],['VST','Utilities / Energia','Generació elèctrica',0.6,'Mitjà'],['CCJ','Energia','Urani',0.2,'Mitjà'],['BWXT','Defensa / Nuclear','Reactors / nuclear',0.6,'Baix'],['LEU','Energia','Enriquiment urani',0,'Alt'],['PANW','Tecnologia','Ciberseguretat',0,'Baix'],['CRWD','Tecnologia','Ciberseguretat',0,'Mitjà'],['VRNS','Tecnologia','Seguretat de dades',0,'Mitjà'],['ZS','Tecnologia','Zero trust / cloud',0,'Mitjà'],['QLYS','Tecnologia','Ciberseguretat defensiva',0,'Baix'],['PLTR','Tecnologia','IA / software defensa',0,'Mitjà'],['SNOW','Tecnologia','Data cloud / IA',0,'Mitjà'],['NOW','Tecnologia','Enterprise software / IA',0,'Baix'],['CRM','Tecnologia','Enterprise software / IA',0.7,'Baix'],['NBIS','Tecnologia','AI cloud',0,'Alt'],['RKLB','Aeroespacial','Espai',0,'Alt'],['KTOS','Defensa','Drones / autonomia',0,'Alt'],['KRMN','Defensa','Components aeroespacials',0,'Alt'],['HWM','Aeroespacial','Components motors',0.2,'Baix'],['LLY','Salut','Obesitat / pharma',0.5,'Baix'],['UNH','Salut','Assegurança mèdica',2.0,'Baix'],['SMH','ETF','Semiconductors',0.2,'Baix'],['SOXX','ETF','Semiconductors',0.3,'Baix'],['IGV','ETF','Software',0.5,'Baix'],['CIBR','ETF','Ciberseguretat',0.7,'Baix'],['ITA','ETF','Defensa / aeroespacial',0.7,'Baix'],['URA','ETF','Urani / nuclear',1.0,'Mitjà'],['PAVE','ETF','Infraestructura EUA',0.6,'Baix'],['XLI','ETF','Industrials',1.4,'Baix'],['XLU','ETF','Utilities',2.6,'Baix'],['IWM','ETF','Small caps',1.1,'Mitjà'],['QQQ','ETF','Nasdaq 100',0.5,'Baix']
+];
+const baseState=()=>Object.fromEntries(initial.map(r=>[r[0],{ticker:r[0],sector:r[1],theme:r[2],div:r[3],risk:r[4],price:null,prevClose:null,dayPct:null,status:'WATCH',entryQ:null,trigger:null,age:null,stop:null,rr:null}]));
+let rows = Object.assign(baseState(), JSON.parse(localStorage.getItem('t26-radar')||'{}'));
+let activeTab='radar';
+const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
+function save(){localStorage.setItem('t26-radar',JSON.stringify(rows))}
+function fmt(v,n=2){return v==null||Number.isNaN(+v)?'—':Number(v).toLocaleString('ca-ES',{minimumFractionDigits:n,maximumFractionDigits:n})}
+function distance(r){if(!r.price||!r.trigger)return null; return (r.trigger-r.price)/r.price*100}
+function statusClass(s){return s==='A+'?'aplus':s==='A'?'a':s==='READY'?'ready':s==='PRE'?'pre':s==='INVALIDAT'?'invalid':'watch'}
+function scoreStatus(s){return ({'A+':5,'A':4,'READY':3,'PRE':2,'WATCH':1,'INVALIDAT':0})[s]||0}
+function renderCards(){const a=Object.values(rows); const counts=s=>a.filter(x=>x.status===s).length; const near=a.filter(x=>{const d=distance(x);return d!=null&&d>=0&&d<=2}).length; const div=a.filter(x=>x.div>=1).length; $('#cards').innerHTML=[['A+',counts('A+'),'Entrades excepcionals'],['A',counts('A'),'Entrades autoritzades'],['READY',counts('READY'),'Preparar entrada'],['≤2% trigger',near,'Molt a prop'],['Dividend ≥1%',div,'Context renda'],['Actius',a.length,'Radar total']].map(x=>`<div class="card"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('')}
+function rowHTML(r){const d=distance(r); const cls=r.dayPct>0?'pos':r.dayPct<0?'neg':''; const dcls=d!=null&&d>=0&&d<2?'near':''; return `<tr data-ticker="${r.ticker}"><td class="ticker">${r.ticker}</td><td>${fmt(r.price)}</td><td class="${cls}">${r.dayPct==null?'—':(r.dayPct>0?'+':'')+fmt(r.dayPct)+'%'}</td><td class="sector">${r.sector}</td><td class="muted">${r.theme}</td><td>${r.div?fmt(r.div,1)+'%':'—'}</td><td>${r.risk}</td><td contenteditable="true" data-field="status"><span class="status ${statusClass(r.status)}">${r.status}</span></td><td contenteditable="true" data-field="entryQ">${r.entryQ??'—'}</td><td contenteditable="true" data-field="trigger">${r.trigger??'—'}</td><td class="${dcls}">${d==null?'—':(d<=0?'✅ superat':(d>0?'+':'')+fmt(d)+'%')}</td><td contenteditable="true" data-field="age">${r.age??'—'}</td><td contenteditable="true" data-field="stop">${r.stop??'—'}</td><td contenteditable="true" data-field="rr">${r.rr??'—'}</td></tr>`}
+function filtered(){const q=$('#search').value.toLowerCase();const sec=$('#sectorFilter').value;const st=$('#statusFilter').value;const rk=$('#riskFilter').value;const dv=+$('#divFilter').value||0;return Object.values(rows).filter(r=>(!q||[r.ticker,r.sector,r.theme].join(' ').toLowerCase().includes(q))&&(!sec||r.sector===sec)&&(!st||r.status===st)&&(!rk||r.risk===rk)&&(!dv||r.div>=dv))}
+function renderTable(){const a=filtered(); $('#tbody').innerHTML=a.map(rowHTML).join(''); bindEditable();renderCards();renderNear();renderSectors()}
+function renderNear(){let a=Object.values(rows).filter(r=>r.trigger&&r.price).sort((x,y)=>scoreStatus(y.status)-scoreStatus(x.status) || Math.abs(distance(x))-Math.abs(distance(y))).slice(0,15); $('#nearBody').innerHTML=a.map((r,i)=>{const d=distance(r);return `<tr><td>${i+1}</td><td class="ticker">${r.ticker}</td><td>${fmt(r.price)}</td><td>${r.sector}</td><td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${r.entryQ??'—'}</td><td>${r.trigger??'—'}</td><td class="${d!=null&&d>=0&&d<2?'near':''}">${d==null?'—':d<=0?'✅ superat':'+'+fmt(d)+'%'}</td><td>${r.age??'—'}</td><td>${r.stop??'—'}</td><td>${r.rr??'—'}</td></tr>`}).join('')||'<tr><td colspan="11" class="muted">Afegeix triggers del Pine per veure prioritats.</td></tr>'}
+function renderSectors(){const map={};Object.values(rows).forEach(r=>{map[r.sector]??={n:0,hot:0};map[r.sector].n++;if(['READY','A','A+'].includes(r.status))map[r.sector].hot++});$('#sectorList').innerHTML=Object.entries(map).sort((a,b)=>b[1].hot-a[1].hot||b[1].n-a[1].n).map(([k,v])=>`<div class="sectorrow"><div><b>${k}</b><div class="small">${v.n} actius</div></div><div><span class="status ${v.hot?'ready':'watch'}">${v.hot} READY/A</span></div></div>`).join('')}
+function bindEditable(){$$('#tbody [contenteditable=true]').forEach(td=>td.onblur=e=>{const tr=e.target.closest('tr');const t=tr.dataset.ticker;let v=e.target.innerText.trim().replace('—','');const f=e.target.dataset.field;if(f==='status'){v=v.toUpperCase().replace(/\s/g,'');if(!['WATCH','PRE','READY','A','A+','INVALIDAT'].includes(v))v='WATCH'}else if(v!==''){const num=parseFloat(v.replace(',','.'));if(!Number.isNaN(num))v=num}else v=null;rows[t][f]=v;save();renderTable()})}
+async function refresh(){const btn=$('#refreshBtn');btn.textContent='Actualitzant…';btn.disabled=true;try{const syms=Object.keys(rows).join(',');const res=await fetch('/api/quotes?symbols='+encodeURIComponent(syms));const data=await res.json();if(!res.ok)throw new Error(data.error||'Error API');for(const q of data.quotes||[]){if(rows[q.symbol]){rows[q.symbol].price=q.price;rows[q.symbol].prevClose=q.prevClose;rows[q.symbol].dayPct=q.dayPct}}save();$('#updatedAt').textContent='Actualitzat '+new Date().toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});toast(`Preus actualitzats: ${(data.quotes||[]).length} actius`)}catch(e){toast('No s’han pogut carregar preus reals. Configura ALPACA_API_KEY i ALPACA_API_SECRET al servidor. '+e.message,true)}finally{btn.textContent='↻ Actualitza preus';btn.disabled=false;renderTable()}}
+function toast(msg,err=false){const t=$('#toast');t.textContent=msg;t.style.display='block';t.style.borderColor=err?'#7f1d1d':'#334155';setTimeout(()=>t.style.display='none',5000)}
+function setup(){const sectors=[...new Set(initial.map(x=>x[1]))].sort();$('#sectorFilter').innerHTML+=[...sectors].map(s=>`<option>${s}</option>`).join('');['search','sectorFilter','statusFilter','riskFilter','divFilter'].forEach(id=>$('#'+id).addEventListener(id==='search'?'input':'change',renderTable));$('#refreshBtn').onclick=refresh;$('#resetBtn').onclick=()=>{if(confirm('Restablir triggers, estats i dades locals?')){localStorage.removeItem('t26-radar');rows=baseState();renderTable()}};$('#exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify(rows,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trading-2026-radar.json';a.click()};$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeTab=b.dataset.tab;['radar','near','sectors'].forEach(x=>$('#'+x+'Tab').style.display=x===activeTab?'block':'none')});renderTable();}
+setup();
+</script>
+</body>
+</html>
