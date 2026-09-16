@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v2.4</title>
+<title>Trading 2026 · Radar v2.5</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -20,7 +20,7 @@
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v2.4</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + premarket / after-hours. No necessita webhooks de TradingView.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v2.5</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="cards" id="cards"></div>
@@ -34,9 +34,9 @@
 <span class="pill" id="updated">Sense escanejar</span>
 </div>
 <section id="radarTab"><div class="tablebox"><table><thead><tr>
-<th>Ticker</th><th>Preu</th><th>% dia</th><th>Sessió</th><th>Ext. preu</th><th>Ext. %</th><th>Activitat</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
+<th>Ticker</th><th>Preu live</th><th>% dia</th><th>Sessió</th><th>Preu tècnic 1H</th><th>Ext. %</th><th>Activitat</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
 </tr></thead><tbody id="tbody"></tbody></table></div></section>
-<section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Ext. preu</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
+<section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Preu live</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
 <section id="sectorsTab" hidden><div class="sectorgrid" id="sectorGrid"></div></section>
 </div>
 <script>
@@ -47,7 +47,7 @@ const statusClass=s=>s==='A+'?'Aplus':(s||'SENSE DADES').replaceAll(' ','_');
 function render(){
  const q=document.getElementById('search').value.toLowerCase(), sf=document.getElementById('sectorFilter').value, st=document.getElementById('statusFilter').value, rf=document.getElementById('riskFilter').value, df=Number(document.getElementById('divFilter').value||0);
  let f=rows.filter(r=>(!q||[r.ticker,r.sector,r.theme].join(' ').toLowerCase().includes(q))&&(!sf||r.sector===sf)&&(!st||r.status===st)&&(!rf||r.risk===rf)&&(r.dividend>=df));
- document.getElementById('tbody').innerHTML=f.map(r=>`<tr><td class=ticker>${r.ticker}</td><td>${fmt(r.price)}</td><td class="${r.dayChange>=0?'pos':'neg'}">${Number.isFinite(r.dayChange)?fmt(r.dayChange,2)+'%':'—'}</td><td><span class="sess ${(r.session||'TANCAT').replaceAll(' ','_')}">${r.session||'—'}</span></td><td>${fmt(r.extendedPrice)}</td><td class="${(r.extendedChangePct||0)>=0?'pos':'neg'}">${Number.isFinite(r.extendedChangePct)?fmt(r.extendedChangePct,2)+'%':'—'}</td><td class=muted>${r.extendedActivity||'—'}</td><td>${r.sector}</td><td class=muted>${r.theme}</td><td>${fmt(r.dividend,1)}%</td><td>${r.risk}</td><td><span class="status ${statusClass(r.status)}">${r.status||'SENSE DADES'}</span>${r.dataState?`<div class="muted" style="margin-top:4px;font-size:10px">${r.dataState}</div>`:''}</td><td>${fmt(r.entryQuality,0)}</td><td>${fmt(r.trendScore,0)}</td><td>${Number.isFinite(r.zoneLow)?fmt(r.zoneLow)+'–'+fmt(r.zoneHigh):'—'}</td><td>${fmt(r.trigger)}</td><td class="${r.distToTrigger<=2?'near':''}">${Number.isFinite(r.distToTrigger)?(r.distToTrigger<=0?'superat':fmt(r.distToTrigger,2)+'%'):'—'}</td><td>${r.ageLabel||'—'}${Number.isFinite(r.ageHours)?' · '+r.ageHours+'h':''}</td><td>${fmt(r.stop)}</td><td>${Number.isFinite(r.stopPct)?fmt(r.stopPct,1)+'%':'—'}</td><td>${fmt(r.rr,1)}</td><td>${r.supportType?`${r.supportType} · ${r.supportStrength}`: '—'}</td></tr>`).join('');
+ document.getElementById('tbody').innerHTML=f.map(r=>`<tr><td class=ticker>${r.ticker}</td><td>${fmt(r.price)}</td><td class="${r.dayChange>=0?'pos':'neg'}">${Number.isFinite(r.dayChange)?fmt(r.dayChange,2)+'%':'—'}</td><td><span class="sess ${(r.session||'TANCAT').replaceAll(' ','_')}">${r.session||'—'}</span></td><td>${fmt(r.technicalPrice)}</td><td class="${(r.extendedChangePct||0)>=0?'pos':'neg'}">${Number.isFinite(r.extendedChangePct)?fmt(r.extendedChangePct,2)+'%':'—'}</td><td class=muted>${r.extendedActivity||'—'}</td><td>${r.sector}</td><td class=muted>${r.theme}</td><td>${fmt(r.dividend,1)}%</td><td>${r.risk}</td><td><span class="status ${statusClass(r.status)}">${r.status||'SENSE DADES'}</span>${r.dataState?`<div class="muted" style="margin-top:4px;font-size:10px">${r.dataState}</div>`:''}</td><td>${fmt(r.entryQuality,0)}</td><td>${fmt(r.trendScore,0)}</td><td>${Number.isFinite(r.zoneLow)?fmt(r.zoneLow)+'–'+fmt(r.zoneHigh):'—'}</td><td>${fmt(r.trigger)}</td><td class="${r.distToTrigger<=2?'near':''}">${Number.isFinite(r.distToTrigger)?(r.distToTrigger<=0?'superat':fmt(r.distToTrigger,2)+'%'):'—'}</td><td>${r.ageLabel||'—'}${Number.isFinite(r.ageHours)?' · '+r.ageHours+'h':''}</td><td>${fmt(r.stop)}</td><td>${Number.isFinite(r.stopPct)?fmt(r.stopPct,1)+'%':'—'}</td><td>${fmt(r.rr,1)}</td><td>${r.supportType?`${r.supportType} · ${r.supportStrength}`: '—'}</td></tr>`).join('');
  const rank={'A+':0,'A':1,'READY':2,'PRE':3,'WATCH':4,'NO SETUP':8,'INVALIDAT':9,'—':10};
  const near=rows.filter(r=>['A+','A','READY','PRE','WATCH'].includes(r.status)&&Number.isFinite(r.distToTrigger)).sort((a,b)=>(rank[a.status]-rank[b.status])||(a.distToTrigger-b.distToTrigger)||(b.entryQuality-a.entryQuality)).slice(0,15);
  document.getElementById('nearBody').innerHTML=near.map((r,i)=>`<tr><td>${i+1}</td><td class=ticker>${r.ticker}</td><td><span class="status ${statusClass(r.status)}">${r.status||'SENSE DADES'}</span>${r.dataState?`<div class="muted" style="margin-top:4px;font-size:10px">${r.dataState}</div>`:''}</td><td>${fmt(r.price)}</td><td class=near>${r.distToTrigger<=0?'superat':fmt(r.distToTrigger,2)+'%'}</td><td>${fmt(r.entryQuality,0)}</td><td>${fmt(r.trendScore,0)}</td><td>${r.ageLabel||'—'} · ${r.ageHours||0}h</td><td>${fmt(r.trigger)}</td><td>${fmt(r.stop)}</td><td>${r.sector}</td></tr>`).join('');
@@ -79,6 +79,8 @@ async function scan(){
        ? ((base.trigger/ep)-1)*100 : null;
      return {
        ...base,
+       technicalPrice: base.technicalPrice ?? base.price,
+       price: Number.isFinite(ep) ? ep : base.price,
        session:ex.session,
        extendedPrice:ep,
        extendedChangePct:ex.extendedChangePct,
