@@ -307,12 +307,34 @@ export default async function handler(req,res){
     const startDay=addDays(new Date(),-130);
     const startIntraday=addDays(new Date(),-60);
     const benchSymbols=[...new Set(raw.map(s=>BENCHMARK[s]||'QQQ'))];
-    const [d,h4,h1,bh1]=await Promise.all([
+
+    // v2.6.1: benchmarks per separat.
+    // Alpaca aplica el límit al conjunt de símbols i, amb ETFs, podia
+    // truncar la resposta i deixar RS buit. Els demanem individualment.
+    const [d,h4,h1] = await Promise.all([
       fetchBars(raw,'1Day',startDay,10000),
       fetchBars(raw,'4Hour',startIntraday,10000),
-      fetchBars(raw,'1Hour',startIntraday,10000),
-      fetchBars(benchSymbols,'1Hour',startIntraday,10000)
+      fetchBars(raw,'1Hour',startIntraday,10000)
     ]);
+
+    const bh1 = {};
+    await Promise.all(benchSymbols.map(async (b) => {
+      try {
+        const one = await fetchBars([b],'1Hour',startIntraday,10000);
+        bh1[b] = one[b] || [];
+      } catch (_) {
+        bh1[b] = [];
+      }
+    }));
+
+    // Fallback: si el benchmark específic té poca cobertura IEX
+    // (p. ex. algun ETF sectorial), fem servir QQQ.
+    if ((bh1.QQQ?.length || 0) < 21) {
+      try {
+        const q = await fetchBars(['QQQ'],'1Hour',startIntraday,10000);
+        bh1.QQQ = q.QQQ || [];
+      } catch (_) {}
+    }
     // Fallback v2.2: Alpaca/IEX de vegades omet un símbol dins d'una petició múltiple.
     // Si un actiu arriba amb historial insuficient, el repetim individualment abans de marcar-lo SENSE DADES.
     async function retryMissing(symbol, tf, start, current, minBars){
@@ -332,7 +354,9 @@ export default async function handler(req,res){
     }
 
     const out=raw.map(s=>{
-      const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],bh1[BENCHMARK[s]||'QQQ']||[]);
+      const preferred = BENCHMARK[s] || 'QQQ';
+      const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
+      const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars);
       if(r.status==='SENSE DADES'){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
         r.dataCounts=counts;
@@ -343,7 +367,7 @@ export default async function handler(req,res){
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.6',results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.6.1',results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
