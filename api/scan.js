@@ -220,9 +220,37 @@ export default async function handler(req,res){
       fetchBars(raw,'4Hour',startIntraday,10000),
       fetchBars(raw,'1Hour',startIntraday,10000)
     ]);
-    const out=raw.map(s=>compute(s,d[s]||[],h4[s]||[],h1[s]||[]));
+    // Fallback v2.2: Alpaca/IEX de vegades omet un símbol dins d'una petició múltiple.
+    // Si un actiu arriba amb historial insuficient, el repetim individualment abans de marcar-lo SENSE DADES.
+    async function retryMissing(symbol, tf, start, current, minBars){
+      if((current?.length||0) >= minBars) return current || [];
+      try{
+        const one = await fetchBars([symbol], tf, start, 10000);
+        return one[symbol] || current || [];
+      }catch(err){
+        return current || [];
+      }
+    }
+
+    for(const s of raw){
+      d[s]  = await retryMissing(s,'1Day', startDay,      d[s],  25);
+      h4[s] = await retryMissing(s,'4Hour',startIntraday,h4[s], 25);
+      h1[s] = await retryMissing(s,'1Hour',startIntraday,h1[s], 25);
+    }
+
+    const out=raw.map(s=>{
+      const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[]);
+      if(r.status==='SENSE DADES'){
+        const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
+        r.dataCounts=counts;
+        r.dataState = counts.d>=25 && (counts.h4<25 || counts.h1<25)
+          ? 'DADES 1D OK · intradia IEX insuficient'
+          : 'HISTÒRIC INSUFICIENT';
+      }
+      return r;
+    });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2',results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.2',results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
