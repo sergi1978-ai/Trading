@@ -39,3 +39,8 @@ El motor v2 replica la filosofia del LONG AI ASSISTANT, però no és una còpia 
 - Les dades 1D/4H/1H es demanen en lots de 7 tickers.
 - `undefined` passa a mostrar-se com `SENSE DADES` amb diagnòstic intern.
 - Lookback intradia ampliat a 60 dies.
+
+
+## v2.2
+- Retry individual automàtic quan un ticker arriba sense prou 1D/4H/1H.
+- Diagnòstic de dades: diferencia històric insuficient de limitació intradia IEX.
