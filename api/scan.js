@@ -67,26 +67,42 @@ function latestCompleted(bars, tf){
   if(now - t < mins*60*1000*0.9 && bars.length>1) return bars.slice(0,-1);
   return bars;
 }
-async function fetchBars(symbols, timeframe, start, limit=1000){
-  const params=new URLSearchParams({
-    symbols:symbols.join(','),
-    timeframe,
-    start,
-    limit:String(limit),
-    adjustment:'raw',
-    feed:'iex',
-    sort:'asc'
-  });
-  const r=await fetch(`${ALPACA}?${params}`,{
-    headers:{
-      'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'',
-      'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''
+async function fetchBars(symbols, timeframe, start, limit=10000){
+  // Alpaca aplica el límit al conjunt de símbols, no a cada ticker.
+  // Amb 50 actius i 1H, una sola petició pot truncar la resposta.
+  // Per això dividim el radar en lots petits i fusionem els resultats.
+  const merged = {};
+  const CHUNK = 7;
+
+  for (let i = 0; i < symbols.length; i += CHUNK) {
+    const batch = symbols.slice(i, i + CHUNK);
+    const params = new URLSearchParams({
+      symbols: batch.join(','),
+      timeframe,
+      start,
+      limit: String(limit),
+      adjustment: 'raw',
+      feed: 'iex',
+      sort: 'asc'
+    });
+
+    const r = await fetch(`${ALPACA}?${params}`, {
+      headers: {
+        'APCA-API-KEY-ID': process.env.ALPACA_API_KEY || '',
+        'APCA-API-SECRET-KEY': process.env.ALPACA_API_SECRET || ''
+      }
+    });
+
+    const body = await r.text();
+    if (!r.ok) throw new Error(`Alpaca ${r.status}: ${body.slice(0,300)}`);
+    const j = JSON.parse(body);
+
+    for (const [sym, bars] of Object.entries(j.bars || {})) {
+      merged[sym] = (merged[sym] || []).concat(bars || []);
     }
-  });
-  const text=await r.text();
-  if(!r.ok) throw new Error(`Alpaca ${r.status}: ${text.slice(0,300)}`);
-  const j=JSON.parse(text);
-  return j.bars||{};
+  }
+
+  return merged;
 }
 function addDays(d,n){ const x=new Date(d); x.setUTCDate(x.getUTCDate()+n); return x.toISOString(); }
 
@@ -94,7 +110,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
   const dBars=latestCompleted(dBarsRaw,'1Day');
   const h4Bars=latestCompleted(h4BarsRaw,'4Hour');
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
-  if(dBars.length<25 || h4Bars.length<25 || h1Bars.length<25) return {symbol,error:'Històric insuficient'};
+  if(dBars.length<25 || h4Bars.length<25 || h1Bars.length<25) return {symbol,status:'SENSE DADES',error:`Històric insuficient (1D ${dBars.length} · 4H ${h4Bars.length} · 1H ${h1Bars.length})`};
 
   const dc=dBars.map(x=>x.c), c4=h4Bars.map(x=>x.c), c1=h1Bars.map(x=>x.c);
   const d=last(dBars), h4=last(h4Bars), h1=last(h1Bars);
@@ -198,7 +214,7 @@ export default async function handler(req,res){
     const raw=(req.query.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean).slice(0,60);
     if(!raw.length) return res.status(400).json({error:'Cal indicar ?symbols=PLTR,CRM,...'});
     const startDay=addDays(new Date(),-130);
-    const startIntraday=addDays(new Date(),-45);
+    const startIntraday=addDays(new Date(),-60);
     const [d,h4,h1]=await Promise.all([
       fetchBars(raw,'1Day',startDay,10000),
       fetchBars(raw,'4Hour',startIntraday,10000),
