@@ -1,18 +1,34 @@
-# Trading 2026 Radar
+# Trading 2026 Radar v2
 
-Web dashboard amb preus reals d'Alpaca (IEX) i seguiment manual dels senyals del LONG AI ASSISTANT.
+Versió sense TradingView Webhooks.
+
+## Què fa
+- Llegeix dades 1D, 4H i 1H directament d'Alpaca (feed IEX).
+- Calcula un motor propi de Trend Score, Entry Quality, zona d'interès, trigger, stop, R:R i estats WATCH/PRE/READY/A/A+.
+- Escaneja la watchlist automàticament cada 60 segons.
+- Mostra sectors, dividends i una vista d'entrades imminents.
 
 ## Vercel
-1. Importa aquesta carpeta/projecte a Vercel.
-2. A Settings > Environment Variables afegeix:
-   - ALPACA_API_KEY
-   - ALPACA_API_SECRET
-3. Deploy.
+Mantén aquestes variables:
+- `ALPACA_API_KEY`
+- `ALPACA_API_SECRET`
 
-Les claus només s'utilitzen al backend `/api/quotes`; no s'exposen al navegador.
+Ja no necessites:
+- `TRADINGVIEW_WEBHOOK_SECRET`
+- Upstash Redis
+- Webhooks de TradingView
 
-## Ús
-- `Actualitza preus` refresca quotes d'Alpaca.
-- Fes doble clic / edita les cel·les Estat, Entry Q., Trigger, Edat, Stop i R:R.
-- Les dades editades es desen al navegador via localStorage.
-- La pestanya `Propers a entrada` ordena per A+/A/READY/PRE/WATCH i proximitat al trigger.
+## Instal·lació
+Substitueix al repositori:
+- `index.html`
+- `package.json`
+- `vercel.json`
+- `api/quotes.js`
+
+Afegeix:
+- `api/scan.js`
+
+Després fes commit. Vercel farà redeploy automàtic.
+
+## Nota
+El motor v2 replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. Els senyals són deterministes segons aquest motor i no són probabilitats de guany.

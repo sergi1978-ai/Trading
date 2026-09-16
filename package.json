@@ -1,8 +1,9 @@
 {
-  "name":"trading-2026-radar",
-  "version":"1.1.0",
-  "private":true,
-  "type":"module",
-  "scripts":{"dev":"vercel dev"},
-  "dependencies":{"@upstash/redis":"^1.35.3"}
+  "name": "trading-2026-radar-v2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
 }
