@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v2.6</title>
+<title>Trading 2026 · Radar v2.6.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -20,7 +20,7 @@
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v2.6</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v2.6.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="cards" id="cards"></div>
@@ -34,7 +34,7 @@
 <span class="pill" id="updated">Sense escanejar</span>
 </div>
 <section id="radarTab"><div class="tablebox"><table><thead><tr>
-<th>Ticker</th><th>Preu live</th><th>% dia</th><th>Acció ara</th><th>Radar</th><th>RS</th><th>RVOL</th><th>Sessió</th><th>Preu tècnic 1H</th><th>Ext. %</th><th>Activitat</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
+<th>Ticker</th><th>Preu live</th><th>% dia</th><th>Acció ara</th><th>Radar</th><th>RS vs bench</th><th>RVOL</th><th>Sessió</th><th>Preu tècnic 1H</th><th>Ext. %</th><th>Activitat</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
 </tr></thead><tbody id="tbody"></tbody></table></div></section>
 <section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Acció</th><th>Radar</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Preu live</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
 <section id="sectorsTab" hidden><div class="sectorgrid" id="sectorGrid"></div></section>
@@ -54,7 +54,7 @@ function render(){
  const counts={}; rows.forEach(r=>counts[r.status]=(counts[r.status]||0)+1);
  const close=rows.filter(r=>Number.isFinite(r.distToTrigger)&&r.distToTrigger>=0&&r.distToTrigger<=2).length;
  document.getElementById('cards').innerHTML=[
- ['A+',counts['A+']||0],['A',counts.A||0],['READY',counts.READY||0],['PRE',counts.PRE||0],['≤2% trigger',close],['Radar ≥80',rows.filter(r=>(r.radarScore||0)>=80).length],['Total',rows.length]
+ ['A+',counts['A+']||0],['A',counts.A||0],['READY',counts.READY||0],['PRE',counts.PRE||0],['≤2% trigger',close],['Radar ≥70',rows.filter(r=>(r.radarScore||0)>=70).length],['Total',rows.length]
  ].map(x=>`<div class=card><div class=k>${x[0]}</div><div class=v>${x[1]}</div></div>`).join('');
  const sec={}; rows.forEach(r=>{sec[r.sector]??=[];sec[r.sector].push(r)});
  document.getElementById('sectorGrid').innerHTML=Object.entries(sec).map(([s,a])=>{const c={};a.forEach(r=>c[r.status]=(c[r.status]||0)+1);return `<div class=sectorcard><b>${s}</b><div class=muted style="margin-top:8px">${a.length} actius · A+ ${c['A+']||0} · A ${c.A||0} · READY ${c.READY||0} · PRE ${c.PRE||0}</div><div style="margin-top:8px;font-size:12px">${a.slice().sort((x,y)=>(y.entryQuality||0)-(x.entryQuality||0)).slice(0,5).map(x=>x.ticker+' '+(x.status||'')).join(' · ')}</div></div>`}).join('');
