@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v2.2</title>
+<title>Trading 2026 · Radar v2.4</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -12,15 +12,15 @@
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}input,select{background:#0d1729;color:white;border:1px solid #31405d;border-radius:10px;padding:9px 10px}
 .tabs{display:flex;gap:7px;margin:10px 0}.tab{background:#121b2e;color:#a9b7ce;border:1px solid #283650;border-radius:10px;padding:8px 11px;cursor:pointer}.tab.active{background:#1d4ed8;color:#fff}
 .tablebox{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#0e1729}table{width:100%;border-collapse:collapse;min-width:1500px}th,td{padding:9px;border-bottom:1px solid #1e2b42;font-size:12px;white-space:nowrap;text-align:left}th{position:sticky;top:0;background:#121c31;color:#98a9c3;z-index:2}.ticker{font-weight:900;font-size:13px}
-.status{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:900}.WATCH{background:#16345f;color:#9ccaff}.PRE{background:#493b12;color:#ffe08a}.READY{background:#654c0d;color:#ffd95e}.A{background:#103d2e;color:#73edbe}.Aplus{background:#244b34;color:#b7f7d3}.INVALIDAT{background:#4d1f2a;color:#ffacb8}.SENSE_DADES{background:#283247;color:#b8c2d6}.PARTIAL{background:#3d3418;color:#ffe08a}
-.pos{color:var(--g);font-weight:800}.neg{color:var(--r);font-weight:800}.near{color:var(--y);font-weight:800}.muted{color:var(--muted)}.pill{background:#172338;border:1px solid #2c3a55;border-radius:999px;padding:4px 8px;font-size:11px;color:#c7d2e6}
+.status{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:900}.WATCH{background:#16345f;color:#9ccaff}.PRE{background:#493b12;color:#ffe08a}.READY{background:#654c0d;color:#ffd95e}.A{background:#103d2e;color:#73edbe}.Aplus{background:#244b34;color:#b7f7d3}.INVALIDAT{background:#4d1f2a;color:#ffacb8}.NO_SETUP{background:#202a3b;color:#aebbd0}.SENSE_DADES{background:#283247;color:#b8c2d6}.PARTIAL{background:#3d3418;color:#ffe08a}
+.pos{color:var(--g);font-weight:800}.neg{color:var(--r);font-weight:800}.near{color:var(--y);font-weight:800}.muted{color:var(--muted)}.pill{background:#172338;border:1px solid #2c3a55;border-radius:999px;padding:4px 8px;font-size:11px;color:#c7d2e6}.sess{display:inline-block;padding:4px 7px;border-radius:999px;font-weight:850;font-size:10px}.PREMARKET{background:#513f0d;color:#ffd95e}.OBERT{background:#103d2e;color:#73edbe}.AFTER_HOURS{background:#2b2754;color:#c9c0ff}.OVERNIGHT_/_TANCAT{background:#253047;color:#c3cee2}
 .notice{background:#10213a;border:1px solid #284e79;border-radius:12px;padding:11px 13px;color:#b9d7ff;font-size:12px;margin:12px 0}
 .sectorgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.sectorcard{background:#111a2d;border:1px solid var(--line);border-radius:14px;padding:14px}
 @media(max-width:900px){.cards{grid-template-columns:repeat(3,1fr)}.sectorgrid{grid-template-columns:1fr}.top{flex-direction:column}}@media(max-width:560px){.cards{grid-template-columns:repeat(2,1fr)}.wrap{padding:12px}}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v2.2</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca. No necessita webhooks de TradingView.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v2.4</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + premarket / after-hours. No necessita webhooks de TradingView.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="cards" id="cards"></div>
@@ -28,15 +28,15 @@
 <div class="toolbar">
 <input id="search" placeholder="Ticker, sector o tema…">
 <select id="sectorFilter"><option value="">Tots els sectors</option></select>
-<select id="statusFilter"><option value="">Tots els estats</option><option>WATCH</option><option>PRE</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option><option>SENSE DADES</option></select>
+<select id="statusFilter"><option value="">Tots els estats</option><option>NO SETUP</option><option>WATCH</option><option>PRE</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option><option>SENSE DADES</option></select>
 <select id="riskFilter"><option value="">Tot risc</option><option>Baix</option><option>Mitjà</option><option>Alt</option></select>
 <select id="divFilter"><option value="">Dividend: tots</option><option value="0.5">≥0,5%</option><option value="1">≥1%</option><option value="2">≥2%</option></select>
 <span class="pill" id="updated">Sense escanejar</span>
 </div>
 <section id="radarTab"><div class="tablebox"><table><thead><tr>
-<th>Ticker</th><th>Preu</th><th>% dia</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
+<th>Ticker</th><th>Preu</th><th>% dia</th><th>Sessió</th><th>Ext. preu</th><th>Ext. %</th><th>Activitat</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
 </tr></thead><tbody id="tbody"></tbody></table></div></section>
-<section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Preu</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
+<section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Ext. preu</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
 <section id="sectorsTab" hidden><div class="sectorgrid" id="sectorGrid"></div></section>
 </div>
 <script>
@@ -47,14 +47,14 @@ const statusClass=s=>s==='A+'?'Aplus':(s||'SENSE DADES').replaceAll(' ','_');
 function render(){
  const q=document.getElementById('search').value.toLowerCase(), sf=document.getElementById('sectorFilter').value, st=document.getElementById('statusFilter').value, rf=document.getElementById('riskFilter').value, df=Number(document.getElementById('divFilter').value||0);
  let f=rows.filter(r=>(!q||[r.ticker,r.sector,r.theme].join(' ').toLowerCase().includes(q))&&(!sf||r.sector===sf)&&(!st||r.status===st)&&(!rf||r.risk===rf)&&(r.dividend>=df));
- document.getElementById('tbody').innerHTML=f.map(r=>`<tr><td class=ticker>${r.ticker}</td><td>${fmt(r.price)}</td><td class="${r.dayChange>=0?'pos':'neg'}">${Number.isFinite(r.dayChange)?fmt(r.dayChange,2)+'%':'—'}</td><td>${r.sector}</td><td class=muted>${r.theme}</td><td>${fmt(r.dividend,1)}%</td><td>${r.risk}</td><td><span class="status ${statusClass(r.status)}">${r.status||'SENSE DADES'}</span>${r.dataState?`<div class="muted" style="margin-top:4px;font-size:10px">${r.dataState}</div>`:''}</td><td>${fmt(r.entryQuality,0)}</td><td>${fmt(r.trendScore,0)}</td><td>${Number.isFinite(r.zoneLow)?fmt(r.zoneLow)+'–'+fmt(r.zoneHigh):'—'}</td><td>${fmt(r.trigger)}</td><td class="${r.distToTrigger<=2?'near':''}">${Number.isFinite(r.distToTrigger)?(r.distToTrigger<=0?'superat':fmt(r.distToTrigger,2)+'%'):'—'}</td><td>${r.ageLabel||'—'}${Number.isFinite(r.ageHours)?' · '+r.ageHours+'h':''}</td><td>${fmt(r.stop)}</td><td>${Number.isFinite(r.stopPct)?fmt(r.stopPct,1)+'%':'—'}</td><td>${fmt(r.rr,1)}</td><td>${r.supportType?`${r.supportType} · ${r.supportStrength}`: '—'}</td></tr>`).join('');
- const rank={'A+':0,'A':1,'READY':2,'PRE':3,'WATCH':4,'INVALIDAT':9,'—':10};
+ document.getElementById('tbody').innerHTML=f.map(r=>`<tr><td class=ticker>${r.ticker}</td><td>${fmt(r.price)}</td><td class="${r.dayChange>=0?'pos':'neg'}">${Number.isFinite(r.dayChange)?fmt(r.dayChange,2)+'%':'—'}</td><td><span class="sess ${(r.session||'TANCAT').replaceAll(' ','_')}">${r.session||'—'}</span></td><td>${fmt(r.extendedPrice)}</td><td class="${(r.extendedChangePct||0)>=0?'pos':'neg'}">${Number.isFinite(r.extendedChangePct)?fmt(r.extendedChangePct,2)+'%':'—'}</td><td class=muted>${r.extendedActivity||'—'}</td><td>${r.sector}</td><td class=muted>${r.theme}</td><td>${fmt(r.dividend,1)}%</td><td>${r.risk}</td><td><span class="status ${statusClass(r.status)}">${r.status||'SENSE DADES'}</span>${r.dataState?`<div class="muted" style="margin-top:4px;font-size:10px">${r.dataState}</div>`:''}</td><td>${fmt(r.entryQuality,0)}</td><td>${fmt(r.trendScore,0)}</td><td>${Number.isFinite(r.zoneLow)?fmt(r.zoneLow)+'–'+fmt(r.zoneHigh):'—'}</td><td>${fmt(r.trigger)}</td><td class="${r.distToTrigger<=2?'near':''}">${Number.isFinite(r.distToTrigger)?(r.distToTrigger<=0?'superat':fmt(r.distToTrigger,2)+'%'):'—'}</td><td>${r.ageLabel||'—'}${Number.isFinite(r.ageHours)?' · '+r.ageHours+'h':''}</td><td>${fmt(r.stop)}</td><td>${Number.isFinite(r.stopPct)?fmt(r.stopPct,1)+'%':'—'}</td><td>${fmt(r.rr,1)}</td><td>${r.supportType?`${r.supportType} · ${r.supportStrength}`: '—'}</td></tr>`).join('');
+ const rank={'A+':0,'A':1,'READY':2,'PRE':3,'WATCH':4,'NO SETUP':8,'INVALIDAT':9,'—':10};
  const near=rows.filter(r=>['A+','A','READY','PRE','WATCH'].includes(r.status)&&Number.isFinite(r.distToTrigger)).sort((a,b)=>(rank[a.status]-rank[b.status])||(a.distToTrigger-b.distToTrigger)||(b.entryQuality-a.entryQuality)).slice(0,15);
  document.getElementById('nearBody').innerHTML=near.map((r,i)=>`<tr><td>${i+1}</td><td class=ticker>${r.ticker}</td><td><span class="status ${statusClass(r.status)}">${r.status||'SENSE DADES'}</span>${r.dataState?`<div class="muted" style="margin-top:4px;font-size:10px">${r.dataState}</div>`:''}</td><td>${fmt(r.price)}</td><td class=near>${r.distToTrigger<=0?'superat':fmt(r.distToTrigger,2)+'%'}</td><td>${fmt(r.entryQuality,0)}</td><td>${fmt(r.trendScore,0)}</td><td>${r.ageLabel||'—'} · ${r.ageHours||0}h</td><td>${fmt(r.trigger)}</td><td>${fmt(r.stop)}</td><td>${r.sector}</td></tr>`).join('');
  const counts={}; rows.forEach(r=>counts[r.status]=(counts[r.status]||0)+1);
  const close=rows.filter(r=>Number.isFinite(r.distToTrigger)&&r.distToTrigger>=0&&r.distToTrigger<=2).length;
  document.getElementById('cards').innerHTML=[
- ['A+',counts['A+']||0],['A',counts.A||0],['READY',counts.READY||0],['PRE',counts.PRE||0],['≤2% trigger',close],['Dividend ≥1%',rows.filter(r=>r.dividend>=1).length],['Total',rows.length]
+ ['A+',counts['A+']||0],['A',counts.A||0],['READY',counts.READY||0],['PRE',counts.PRE||0],['≤2% trigger',close],['Ext. prop trigger',rows.filter(r=>Number.isFinite(r.extendedDistToTrigger)&&r.extendedDistToTrigger>=0&&r.extendedDistToTrigger<=1).length],['Total',rows.length]
  ].map(x=>`<div class=card><div class=k>${x[0]}</div><div class=v>${x[1]}</div></div>`).join('');
  const sec={}; rows.forEach(r=>{sec[r.sector]??=[];sec[r.sector].push(r)});
  document.getElementById('sectorGrid').innerHTML=Object.entries(sec).map(([s,a])=>{const c={};a.forEach(r=>c[r.status]=(c[r.status]||0)+1);return `<div class=sectorcard><b>${s}</b><div class=muted style="margin-top:8px">${a.length} actius · A+ ${c['A+']||0} · A ${c.A||0} · READY ${c.READY||0} · PRE ${c.PRE||0}</div><div style="margin-top:8px;font-size:12px">${a.slice().sort((x,y)=>(y.entryQuality||0)-(x.entryQuality||0)).slice(0,5).map(x=>x.ticker+' '+(x.status||'')).join(' · ')}</div></div>`}).join('');
@@ -63,10 +63,30 @@ async function scan(){
  const btn=document.getElementById('scanBtn'); btn.disabled=true; btn.textContent='Escanejant…';
  try{
    const syms=META.map(x=>x.ticker).join(',');
-   const r=await fetch('/api/scan?symbols='+encodeURIComponent(syms),{cache:'no-store'});
-   const j=await r.json(); if(!r.ok) throw new Error(j.error||'Error');
+   const [r,er]=await Promise.all([
+     fetch('/api/scan?symbols='+encodeURIComponent(syms),{cache:'no-store'}),
+     fetch('/api/extended?symbols='+encodeURIComponent(syms),{cache:'no-store'})
+   ]);
+   const j=await r.json(); if(!r.ok) throw new Error(j.error||'Error scan');
+   let ej={results:{}};
+   try { ej=await er.json(); } catch(_){}
    const map=Object.fromEntries((j.results||[]).map(x=>[x.symbol,x]));
-   rows=META.map(m=>({...m,...(map[m.ticker]||{})}));
+   rows=META.map(m=>{
+     const base={...m,...(map[m.ticker]||{})};
+     const ex=(ej.results||{})[m.ticker]||{};
+     const ep=ex.extendedPrice;
+     const edt=(Number.isFinite(ep)&&Number.isFinite(base.trigger)&&base.trigger!==0)
+       ? ((base.trigger/ep)-1)*100 : null;
+     return {
+       ...base,
+       session:ex.session,
+       extendedPrice:ep,
+       extendedChangePct:ex.extendedChangePct,
+       extendedActivity:ex.activity,
+       extendedTimestamp:ex.extendedTimestamp,
+       extendedDistToTrigger:edt
+     };
+   });
    document.getElementById('updated').textContent='Actualitzat '+new Date(j.generatedAt).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
    localStorage.setItem('trading2026_v2_scan',JSON.stringify({t:Date.now(),rows}));
    render();
