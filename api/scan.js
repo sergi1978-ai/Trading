@@ -170,12 +170,41 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
   if(trend<45) quality-=12;
   quality=clamp(Math.round(quality),0,100);
 
+  // Jerarquia v2.3:
+  // NO SETUP → WATCH → PRE → READY → A → A+
+  // INVALIDAT queda reservat per una ruptura estructural real.
   let status='WATCH', auth='NO';
-  if(trend<45 || h4.c<h450 || stop>=trigger) status='INVALIDAT';
-  else if(h1.c>=trigger && h1Confirm && quality>=88){status='A+';auth='SÍ';}
-  else if(h1.c>=trigger && h1Confirm && quality>=74){status='A';auth='SÍ';}
-  else if(quality>=65 && distToTrigger<=2.5) status='READY';
-  else if(quality>=50 && distToTrigger<=4) status='PRE';
+
+  const structuralInvalidation =
+    (Number.isFinite(stop) && (h1.c < stop || h4.c < stop));
+
+  const noValidPlan =
+    !Number.isFinite(stop) || !Number.isFinite(trigger) || stop >= trigger;
+
+  const weakStructure =
+    trend < 45 || h4.c < h450;
+
+  if(structuralInvalidation) {
+    status='INVALIDAT';
+  } else if(noValidPlan) {
+    status='NO SETUP';
+  } else if(h1.c>=trigger && h1Confirm && quality>=88) {
+    status='A+';
+    auth='SÍ';
+  } else if(h1.c>=trigger && h1Confirm && quality>=74) {
+    status='A';
+    auth='SÍ';
+  } else if(weakStructure) {
+    // Una estructura dèbil no és una invalidació:
+    // simplement encara no hi ha prou qualitat per activar el setup.
+    status = (quality >= 35 && distToTrigger <= 3.0) ? 'WATCH' : 'NO SETUP';
+  } else if(quality>=65 && distToTrigger<=2.5) {
+    status='READY';
+  } else if(quality>=50 && distToTrigger<=4.0) {
+    status='PRE';
+  } else {
+    status='WATCH';
+  }
 
   let age=0;
   // Approximate age: consecutive 1H bars that remain in a viable setup.
@@ -188,12 +217,14 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw){
 
   return {
     symbol,
+    technicalPrice:h1.c,
     price:h1.c,
     dayChange,
     trendScore:trend,
     entryQuality:quality,
     status,
     authorization:auth,
+    structureState: structuralInvalidation ? 'Trencada' : (weakStructure ? 'Feble / recuperar' : 'Vàlida'),
     supportType:support.type,
     support:support.v,
     supportStrength:conf>=3?'Fort':conf===2?'Moderat':'Feble',
