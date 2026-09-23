@@ -69,6 +69,22 @@ function returnPct(values, bars=20){
   const a = values[values.length-bars-1], b = values[values.length-1];
   return a ? ((b/a)-1)*100 : null;
 }
+function volumeReading(bars, support, atr4){
+  // Compare completed 4H bars with previous completed 4H bars on the same feed.
+  // IEX is a partial-market feed; this is relative participation, not total volume.
+  if(bars.length<22) return {volumeScore:null,volumeLabel:'Sense dades suficients',volumeReason:'Calen 22 espelmes 4H completes',rvol4h:null};
+  const current=last(bars), avg=sma(bars.slice(-21,-1).map(b=>b.v||0),20);
+  if(!avg || !Number.isFinite(current.v)) return {volumeScore:null,volumeLabel:'Sense volum fiable',volumeReason:'El feed no ofereix volum suficient',rvol4h:null};
+  const ratio=current.v/avg;
+  const near=Number.isFinite(support) && Number.isFinite(atr4) && Math.abs(current.l-support)<=atr4*0.65;
+  const up=current.c>current.o, down=current.c<current.o;
+  const bounce=near && up && current.c>support && ratio>=1.25;
+  const selling=down && ratio>=1.5;
+  const quietPullback=down && ratio<0.75;
+  const score=clamp(Math.round(50+(bounce?25:0)+(quietPullback?10:0)+(up&&ratio>=1.5?15:0)-(selling?30:0)-(ratio<0.5&&up?10:0)),0,100);
+  const reason=bounce?'Rebot prop del suport amb més volum':selling?'Baixada amb volum alt':quietPullback?'Retrocés amb menys volum':up&&ratio>=1.5?'Pujada amb volum alt':'Volum sense senyal clar';
+  return {volumeScore:score,volumeLabel:score>=70?'Favorable':score<=35?'Desfavorable':'Mixt',volumeReason:reason,rvol4h:Math.round(ratio*100)/100};
+}
 
 function pivotHigh(bars, len=3){
   if(!bars || bars.length < 2*len+1) return null;
@@ -165,6 +181,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
   ].filter(x=>Number.isFinite(x.v));
   candidates.sort((a,b)=>Math.abs(h4.c-a.v)-Math.abs(h4.c-b.v));
   const support=candidates[0];
+  const volume=volumeReading(h4Bars,support.v,a4);
   let conf=0;
   for(const x of candidates) if(Math.abs(x.v-support.v)<=a4*0.45) conf++;
   const supportDist=Math.abs(h4.c-support.v)/a4;
@@ -291,11 +308,13 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
     rr,target1,target2,
     ageHours:age,ageLabel,
     rsi1h:rsi1,rsi4h:rsi4,
-    rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,
+    rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,...volume,
     benchmark:BENCHMARK[symbol]||'QQQ',
     updatedAt:h1.t
   };
 }
+
+export { compute, volumeReading };
 
 export default async function handler(req,res){
   try{
