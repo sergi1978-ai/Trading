@@ -162,11 +162,17 @@ async function cryptoScan(){
  if(!symbols.length){info.textContent='Primer cal descobrir candidats';return}
  b.disabled=true;b.textContent='Analitzant…';
  try{
- const response=await fetch('/api/crypto-scan?symbols='+encodeURIComponent(symbols.join(',')),{cache:'no-store'});
- const data=await response.json();
- if(!response.ok)throw Error(data.error||'Error de dades');
- for(const x of data.results||[])cryptoSignals[x.symbol]=x;
- paintCrypto();info.textContent=(data.results||[]).length+' analitzades · '+(data.errors||[]).length+' sense dades · validar al Pine';
+ let success=0,failed=0;
+ for(let i=0;i<symbols.length;i+=2){
+  info.textContent='Analitzant criptomonedes '+Math.min(i+2,symbols.length)+'/'+symbols.length+'…';
+  try{
+   const response=await fetch('/api/crypto-scan?symbols='+encodeURIComponent(symbols.slice(i,i+2).join(',')),{cache:'no-store'});
+   const data=await response.json();if(!response.ok)throw Error(data.error||'Error de dades');
+   for(const x of data.results||[])cryptoSignals[x.symbol]=x;
+   success+=(data.results||[]).length;failed+=(data.errors||[]).length;paintCrypto();
+  }catch(err){failed+=Math.min(2,symbols.length-i);info.textContent='Incidència de dades: '+err.message}
+ }
+ info.textContent=success+' analitzades · '+failed+' sense dades · estats web orientatius; validar al Pine';
  }catch(e){info.textContent='Error: '+e.message}
  finally{b.disabled=false;b.textContent='Analitzar 10 cripto'}
 }
