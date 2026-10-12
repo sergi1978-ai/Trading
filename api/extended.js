@@ -92,7 +92,7 @@ export default async function handler(req, res) {
       const ov = overnight?.[s];
       const bars = daily.bars?.[s] || [];
       const todayNY = new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-      const dateNY = t => new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
+      const dateNY = t => new Date(t).toISOString().slice(0,10);
       const previousCompleted = bars.filter(b=>b.t && dateNY(b.t)<todayNY);
       const prev = previousCompleted.at(-1) || null;
       const regularLast = bars.length ? bars[bars.length - 1] : null;
