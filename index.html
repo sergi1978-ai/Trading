@@ -75,29 +75,34 @@ td{color:#344256;border-color:#e9edf3}
 .top,.card,.discover-panel,.discover-header,.tablebox,.simplebox,.detail,.detail-box,.sectorcard{border-radius:14px}
 @media(max-width:700px){.tabs{background:#f4f7fb!important}.top{box-shadow:none}}
 
+#stockControls[hidden],section[hidden],.discover-panel[hidden]{display:none!important}
+#cryptoTopSlot{margin:14px 0}
+#cryptoTopSlot .discover-panel{background:#fff}
+.tabs{gap:7px;scroll-padding:12px}
+.tab{white-space:nowrap}
+@media(max-width:700px){.tabs{position:sticky;top:0;gap:6px;padding:10px}.tab{font-size:12px}}
 </style>
 </head>
 <body><div class="wrap">
 <div class="top"><div><h1>Trading 2026 · Radar v3.0</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
-<div class="cards" id="cards"></div>
-<div class="tabs"><button class="tab active" data-tab="radar">Radar</button><button class="tab" data-tab="top">★ Top 10</button><button class="tab" data-tab="near">🔥 Entrades imminents</button><button class="tab" data-tab="sectors">Sectors</button><button class="tab" data-tab="discover">₿ Altcoins</button><button class="tab" data-tab="discoverStocks">✦ Descobrir accions</button></div>
-<div class="toolbar">
+<div class="tabs" role="tablist" aria-label="Navegació Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Radar accions</button><button class="tab" data-tab="top" role="tab" aria-selected="false">★ Top 10 accions</button><button class="tab" data-tab="near" role="tab" aria-selected="false">↗ Entrades accions</button><button class="tab" data-tab="sectors" role="tab" aria-selected="false">▤ Sectors</button><button class="tab" data-tab="discoverStocks" role="tab" aria-selected="false">✦ Descobrir accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Radar altcoins</button></div>
+<div id="stockControls"><div class="cards" id="cards"></div><div class="toolbar">
 <input id="search" placeholder="Ticker, sector o tema…">
 <select id="sectorFilter"><option value="">Tots els sectors</option></select>
 <select id="statusFilter"><option value="">Tots els estats</option><option>NO SETUP</option><option>WATCH</option><option>PRE</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option><option>SENSE DADES</option></select>
 <select id="riskFilter"><option value="">Tot risc</option><option>Baix</option><option>Mitjà</option><option>Alt</option></select>
 <select id="divFilter"><option value="">Dividend: tots</option><option value="0.5">≥0,5%</option><option value="1">≥1%</option><option value="2">≥2%</option></select>
 <span class="pill" id="updated">Sense escanejar</span><span class="pill" id="feedHealth">Cotitzacions: pendent</span><select id="quoteOnly"><option value="">Totes les cotitzacions</option><option value="fresh">Preus recents</option><option value="stale">Sense preu recent</option></select><select id="radarSort"><option value="score">Millor radar</option><option value="trigger">Més proper al trigger</option><option value="ticker">Ticker A–Z</option></select>
-</div>
-<section id="topTab" hidden><div class="discover-header"><h2>Top 10 · Oportunitats tècniques</h2><button class="btn" id="topRefresh">↻ Actualitzar</button></div><p class="muted">Classificació orientativa: no és una recomanació de compra ni una probabilitat de guany.</p><div class="discover-grid"><article class="discover-panel"><h3>Top 10 accions</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Radar</th><th>Qualitat</th><th>Preu tècnic</th><th>Preu recent</th><th>Trigger</th><th>Stop</th><th>Acció</th></tr></thead><tbody id="topStockBody"></tbody></table></div></article><article class="discover-panel"><h3>Top 10 altcoins analitzades</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Altcoin</th><th>Estat</th><th>Score</th><th>Preu 1H</th><th>Trigger</th><th>Stop</th><th>Motiu</th></tr></thead><tbody id="topCryptoBody"></tbody></table></div></article></div></section><section id="radarTab"><div class="toolbar"><span class="muted">Llegeix primer què cal esperar; obre una fitxa per veure els nivells.</span><button type="button" class="btn mode" id="modeBtn" aria-pressed="false">Veure dades avançades</button></div><div class="simplebox" id="simpleBox"><table><thead><tr><th>Acció</th><th>Què fer?</th><th>Per què?</th><th>Volum</th><th>Empresa</th><th>Nivell a vigilar</th></tr></thead><tbody id="simpleBody"></tbody></table></div><div class="tablebox" id="advancedBox" hidden><table><thead><tr>
+</div></div>
+<section id="topTab" hidden><div class="discover-header"><h2>Top 10 · Accions</h2><button class="btn" id="topRefresh">↻ Actualitzar</button></div><p class="muted">Classificació orientativa: no és una recomanació de compra ni una probabilitat de guany.</p><div class="discover-grid"><article class="discover-panel"><h3>Top 10 accions</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Radar</th><th>Qualitat</th><th>Preu tècnic</th><th>Preu recent</th><th>Trigger</th><th>Stop</th><th>Acció</th></tr></thead><tbody id="topStockBody"></tbody></table></div></article><article class="discover-panel"><h3>Top 10 altcoins analitzades</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Altcoin</th><th>Estat</th><th>Score</th><th>Preu 1H</th><th>Trigger</th><th>Stop</th><th>Motiu</th></tr></thead><tbody id="topCryptoBody"></tbody></table></div></article></div></section><section id="radarTab"><div class="toolbar"><span class="muted">Llegeix primer què cal esperar; obre una fitxa per veure els nivells.</span><button type="button" class="btn mode" id="modeBtn" aria-pressed="false">Veure dades avançades</button></div><div class="simplebox" id="simpleBox"><table><thead><tr><th>Acció</th><th>Què fer?</th><th>Per què?</th><th>Volum</th><th>Empresa</th><th>Nivell a vigilar</th></tr></thead><tbody id="simpleBody"></tbody></table></div><div class="tablebox" id="advancedBox" hidden><table><thead><tr>
 <th>Ticker</th><th>Últim preu recent</th><th>% dia</th><th>Acció ara</th><th>Radar</th><th>RS vs bench</th><th>RVOL 1H</th><th>Volum 4H</th><th>Sessió</th><th>Preu tècnic 1H</th><th>Ext. %</th><th>Activitat</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
 </tr></thead><tbody id="tbody"></tbody></table></div></section>
 <section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Acció</th><th>Radar</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Últim preu recent</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
 <section id="sectorsTab" hidden><div class="sectorgrid" id="sectorGrid"></div></section>
-<section id="discoverTab" hidden><div class="discover-header"><div><h2 id="discoveryTitle">Altcoins · Oportunitats i impuls</h2><div class="discover-note">Preselecció de mercat, separada dels senyals del motor. No equival a una entrada del Pine.</div></div><button id="discoverBtn" class="btn primary" type="button">✦ Cercar candidats</button><button id="cryptoScanBtn" class="btn" type="button">Analitzar 10 cripto</button></div><div class="toolbar"><span class="pill" id="discoverInfo" role="status" aria-live="polite">Prem «Cercar candidats» per començar</span></div>
-<div class="market-stats" id="cryptoStats" aria-label="Estat de les criptomonedes"></div>
+<section id="discoverTab" hidden><div class="discover-header"><div><h2 id="discoveryTitle">Altcoins · Oportunitats i impuls</h2><div class="discover-note">Preselecció de mercat, separada dels senyals del motor. No equival a una entrada del Pine.</div></div><button id="discoverBtn" class="btn primary" type="button">₿ Cercar altcoins</button><button id="cryptoScanBtn" class="btn" type="button">Analitzar 10 cripto</button></div><div class="toolbar"><span class="pill" id="discoverInfo" role="status" aria-live="polite">Prem «Cercar candidats» per començar</span></div>
+<div class="market-stats" id="cryptoStats" aria-label="Estat de les criptomonedes"></div><div id="cryptoTopSlot"></div>
 <div class="nav-discovery"><button class="btn active" id="cryptoOpportunity" type="button">◎ Oportunitats</button><button class="btn" id="cryptoMomentum" type="button">↗ Impuls 24h</button></div>
 <div class="discover-controls"><input id="cryptoQuery" placeholder="Buscar criptomoneda…" aria-label="Buscar criptomoneda"><select id="cryptoState"><option value="">Tots els estats</option><option value="A">A / A+</option><option value="READY">READY</option><option value="PRE">PRE</option><option value="WATCH">WATCH</option><option value="NO PERSEGUIR">No perseguir</option><option value="PENDENT">Pendent</option><option value="SENSE DADES">Sense dades</option></select><select id="cryptoScore"><option value="0">Qualsevol score</option><option value="40">≥ 40</option><option value="60">≥ 60</option><option value="80">≥ 80</option></select><select id="cryptoProvider"><option value="">Tots els proveïdors</option><option value="Coinbase">Coinbase</option><option value="Kraken">Kraken</option></select><button class="btn" id="cryptoReset" type="button">Netejar filtres</button></div>
 <div class="discover-grid">
@@ -314,15 +319,28 @@ document.getElementById('modeBtn').onclick=()=>{const advanced=document.getEleme
 document.addEventListener('click',e=>{const b=e.target.closest('.open-detail');if(b)showDetail(b.dataset.ticker)});
 ['search','sectorFilter','statusFilter','riskFilter','divFilter','quoteOnly','radarSort'].forEach(id=>document.getElementById(id).addEventListener('input',render));
 // Separate stock discovery into its own tab while preserving the original discovery API.
-const stockPanel=document.querySelector('.discover-panel:first-child');
+const stockPanel=document.querySelector('#discoverStocks').closest('.discover-panel');
 const stocksTab=document.createElement('section');stocksTab.id='discoverStocksTab';stocksTab.hidden=true;
 stocksTab.innerHTML='<div class="discover-header"><div><h2>Descobrir accions</h2><div class="discover-note">Candidats per activitat, no ordres de compra. Analitza cada actiu a Alpaca.</div></div><button class="btn primary" id="stocksDiscoverBtn" type="button">✦ Cercar accions</button></div><div class="discover-controls"><input id="stockDiscoverQuery" placeholder="Filtrar ticker…" aria-label="Filtrar accions"><select id="stockDiscoverSort"><option value="change">Més impuls</option><option value="symbol">Ticker A-Z</option></select></div>';
 stocksTab.appendChild(stockPanel);
+// The crypto top-ten belongs on the crypto screen; the equities top screen remains equities-only.
+const cryptoTopPanel=document.getElementById('topCryptoBody').closest('.discover-panel');
+document.getElementById('cryptoTopSlot').appendChild(cryptoTopPanel);
 document.getElementById('discoverTab').after(stocksTab);
 document.getElementById('stocksDiscoverBtn').onclick=discover;
 function filterDiscoveredStocks(){const q=document.getElementById('stockDiscoverQuery').value.toUpperCase();const sorted=[...document.querySelectorAll('#discoverStocks tr')].filter(r=>r.querySelector('td'));sorted.forEach(r=>r.hidden=!!q&&!r.cells[0]?.textContent.toUpperCase().includes(q));if(document.getElementById('stockDiscoverSort').value==='symbol')sorted.sort((a,b)=>a.cells[0].textContent.localeCompare(b.cells[0].textContent)).forEach(r=>r.parentElement.appendChild(r))}
 ['stockDiscoverQuery','stockDiscoverSort'].forEach(id=>document.getElementById(id).addEventListener('input',filterDiscoveredStocks));
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');['radar','top','near','sectors','discover','discoverStocks'].forEach(t=>document.getElementById(t+'Tab').hidden=t!==b.dataset.tab);if(['discover','discoverStocks'].includes(b.dataset.tab)&&!discoveredCrypto.length)discover();window.scrollTo({top:0,behavior:'smooth'});});
+function activateTab(tab,scroll=true){
+ const stockTab=['radar','top','near','sectors','discoverStocks'].includes(tab);
+ document.getElementById('stockControls').hidden=!stockTab||tab==='discoverStocks';
+ document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===tab;x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
+ ['radar','top','near','sectors','discover','discoverStocks'].forEach(t=>{document.getElementById(t+'Tab').hidden=t!==tab});
+ if(['discover','discoverStocks'].includes(tab)&&!discoveredCrypto.length)discover();
+ if(tab==='discover')paintCrypto();
+ if(scroll)window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
+activateTab('radar',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows;}catch(e){}
 render(); scan(); setInterval(scan,60000);
