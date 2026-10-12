@@ -147,10 +147,15 @@ async function scan(){
        ...base,
        technicalPrice: base.technicalPrice ?? base.price,
        price: Number.isFinite(ep) ? ep : base.price,
+       livePriceAvailable:Number.isFinite(ep),
        session:ex.session,
        extendedPrice:ep,
        extendedChangePct:ex.extendedChangePct,
        extendedActivity:ex.activity,
+       extendedFeed:ex.feed,
+       extendedAgeMinutes:ex.extendedAgeMinutes,
+       extendedStale:ex.priceStale,
+       lastKnownPrice:ex.lastKnownPrice,
        extendedTimestamp:ex.extendedTimestamp,
        extendedDistToTrigger:edt
      };
