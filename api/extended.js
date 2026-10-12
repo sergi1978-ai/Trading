@@ -71,6 +71,16 @@ export default async function handler(req, res) {
       `https://data.alpaca.markets/v2/stocks/trades/latest?symbols=${joined}&feed=iex`
     );
 
+    // IEX latest bid/ask is a fallback for active premarket when there is no recent trade.
+    // A midpoint is indicative, not an executed transaction or NBBO.
+    let quoteMap = {};
+    try {
+      const quoteResponse = await alpacaJson(
+        `https://data.alpaca.markets/v2/stocks/quotes/latest?symbols=${joined}&feed=iex`
+      );
+      quoteMap = quoteResponse.quotes || {};
+    } catch (_) {}
+
     // Previous daily bar used as reference close.
     const start = new Date(Date.now() - 7*24*3600*1000).toISOString();
     const daily = await alpacaJson(
@@ -89,6 +99,7 @@ export default async function handler(req, res) {
     const out = {};
     for (const s of symbols) {
       const tr = latest.trades?.[s];
+      const qt = quoteMap[s];
       const ov = overnight?.[s];
       const bars = daily.bars?.[s] || [];
       const todayNY = new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -105,7 +116,13 @@ export default async function handler(req, res) {
       const maxAge = sess.session === 'OBERT' ? 10 : sess.session === 'PREMARKET' ? 20 : sess.session === 'AFTER HOURS' ? 30 : 0;
       const recent = Number.isFinite(ageMin) && ageMin >= -1 && ageMin <= maxAge;
       // Never present a stale trade or an old daily close as a live premarket quote.
-      const px = recent && Number.isFinite(best?.p) ? best.p : null;
+      const quoteAgeMinutes = isoAgeMinutes(qt?.t);
+      const quoteRecent = sess.session !== 'OVERNIGHT / TANCAT' && Number.isFinite(quoteAgeMinutes) && quoteAgeMinutes>=-1 && quoteAgeMinutes<=(sess.session==='PREMARKET'?10:5);
+      const quoteValid = quoteRecent && Number.isFinite(qt?.bp) && Number.isFinite(qt?.ap) && qt.bp>0 && qt.ap>=qt.bp && (qt.ap-qt.bp)/qt.bp<=0.04;
+      const indicativeMid = quoteValid ? (qt.bp+qt.ap)/2 : null;
+      const px = recent && Number.isFinite(best?.p) ? best.p : indicativeMid;
+      const priceKind = recent && Number.isFinite(best?.p) ? 'TRADE IEX' : quoteValid ? 'MID BID/ASK IEX · INDICATIU' : 'NO DISPONIBLE';
+      const priceTimestamp = priceKind==='TRADE IEX'?best?.t:quoteValid?qt.t:best?.t||null;
       const lastKnownPrice = Number.isFinite(best?.p) ? best.p : (regularLast?.c ?? null);
       const refClose = prev?.c ?? regularLast?.c ?? null;
       const changePct = Number.isFinite(px) && Number.isFinite(refClose) && refClose !== 0
@@ -117,12 +134,15 @@ export default async function handler(req, res) {
         extendedSession: sess.extended,
         extendedPrice: px,
         lastKnownPrice,
-        priceStale: !recent,
+        priceStale: !Number.isFinite(px),
+        priceKind,
+        indicative:priceKind.includes('INDICATIU'),
+        quoteAgeMinutes,
         extendedChangePct: changePct,
-        extendedTimestamp: best?.t || null,
-        extendedRecent: recent,
-        extendedAgeMinutes: ageMin,
-        activity: recent ? 'COTITZACIÓ RECENT' : (best ? 'PREU ANTIC · NO LIVE' : 'SENSE DADES'),
+        extendedTimestamp: priceTimestamp,
+        extendedRecent: Number.isFinite(px),
+        extendedAgeMinutes: priceKind.includes('INDICATIU')?quoteAgeMinutes:ageMin,
+        activity: priceKind==='TRADE IEX' ? 'OPERACIÓ RECENT' : quoteValid ? 'BID/ASK RECENT · INDICATIU' : (best ? 'PREU ANTIC · NO LIVE' : 'SENSE DADES'),
         feed: ov && best === ov ? 'overnight' : 'iex',
         referenceClose: refClose,
         note: sess.session === 'OBERT'
