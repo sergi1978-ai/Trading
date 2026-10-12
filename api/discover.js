@@ -44,13 +44,23 @@ async function coinbasePairs(){
  }
  return symbols;
 }
+
+// Fallback independendent de CoinGecko: descoberta entre actius negociables a Coinbase.
+async function fallbackCrypto(pairs){
+ const preferred=['SOL','ETH','SUI','LINK','AVAX','ONDO','RENDER','RNDR','HNT','NEAR','INJ','AAVE','HYPE','TAO','FET','ENA','SEI','ARB','JUP','UNI','BONK','PENDLE','MORPHO','TIA','HBAR','XRP','WLD','MET','PEPE','DOGE'];
+ const pool=preferred.filter(s=>pairs.has(s)).map(symbol=>({symbol,type:'cripto',name:symbol,price:0,changePct:null,dollarVolume:0,status:'WATCH',verifiedSignal:false}));
+ const accepted=[],errors=[];
+ for(let i=0;i<pool.length;i+=6){const batch=pool.slice(i,i+6);const r=await Promise.allSettled(batch.map(x=>coinbaseMarket(x,pairs.get(x.symbol))));r.forEach((v,j)=>v.status==='fulfilled'?accepted.push(v.value):errors.push(batch[j].symbol+': '+String(v.reason?.message||v.reason)));if(accepted.length>=12)break;}
+ return {accepted,errors,eligible:pool.length};
+}
 function rank(a){return Math.max(-12,Math.min(12,Number(a.changePct)||0))*1.3+Math.min(13,Math.log10(Math.max(1,a.dollarVolume||1)))*1.5}
 async function stockBatch(symbols){const out=[],errors=[];for(let i=0;i<symbols.length;i+=5){const settled=await Promise.allSettled(symbols.slice(i,i+5).map(stock));settled.forEach((r,j)=>r.status==='fulfilled'?out.push(r.value):errors.push(String(r.reason?.message||r.reason)))}return {out,errors}}
 export default async function handler(req,res){res.setHeader('Cache-Control','public,s-maxage=60,stale-while-revalidate=120');if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});const offset=Math.max(0,parseInt(req.query?.offset||'0',10)||0)%STOCKS.length;const count=Math.min(20,Math.max(5,parseInt(req.query?.count||'15',10)||15));const sample=Array.from({length:count},(_,i)=>STOCKS[(offset+i)%STOCKS.length]);const [equity,market,listing]=await Promise.allSettled([stockBatch(sample),coingecko(),coinbasePairs()]);
  const stocks=equity.status==='fulfilled'?equity.value.out:[],errors=[...(equity.status==='fulfilled'?equity.value.errors:[String(equity.reason)])];
  if(market.status==='rejected')errors.push('Preselecció cripto: '+String(market.reason?.message||market.reason));
  if(listing.status==='rejected')errors.push('Llistat Coinbase: '+String(listing.reason?.message||listing.reason));
- const cryptoResult=market.status==='fulfilled'&&listing.status==='fulfilled'?await coinbaseCandidates(market.value,listing.value):{accepted:[],errors:[],eligible:0};
+ let cryptoResult=market.status==='fulfilled'&&listing.status==='fulfilled'?await coinbaseCandidates(market.value,listing.value):{accepted:[],errors:[],eligible:0};
+ if(listing.status==='fulfilled' && cryptoResult.accepted.length<10){const fallback=await fallbackCrypto(listing.value);const have=new Set(cryptoResult.accepted.map(x=>x.symbol));cryptoResult={accepted:[...cryptoResult.accepted,...fallback.accepted.filter(x=>!have.has(x.symbol))],errors:[...cryptoResult.errors,...fallback.errors],eligible:Math.max(cryptoResult.eligible,fallback.eligible)};}
  errors.push(...cryptoResult.errors.slice(0,4));
  const now=Date.now(),fresh=x=>{const t=Date.parse(x.quoteTime||'');return Number.isFinite(t)&&t<=now+60000&&now-t<(x.type==='acció'?5*86400000:2*3600000)};
  const result={stocks:stocks.filter(fresh).sort((a,b)=>rank(b)-rank(a)).slice(0,15),crypto:cryptoResult.accepted.filter(fresh).sort((a,b)=>rank(b)-rank(a)).slice(0,20),coverage:{stockCandidates:sample.length,stockQuotes:stocks.length,cryptoQuotes:cryptoResult.accepted.length,cryptoUniverse:250,cryptoCoinbaseEligible:cryptoResult.eligible,stockUniverse:STOCKS.length,offset},errors:errors.slice(0,12),updatedAt:new Date().toISOString(),rotation:'Rotació de '+count+' accions per consulta',warning:'Cripto seleccionada entre 250 monedes per volum, cotitzacions finals verificades a Coinbase USD/USDC. WATCH no es senyal de compra.'};
