@@ -91,32 +91,40 @@ export default async function handler(req, res) {
       const tr = latest.trades?.[s];
       const ov = overnight?.[s];
       const bars = daily.bars?.[s] || [];
-      const prev = bars.length >= 2 ? bars[bars.length - 2] : (bars[0] || null);
+      const todayNY = new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const dateNY = t => new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
+      const previousCompleted = bars.filter(b=>b.t && dateNY(b.t)<todayNY);
+      const prev = previousCompleted.at(-1) || null;
       const regularLast = bars.length ? bars[bars.length - 1] : null;
 
       const candidates = [tr, ov].filter(Boolean);
       candidates.sort((a,b) => new Date(b.t || 0) - new Date(a.t || 0));
       const best = candidates[0] || null;
 
-      const px = best?.p ?? tr?.p ?? regularLast?.c ?? null;
+      const ageMin = isoAgeMinutes(best?.t);
+      const maxAge = sess.session === 'OBERT' ? 10 : sess.session === 'PREMARKET' ? 20 : sess.session === 'AFTER HOURS' ? 30 : 0;
+      const recent = Number.isFinite(ageMin) && ageMin >= -1 && ageMin <= maxAge;
+      // Never present a stale trade or an old daily close as a live premarket quote.
+      const px = recent && Number.isFinite(best?.p) ? best.p : null;
+      const lastKnownPrice = Number.isFinite(best?.p) ? best.p : (regularLast?.c ?? null);
       const refClose = prev?.c ?? regularLast?.c ?? null;
       const changePct = Number.isFinite(px) && Number.isFinite(refClose) && refClose !== 0
         ? ((px / refClose) - 1) * 100
         : null;
 
-      const ageMin = isoAgeMinutes(best?.t);
-      const recent = Number.isFinite(ageMin) ? ageMin <= 45 : false;
-
       out[s] = {
         session: sess.session,
         extendedSession: sess.extended,
         extendedPrice: px,
+        lastKnownPrice,
+        priceStale: !recent,
         extendedChangePct: changePct,
         extendedTimestamp: best?.t || null,
         extendedRecent: recent,
         extendedAgeMinutes: ageMin,
-        activity: recent ? 'ACTIVA' : (best ? 'SENSE ACTIVITAT RECENT' : 'SENSE DADES'),
+        activity: recent ? 'COTITZACIÓ RECENT' : (best ? 'PREU ANTIC · NO LIVE' : 'SENSE DADES'),
         feed: ov && best === ov ? 'overnight' : 'iex',
+        referenceClose: refClose,
         note: sess.session === 'OBERT'
           ? 'Sessió regular'
           : 'La negociació real depèn del broker i del tipus d’ordre'
