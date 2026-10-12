@@ -386,7 +386,7 @@ export default async function handler(req,res){
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.6.1',results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.8.2',results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
