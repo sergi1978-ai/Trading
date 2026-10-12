@@ -101,7 +101,7 @@ td{color:#344256;border-color:#e9edf3}
 </tr></thead><tbody id="tbody"></tbody></table></div></section>
 <section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Acció</th><th>Radar</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Últim preu recent</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
 <section id="sectorsTab" hidden><div class="sectorgrid" id="sectorGrid"></div></section>
-<section id="discoverTab" hidden><div class="discover-header"><div><h2 id="discoveryTitle">Altcoins · Oportunitats i impuls</h2><div class="discover-note">Preselecció de mercat, separada dels senyals del motor. No equival a una entrada del Pine.</div></div><button id="discoverBtn" class="btn primary" type="button">₿ Cercar altcoins</button><button id="cryptoScanBtn" class="btn" type="button">Analitzar 10 cripto</button></div><div class="toolbar"><span class="pill" id="discoverInfo" role="status" aria-live="polite">Prem «Cercar candidats» per començar</span></div>
+<section id="discoverTab" hidden><div class="discover-header"><div><h2 id="discoveryTitle">Altcoins · Oportunitats i impuls</h2><div class="discover-note">Preselecció de mercat, separada dels senyals del motor. No equival a una entrada del Pine.</div></div><button id="discoverBtn" class="btn primary" type="button">₿ Cercar altcoins</button><button id="cryptoScanBtn" class="btn" type="button">Analitzar totes les altcoins</button></div><div class="toolbar"><span class="pill" id="discoverInfo" role="status" aria-live="polite">Prem «Cercar candidats» per començar</span></div>
 <div class="market-stats" id="cryptoStats" aria-label="Estat de les criptomonedes"></div><div id="cryptoTopSlot"></div>
 <div class="nav-discovery"><button class="btn active" id="cryptoOpportunity" type="button">◎ Oportunitats</button><button class="btn" id="cryptoMomentum" type="button">↗ Impuls 24h</button></div>
 <div class="discover-controls"><input id="cryptoQuery" placeholder="Buscar criptomoneda…" aria-label="Buscar criptomoneda"><select id="cryptoState"><option value="">Tots els estats</option><option value="A">A / A+</option><option value="READY">READY</option><option value="PRE">PRE</option><option value="WATCH">WATCH</option><option value="NO PERSEGUIR">No perseguir</option><option value="PENDENT">Pendent</option><option value="SENSE DADES">Sense dades</option></select><select id="cryptoScore"><option value="0">Qualsevol score</option><option value="40">≥ 40</option><option value="60">≥ 60</option><option value="80">≥ 80</option></select><select id="cryptoProvider"><option value="">Tots els proveïdors</option><option value="Coinbase">Coinbase</option><option value="Kraken">Kraken</option></select><button class="btn" id="cryptoReset" type="button">Netejar filtres</button></div>
@@ -265,9 +265,9 @@ document.getElementById('cryptoReset').onclick=()=>{document.getElementById('cry
 
 async function cryptoScan(){
  const b=document.getElementById('cryptoScanBtn'),info=document.getElementById('discoverInfo');
- const symbols=discoveredCrypto.slice(0,10).map(x=>x.symbol).filter(x=>/^[A-Z0-9]{2,12}$/.test(x));
+ const symbols=discoveredCrypto.map(x=>x.symbol).filter(x=>/^[A-Z0-9]{2,12}$/.test(x));
  if(!symbols.length){info.textContent='Primer cal descobrir candidats';await discover();if(!discoveredCrypto.length)return;return cryptoScan()}
- b.disabled=true;b.textContent='Analitzant…';
+ b.disabled=true;b.textContent='Analitzant '+symbols.length+' altcoins…';
  try{
  let success=0,failed=0;
  for(let i=0;i<symbols.length;i+=2){
@@ -277,12 +277,12 @@ async function cryptoScan(){
    const data=await response.json();if(!response.ok)throw Error(data.error||'Error de dades');
    for(const x of data.results||[]){cryptoSignals[x.symbol]=x;delete cryptoFailures[x.symbol]}for(const x of data.errors||[])cryptoFailures[x.symbol]=x.message||'Històric insuficient';
    success+=(data.results||[]).length;failed+=(data.errors||[]).length;paintCrypto();
-  }catch(err){failed+=Math.min(2,symbols.length-i);info.textContent='Incidència de dades: '+err.message}
+  }catch(err){const batch=symbols.slice(i,i+2);failed+=batch.length;for(const symbol of batch)cryptoFailures[symbol]=err.message||'Error de consulta';paintCrypto();info.textContent='Incidència de dades: '+err.message}
  }
  renderTop10();
- info.textContent=success+' analitzades · '+failed+' sense dades en els 10 intents · Senyals orientatius: validar al Pine';
+ info.textContent=success+' analitzades · '+failed+' sense dades dels '+symbols.length+' intents · Senyals orientatius: validar al Pine';
  }catch(e){info.textContent='Error: '+e.message}
- finally{b.disabled=false;b.textContent='Analitzar 10 cripto'}
+ finally{b.disabled=false;b.textContent='Analitzar totes les altcoins'}
 }
 document.getElementById('cryptoScanBtn').onclick=cryptoScan;
 let discoverOffset=0;
