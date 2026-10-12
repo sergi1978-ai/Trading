@@ -109,6 +109,8 @@ function render(){
  document.getElementById('sectorGrid').innerHTML=Object.entries(sec).map(([s,a])=>{const c={};a.forEach(r=>c[r.status]=(c[r.status]||0)+1);return `<div class=sectorcard><b>${s}</b><div class=muted style="margin-top:8px">${a.length} actius · A+ ${c['A+']||0} · A ${c.A||0} · READY ${c.READY||0} · PRE ${c.PRE||0}</div><div style="margin-top:8px;font-size:12px">${a.slice().sort((x,y)=>(y.entryQuality||0)-(x.entryQuality||0)).slice(0,5).map(x=>x.ticker+' '+(x.status||'')).join(' · ')}</div></div>`}).join('');
 }
 async function scan(){
+ if(scanInProgress)return;
+ scanInProgress=true;
  const btn=document.getElementById('scanBtn'); btn.disabled=true; btn.textContent='Escanejant…';
  try{
    const syms=META.map(x=>x.ticker).join(',');
@@ -142,9 +144,10 @@ async function scan(){
    localStorage.setItem('trading2026_v2_scan',JSON.stringify({t:Date.now(),rows}));
    render();
  }catch(e){alert('Error escàner: '+e.message);}
- finally{btn.disabled=false;btn.textContent='↻ Escaneja ara';}
+ finally{scanInProgress=false;btn.disabled=false;btn.textContent='↻ Escaneja ara';}
 }
 let discoveredCrypto=[],cryptoSignals={};
+let scanInProgress=false, discoverInProgress=false;
 function paintCrypto(){
  const coins=discoveredCrypto;
  const tb=document.getElementById('discoverCrypto');
@@ -179,6 +182,8 @@ async function cryptoScan(){
 document.getElementById('cryptoScanBtn').onclick=cryptoScan;
 let discoverOffset=0;
 async function discover(){
+ if(discoverInProgress)return;
+ discoverInProgress=true;
  const btn=document.getElementById('discoverBtn'),info=document.getElementById('discoverInfo');
  btn.disabled=true;btn.textContent='Cercant…';info.textContent='Consultant activitat de mercat…';
  try{
@@ -190,10 +195,10 @@ async function discover(){
    const sym=safe(x.symbol),added=META.some(m=>m.ticker===x.symbol);
    return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),2)+' $</td><td class="'+(x.changePct>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn add-discovered" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Al radar':'+ Analitzar')+'</button></td></tr>';
   }).join(''):'<tr><td colspan="4">Sense resultats d’accions</td></tr>';
-  discoveredCrypto=coins;paintCrypto();
+  discoveredCrypto=coins;cryptoSignals={};paintCrypto();
   info.textContent=stocks.length+' accions · '+coins.length+' criptomonedes amb cotització · '+(data.errors?.length||0)+' incidències de proveïdor';
- }catch(e){info.textContent='La cerca ha fallat: '+e.message}
- finally{btn.disabled=false;btn.textContent='✦ Cercar candidats'}
+ }catch(e){info.textContent='La cerca ha fallat: '+e.message+' · Reintenta més tard; comprova /api/discover'}
+ finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Cercar candidats'}
 }
 document.getElementById('discoverBtn').onclick=discover;
 document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered');if(!b)return;const ticker=b.dataset.symbol;
