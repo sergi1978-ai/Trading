@@ -31,6 +31,50 @@ body{background:radial-gradient(ellipse at 10% -15%,#193350 0,transparent 38%),r
 .discover-panel tr:hover td{background:#1b3048}.discover-panel th{top:0}.discover-panel td{font-variant-numeric:tabular-nums}.discover-panel td .detail-reason{color:#a5bad2;font-size:11px;white-space:normal;max-width:300px}.nav-discovery{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.nav-discovery button{border-radius:9px}.nav-discovery button.active{background:#2859d8;color:white;border-color:#668be8}.discover-panel .tablebox{max-height:660px}
 .error-detail{color:#ffafbf}.score-number{font-weight:850;color:#d2e4ff}.discover-panel .action-link{color:#90c1ff;text-underline-offset:3px}
 @media(max-width:700px){.discover-controls select{max-width:none;flex:1}.discover-header{align-items:stretch}.discover-panel table{min-width:830px}.market-stats .stat{flex:1}}
+
+/* v3.0 — light, low-glare financial dashboard. Last in cascade overrides legacy dark theme. */
+:root{color-scheme:light;--bg:#f4f7fb;--panel:#fff;--line:#dce4ed;--text:#243247;--muted:#64748b;--g:#15803d;--y:#a16207;--b:#2563eb;--r:#be3850;--p:#7c5cbf}
+html{background:#f4f7fb}
+body{background:#f4f7fb!important;color:var(--text)}
+.top{background:#fff!important;border:1px solid var(--line);box-shadow:0 4px 20px #2634490b}
+.top h1,.discover-header h2,.detail h2,.detail h3{color:#1e293b}
+.sub,.muted,.discover-note,.discover-panel p,.k,.detail-box .small{color:var(--muted)}
+.card,.sectorcard,.discover-panel,.discover-header,.tablebox,.simplebox,.detail,.detail-box{background:#fff!important;color:var(--text);border-color:var(--line)!important;box-shadow:none}
+.cards .card{box-shadow:0 2px 8px #1e293b09}
+.card .v{color:#1e293b}
+.tabs{background:#f4f7fbf5!important;border-bottom:1px solid var(--line)}
+.tab,.btn,.nav-discovery button{background:#fff;color:#475569;border:1px solid #d5dfea;box-shadow:none}
+.tab.active,.nav-discovery button.active{background:#e9f0fc!important;color:#24539f!important;border-color:#b4cafa!important;box-shadow:none}
+.btn.primary{background:#2859a4;color:white;border-color:#2859a4}
+.btn:hover,.tab:hover{border-color:#9eb4d1;background:#f1f5fb}
+.btn.primary:hover{background:#1e4b90}
+input,select,.discover-controls{background:#fff!important;color:#243247!important;border-color:#ccd8e7!important}
+input::placeholder{color:#8090a4}
+input:focus,select:focus,.btn:focus-visible,.tab:focus-visible{outline:2px solid #7da9ec;outline-offset:2px}
+.notice{background:#ecf3fc!important;border-color:#cadbf0;color:#385477}
+.pill,.action,.sess{background:#eef2f7!important;color:#475569!important;border-color:#dce4ee!important}
+th,.discover-panel th{background:#edf2f8!important;color:#46576a!important;border-color:#e0e6ee}
+td{color:#344256;border-color:#e9edf3}
+.tablebox tbody tr:hover td,.simplebox tbody tr:hover td,.discover-panel tr:hover td{background:#f3f7fd!important}
+.status,.status-chip{border:1px solid transparent}
+.status.A,.status.Aplus,.chip-a{background:#e0f5e8!important;color:#17643b!important;border-color:#b5dfc4!important}
+.status.READY,.chip-ready{background:#e1edff!important;color:#24579f!important;border-color:#b9d0f4!important}
+.status.PRE,.chip-pre{background:#fff3d8!important;color:#805708!important;border-color:#ead8a9!important}
+.status.WATCH,.chip-watch{background:#eaf0f6!important;color:#4a6079!important;border-color:#d3deea!important}
+.status.INVALIDAT,.chip-error{background:#fae7eb!important;color:#963b53!important;border-color:#eac5ce!important}
+.status.NO_SETUP,.status.SENSE_DADES,.chip-pending{background:#eef0f4!important;color:#667185!important;border-color:#d8dde6!important}
+.chip-avoid{background:#ffeddf!important;color:#985323!important;border-color:#f0d0b5!important}
+.pos,.disc-up,.good{color:#187b51!important}.neg,.disc-down,.bad{color:#b5435d!important}.near,.hot{color:#94630c!important}
+.open-detail,.action-link{color:#245a9d!important}
+.detail::backdrop{background:#14243b77}
+.detail-box{background:#f8fafc!important}
+.detail strong{color:#25354a}
+.market-stats .stat{background:#fff;border-color:var(--line)}
+.market-stats strong{color:#25354a}.market-stats small,.detail-reason{color:#697b90!important}
+.discover-controls{background:#f8fafc!important}
+.top,.card,.discover-panel,.discover-header,.tablebox,.simplebox,.detail,.detail-box,.sectorcard{border-radius:14px}
+@media(max-width:700px){.tabs{background:#f4f7fb!important}.top{box-shadow:none}}
+
 </style>
 </head>
 <body><div class="wrap">
