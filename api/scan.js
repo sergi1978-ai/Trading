@@ -269,10 +269,33 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
   if(tooExtended) radarScore -= 14;
   radarScore = clamp(Math.round(radarScore),0,100);
 
+  // Conservative execution-quality filter. This is NOT a historical win probability.
+  const recentResistance=Math.max(...h4Bars.slice(-40,-1).map(b=>b.h));
+  const stopDistancePct=trigger>stop?100*(trigger-stop)/trigger:null;
+  const rrToResistance=recentResistance>trigger&&trigger>stop?(recentResistance-trigger)/(trigger-stop):null;
+  const dollarVolume20=sma(dBars.slice(-20).map(b=>(b.c||0)*(b.v||0)),20);
+  const liquidityKnown=Number.isFinite(dollarVolume20)&&dollarVolume20>0;
+  const qualityChecks=[
+    {name:'Tendència 4H',pass:!weakStructure},
+    {name:'Confirmació 1H',pass:h1Confirm},
+    {name:'Força relativa',pass:Number.isFinite(rsMarket)&&rsMarket>=0},
+    {name:'Volum de suport',pass:Number.isFinite(rvol)&&rvol>=1},
+    {name:'Risc stop 1–8%',pass:Number.isFinite(stopDistancePct)&&stopDistancePct>=1&&stopDistancePct<=8},
+    {name:'Resistència no immediata',pass:rrToResistance===null||rrToResistance>=1.5},
+    {name:'Sense sobreextensió',pass:!tooExtended}
+  ];
+  const confidenceGrade=qualityChecks.filter(x=>x.pass).length;
+  const riskBlocked=tooExtended||!Number.isFinite(stopDistancePct)||stopDistancePct<1||stopDistancePct>8||(rrToResistance!==null&&rrToResistance<1.5);
+  if(riskBlocked){
+    auth='NO';
+    if(['A','A+','READY'].includes(status))status='PRE';
+    radarScore=clamp(radarScore-20,0,100);
+  }
+  const estimatedSuccessProbability=null; // No calibrated probability until historical walk-forward validation.
   let actionNow='ESPERA';
   if(status==='INVALIDAT') actionNow='INVALIDAT';
   else if(status==='NO SETUP') actionNow='NO SETUP';
-  else if(tooExtended) actionNow='NO PERSEGUIR';
+  else if(riskBlocked) actionNow='RISC/RESISTÈNCIA · ESPERAR';
   else if((status==='A+'||status==='A') && distToTrigger<=0) actionNow='TRIGGER SUPERAT';
   else if(status==='READY' && distToTrigger<=1.25) actionNow="PROP D'ENTRADA";
   else if((status==='READY'||status==='PRE') && distToTrigger<=2.5) actionNow='VIGILA';
@@ -308,7 +331,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
     rr,target1,target2,
     ageHours:age,ageLabel,
     rsi1h:rsi1,rsi4h:rsi4,
-    rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,...volume,
+    rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,confidenceGrade,confidenceChecks:qualityChecks,estimatedSuccessProbability,riskBlocked,rrToResistance,stopDistancePct,dollarVolume20,liquidityKnown,...volume,
     benchmark:BENCHMARK[symbol]||'QQQ',
     updatedAt:h1.t
   };
