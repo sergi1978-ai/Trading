@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.4</title>
+<title>Trading 2026 · Radar v4.5</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -135,18 +135,19 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 .top h1,.top h1 *,h1{color:#f7fbff!important;-webkit-text-fill-color:#f7fbff!important;opacity:1!important}
 .cards .v,.card .v,.market-stats .stat strong{color:#f7fbff!important;-webkit-text-fill-color:#f7fbff!important;opacity:1!important;text-shadow:none!important}
 .cards .k,.card .k{color:#c7d7ea!important}
+.stock-filter-card{transition:background .12s,border-color .12s;min-height:90px}.stock-filter-card:hover,.stock-filter-card:focus-visible{background:#273e5c!important;border-color:#8dbfff!important}.stock-filter-card .v{color:#f7fbff!important}#stockControls .cards{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:700px){#stockControls .cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.4</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.5</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
-<div class="toolbar" id="stockViewBar" style="margin:12px 0"><label for="stockViewSelect" style="font-weight:600">Vista d'accions</label><select id="stockViewSelect" aria-label="Escollir vista d'accions"><option value="radar">La meva anàlisi</option><option value="top">Top 10 accions</option><option value="near">Entrades properes</option><option value="sectors">Sectors</option><option value="discoverStocks">Descobrir accions</option></select><button id="stockScanQuick" type="button" class="btn primary">↻ Analitzar accions</button></div>
+<div class="toolbar" id="stockViewBar" style="margin:12px 0"><label for="stockViewSelect" style="font-weight:600">Vista d'accions</label><select id="stockViewSelect" aria-label="Escollir vista d'accions"><option value="top">★ Top 10 accions</option><option value="radar">La meva anàlisi</option><option value="near">Entrades properes</option><option value="sectors">Sectors</option><option value="discoverStocks">Descobrir accions</option></select><button id="stockScanQuick" type="button" class="btn primary">↻ Analitzar accions</button></div>
 <div id="stockControls"><div class="cards" id="cards"></div><div class="toolbar">
 <input id="search" placeholder="Ticker, sector o tema…">
 <select id="sectorFilter"><option value="">Tots els sectors</option></select>
-<select id="statusFilter"><option value="">Tots els estats</option><option>NO SETUP</option><option>WATCH</option><option>PRE</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option><option>SENSE DADES</option></select>
+<select id="statusFilter"><option value="">Tots els estats</option><option>NO SETUP</option><option>WATCH</option><option value="PRE">PRE-READY</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option><option>SENSE DADES</option></select>
 <select id="riskFilter"><option value="">Tot risc</option><option>Baix</option><option>Mitjà</option><option>Alt</option></select>
 <select id="divFilter"><option value="">Dividend: tots</option><option value="0.5">≥0,5%</option><option value="1">≥1%</option><option value="2">≥2%</option></select>
 <span class="pill" id="updated">Sense escanejar</span><span class="pill" id="feedHealth">Cotitzacions: pendent</span><select id="quoteOnly"><option value="">Totes les cotitzacions</option><option value="fresh">Preus recents</option><option value="stale">Sense preu recent</option></select><select id="radarSort"><option value="score">Millor radar</option><option value="trigger">Més proper al trigger</option><option value="ticker">Ticker A–Z</option></select>
@@ -225,8 +226,8 @@ function render(){
  const counts={}; rows.forEach(r=>counts[r.status]=(counts[r.status]||0)+1);
  const close=rows.filter(r=>Number.isFinite(r.distToTrigger)&&r.distToTrigger>=0&&r.distToTrigger<=2).length;
  document.getElementById('cards').innerHTML=[
- ['A+',counts['A+']||0],['A',counts.A||0],['READY',counts.READY||0],['PRE',counts.PRE||0],['≤2% trigger',close],['Radar ≥70',rows.filter(r=>(r.radarScore||0)>=70).length],['Total',rows.length]
- ].map(x=>`<div class=card><div class=k>${x[0]}</div><div class=v>${x[1]}</div></div>`).join('');
+ ['A+',counts['A+']||0,'A+'],['A',counts.A||0,'A'],['READY',counts.READY||0,'READY'],['PRE-READY',counts.PRE||0,'PRE'],['WATCH',counts.WATCH||0,'WATCH'],['≤2% trigger',close,'near'],['Radar ≥70',rows.filter(r=>(r.radarScore||0)>=70).length,'score'],['Totes',rows.length,'all']
+ ].map(([label,n,filter])=>'<button type="button" class="card stock-filter-card" data-stock-filter="'+filter+'" title="Mostra les accions '+label+'" style="text-align:left;cursor:pointer"><span class="k">'+label+'</span><span class="v" style="display:block">'+n+'</span></button>').join('');
  renderTop10();
  const sec={}; rows.forEach(r=>{sec[r.sector]??=[];sec[r.sector].push(r)});
  document.getElementById('sectorGrid').innerHTML=Object.entries(sec).map(([s,a])=>{const c={};a.forEach(r=>c[r.status]=(c[r.status]||0)+1);return `<div class=sectorcard><b>${s}</b><div class=muted style="margin-top:8px">${a.length} actius · A+ ${c['A+']||0} · A ${c.A||0} · READY ${c.READY||0} · PRE ${c.PRE||0}</div><div style="margin-top:8px;font-size:12px">${a.slice().sort((x,y)=>(y.entryQuality||0)-(x.entryQuality||0)).slice(0,5).map(x=>x.ticker+' '+(x.status||'')).join(' · ')}</div></div>`}).join('');
@@ -523,7 +524,24 @@ function activateTab(tab,scroll=true){
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
 document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
 document.getElementById('stockScanQuick').onclick=()=>scan();
-discoveredCrypto=mergeWatchCandidates([]);activateTab('radar',false);
+document.getElementById('cards').addEventListener('click',event=>{
+ const btn=event.target.closest('.stock-filter-card');if(!btn)return;
+ const value=btn.dataset.stockFilter,select=document.getElementById('statusFilter');
+ select.value=['near','score','all'].includes(value)?'':value;
+ document.getElementById('search').value='';
+ document.getElementById('sectorFilter').value='';
+ document.getElementById('riskFilter').value='';
+ document.getElementById('divFilter').value='0';
+ document.getElementById('quoteOnly').value='';
+ if(value==='near')document.getElementById('radarSort').value='trigger';
+ else document.getElementById('radarSort').value='score';
+ activeStockCard=value;
+ activateTab('radar',false);render();
+ document.getElementById('simpleBox').scrollIntoView({behavior:'smooth',block:'start'});
+});
+let activeStockCard='all';
+
+discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows;}catch(e){}
 render(); scan(); setInterval(scan,60000);
