@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.7</title>
+<title>Trading 2026 · Radar v4.8</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -141,10 +141,11 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 
 /* v4.7 concise first-look equities */
 .simplebox table{min-width:850px}.simplebox td,.simplebox th{padding:11px 13px!important;white-space:nowrap!important;line-height:1.25!important}.simplebox .simple-sector{font-size:11px!important;margin-top:3px}.simplebox .status{font-size:11px}.simplebox tbody tr{height:55px}.simplebox .open-detail{font-size:14px}
+.risk-calc-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.risk-calc-inputs label{color:#c8d7e9;font-size:12px}.risk-calc-inputs input{display:block;width:100%;margin-top:5px}.risk-calc-result{margin-top:12px}.risk-calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:10px}.risk-calc-metrics>div{border:1px solid #405b78;background:#182a40;border-radius:10px;padding:10px}.risk-calc-metrics small{display:block;color:#bed0e6;font-size:11px}.risk-calc-metrics strong{display:block;font-size:18px;color:#fff;margin-top:5px}@media(max-width:580px){.risk-calc-inputs{grid-template-columns:1fr}}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.7</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.8</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -192,8 +193,27 @@ function showDetail(ticker){
  <section class="detail-box"><h3>Volum</h3><p><strong>${volume}</strong></p><p>${safe(r.volumeReason||'Encara no hi ha lectura de volum.')}</p><p class="small">RVOL 4H: ${Number.isFinite(r.rvol4h)?fmt(r.rvol4h,2)+'×':'—'} respecte a 20 espelmes completes. El feed IEX només cobreix una part del mercat; el volum no identifica qui compra.</p></section>
  <section class="detail-box"><h3>Context de mercat</h3><p>Força relativa vs ${safe(r.benchmark||'mercat')}: <strong>${Number.isFinite(r.rsMarket)?fmt(r.rsMarket,1)+' punts percentuals':'sense dades'}</strong></p><p class="small">Compara el rendiment recent de l’acció amb el seu índex de referència. Positiu vol dir que ha rendit millor en aquest període; no garanteix una pujada.</p></section>
  <section class="detail-box"><h3>Pla tècnic</h3>${hasPlan?`<p>Nivell d’activació: <strong>${fmt(r.trigger)} $</strong></p><p>Zona d’interès: ${fmt(r.zoneLow)}–${fmt(r.zoneHigh)} $</p><p>Stop calculat: ${fmt(r.stop)} $ · objectius teòrics: ${fmt(r.target1)} / ${fmt(r.target2)} $</p><p class="small">Els objectius són 2R i 3R derivats de la distància al stop; el radar encara no comprova si hi ha resistències abans d’arribar-hi.</p>`:'<p>Sense pla tècnic vàlid amb les dades disponibles.</p>'}</section>
+ <section class="detail-box detail-wide" id="riskCalculator"><h3>Calculadora de posició · stop tècnic</h3><p class="small">Simulació orientativa: introdueix el pressupost i la pèrdua màxima que vols assumir. El preu d'entrada i el stop provenen del pla tècnic, però els pots ajustar.</p><div class="risk-calc-inputs"><label>Capital disponible ($)<input id="riskCapital" type="number" min="0" step="100" value="1000"></label><label>Risc màxim ($)<input id="riskMaxLoss" type="number" min="0" step="5" value="20"></label><label>Entrada ($)<input id="riskEntry" type="number" min="0" step="any" value="${Number.isFinite(r.trigger)?r.trigger:''}"></label><label>Stop ($)<input id="riskStop" type="number" min="0" step="any" value="${Number.isFinite(r.stop)?r.stop:''}"></label></div><div id="riskCalcResult" class="risk-calc-result" aria-live="polite"></div><p class="small">No inclou comissions, lliscament, gaps ni risc de canvi de divisa. El stop no garanteix una pèrdua màxima. Si el pla Pine no és executable, aquest càlcul no autoritza cap entrada.</p></section>
  <section class="detail-box" id="companyBox"><h3>Empresa i notícies</h3><p><strong>${ticker==='KTOS'?'Carregant dades oficials…':'Estudi pendent'}</strong></p><p class="small">Les dades de l’empresa no modifiquen el senyal tècnic.</p></section>
  <section class="detail-box detail-wide"><h3>D’on surten els preus?</h3><p class="small">Senyal basat en l’última espelma 1H tancada (${technicalTime}, ${fmt(r.technicalPrice)} $). Cotització recent: ${r.livePriceAvailable?fmt(r.price)+' $':'no disponible (preu antic o sense operacions)'} · ${extendedTime} · ${safe(r.session||'sessió desconeguda')} · ${Number.isFinite(r.extendedAgeMinutes)?Math.round(r.extendedAgeMinutes)+' minuts d’antiguitat':'sense hora'}. Fora de l’horari regular el preu pot ser poc representatiu i no confirma A/A+.</p></section></div>`;
+ const calculateRisk=()=>{
+  const get=id=>Number(document.getElementById(id).value);
+  const capital=get('riskCapital'),maxLoss=get('riskMaxLoss'),entry=get('riskEntry'),stop=get('riskStop');
+  const box=document.getElementById('riskCalcResult');
+  if(![capital,maxLoss,entry,stop].every(Number.isFinite)||capital<=0||maxLoss<=0||entry<=0||stop<=0||stop>=entry){box.textContent='Introdueix imports positius i un stop inferior al preu d’entrada.';return}
+  const riskPerShare=entry-stop;
+  const byRisk=Math.floor(maxLoss/riskPerShare);
+  const byCapital=Math.floor(capital/entry);
+  const units=Math.max(0,Math.min(byRisk,byCapital));
+  const position=units*entry,exposure=units*riskPerShare;
+  const pct=riskPerShare/entry*100;
+  const target=Number.isFinite(r.pineReferenceTarget)&&r.pineReferenceTarget>entry?r.pineReferenceTarget:(Number.isFinite(r.target1)&&r.target1>entry?r.target1:null);
+  const rr=target!==null?(target-entry)/riskPerShare:null;
+  const money=n=>n.toLocaleString('ca-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  box.innerHTML='<div class="risk-calc-metrics"><div><small>Accions senceres</small><strong>'+units+'</strong></div><div><small>Capital invertit</small><strong>'+money(position)+' $</strong></div><div><small>Pèrdua teòrica al stop</small><strong>'+money(exposure)+' $</strong></div><div><small>Distància al stop</small><strong>'+pct.toFixed(2)+'%</strong></div><div><small>R:R orientatiu</small><strong>'+(rr===null?'—':rr.toFixed(2)+'R')+'</strong></div></div><p class="small">'+(units===0?'La posició mínima d’una acció sencera supera el pressupost o el risc establert.':'Màxim '+money(maxLoss)+' $ de risc teòric; el límit efectiu pot venir del capital disponible.')+'</p>';
+ };
+ ['riskCapital','riskMaxLoss','riskEntry','riskStop'].forEach(id=>document.getElementById(id).addEventListener('input',calculateRisk));
+ calculateRisk();
  document.getElementById('closeDetail').onclick=()=>document.getElementById('detailDialog').close();
  document.getElementById('detailDialog').showModal();
  if(ticker==='KTOS') loadCompany(ticker);
