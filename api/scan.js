@@ -165,7 +165,8 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const dBars=latestCompleted(dBarsRaw,'1Day');
   let h4Bars=latestCompleted(h4BarsRaw,'4Hour');
   const rebuilt=aggregateFourHourFromHourly(h1BarsRaw);
-  if(h4Bars.length<25&&rebuilt.length>=25)h4Bars=rebuilt;
+  const reconstructed4H=h4Bars.length<25&&rebuilt.length>=25;
+  if(reconstructed4H)h4Bars=rebuilt;
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
   const m30=latestCompleted(m30Raw,'30Min');
   if(dBars.length<25 || h4Bars.length<25 || h1Bars.length<25) return {symbol,status:'SENSE DADES',error:`Històric insuficient (1D ${dBars.length} · 4H ${h4Bars.length} · 1H ${h1Bars.length})`};
@@ -423,6 +424,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
     symbol,
     pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
+    fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
     technicalPrice:h1.c,
     price:h1.c,
     dayChange,
