@@ -115,15 +115,14 @@ async function chooseHistoricalFeed(){
   return {feed:'iex',cutoff,fallback:true,reason:'SIP no disponible amb les credencials actuals'};
  }catch(e){return {feed:'iex',cutoff,fallback:true,reason:'Error comprovant SIP: '+String(e.message||e)};}
 }
-let activeHistoryFeed='iex',activeHistoryCutoff=null;
-async function fetchBars(symbols,timeframe,start,limit=10000){
+async function fetchBars(symbols,timeframe,start,limit=10000,historyFeed='iex',historyCutoff=null){
  const merged={},CHUNK=7;
  for(let i=0;i<symbols.length;i+=CHUNK){
   const batch=symbols.slice(i,i+CHUNK);
   let pageToken=null,page=0;
   do{
-   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'raw',feed:activeHistoryFeed,sort:'asc'});
-   if(activeHistoryFeed==='sip'&&activeHistoryCutoff)params.set('end',activeHistoryCutoff);
+   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'raw',feed:historyFeed,sort:'asc'});
+   if(historyFeed==='sip'&&historyCutoff)params.set('end',historyCutoff);
    if(pageToken)params.set('page_token',pageToken);
    const r=await fetch(`${ALPACA}?${params}`,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
    const body=await r.text();
@@ -388,8 +387,6 @@ export default async function handler(req,res){
     const raw=(req.query.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean).slice(0,60);
     if(!raw.length) return res.status(400).json({error:'Cal indicar ?symbols=PLTR,CRM,...'});
     const feedInfo=await chooseHistoricalFeed();
-    activeHistoryFeed=feedInfo.feed;
-    activeHistoryCutoff=feedInfo.cutoff;
     const startDay=addDays(new Date(),-130);
     const startIntraday=addDays(new Date(),-60);
     const benchSymbols=[...new Set(raw.map(s=>BENCHMARK[s]||'QQQ'))];
@@ -398,15 +395,15 @@ export default async function handler(req,res){
     // Alpaca aplica el límit al conjunt de símbols i, amb ETFs, podia
     // truncar la resposta i deixar RS buit. Els demanem individualment.
     const [d,h4,h1] = await Promise.all([
-      fetchBars(raw,'1Day',startDay,10000),
-      fetchBars(raw,'4Hour',startIntraday,10000),
-      fetchBars(raw,'1Hour',startIntraday,10000)
+      fetchBars(raw,'1Day',startDay,10000,feedInfo.feed,feedInfo.cutoff),
+      fetchBars(raw,'4Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff),
+      fetchBars(raw,'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff)
     ]);
 
     const bh1 = {};
     await Promise.all(benchSymbols.map(async (b) => {
       try {
-        const one = await fetchBars([b],'1Hour',startIntraday,10000);
+        const one = await fetchBars([b],'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff);
         bh1[b] = one[b] || [];
       } catch (_) {
         bh1[b] = [];
@@ -417,7 +414,7 @@ export default async function handler(req,res){
     // (p. ex. algun ETF sectorial), fem servir QQQ.
     if ((bh1.QQQ?.length || 0) < 21) {
       try {
-        const q = await fetchBars(['QQQ'],'1Hour',startIntraday,10000);
+        const q = await fetchBars(['QQQ'],'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff);
         bh1.QQQ = q.QQQ || [];
       } catch (_) {}
     }
@@ -433,7 +430,7 @@ export default async function handler(req,res){
     for(let i=0;i<retryTasks.length;i+=5){
       await Promise.all(retryTasks.slice(i,i+5).map(async t=>{
         try{
-          const result=await fetchBars([t.sym],t.tf,t.start,10000);
+          const result=await fetchBars([t.sym],t.tf,t.start,10000,feedInfo.feed,feedInfo.cutoff);
           if((result[t.sym]?.length||0)>(t.collection[t.sym]?.length||0))t.collection[t.sym]=result[t.sym];
         }catch(e){retryErrors.push(t.sym+' '+t.tf+': '+String(e.message||e).slice(0,80))}
       }));
@@ -441,7 +438,7 @@ export default async function handler(req,res){
     // Limit extra provider requests: 30m confirmation only for leading 20 candidates.
     const top30=raw.map(symbol=>({symbol,pre:compute(symbol,d[symbol]||[],h4[symbol]||[],h1[symbol]||[],bh1[BENCHMARK[symbol]||'QQQ']||bh1.QQQ||[])})).filter(x=>Number.isFinite(x.pre.radarScore)).sort((a,b)=>b.pre.radarScore-a.pre.radarScore).slice(0,20).map(x=>x.symbol);
     let m30={};
-    try{m30=await fetchBars(top30,'30Min',addDays(new Date(),-14),5000)}catch(_){m30={}}
+    try{m30=await fetchBars(top30,'30Min',addDays(new Date(),-14),5000,feedInfo.feed,feedInfo.cutoff)}catch(_){m30={}}
     const out=raw.map(s=>{
       const preferred = BENCHMARK[s] || 'QQQ';
       const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
@@ -450,13 +447,13 @@ export default async function handler(req,res){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
         r.dataCounts=counts;
         r.dataState = counts.d>=25 && (counts.h4<25 || counts.h1<25)
-          ? 'DADES 1D OK · intradia IEX insuficient'
+          ? 'DADES 1D OK · intradia '+feedInfo.feed.toUpperCase()+' insuficient'
           : 'HISTÒRIC INSUFICIENT';
       }
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.5 · SIP retardat amb alternativa IEX',coverage:{historicalFeed:activeHistoryFeed,sipAvailable:activeHistoryFeed==='sip',feedReason:feedInfo.reason||null,requested:raw.length,analyzed:out.filter(x=>x.status!=='SENSE DADES').length,missing:out.filter(x=>x.status==='SENSE DADES').length,retryRequests:retryTasks.length,retryErrors:retryErrors.slice(0,12)},results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.5 · SIP retardat amb alternativa IEX',coverage:{historicalFeed:feedInfo.feed,sipAvailable:feedInfo.feed==='sip',feedReason:feedInfo.reason||null,requested:raw.length,analyzed:out.filter(x=>x.status!=='SENSE DADES').length,missing:out.filter(x=>x.status==='SENSE DADES').length,retryRequests:retryTasks.length,retryErrors:retryErrors.slice(0,12)},results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
