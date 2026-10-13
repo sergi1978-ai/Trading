@@ -320,60 +320,87 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   if(age>=11) radarScore=clamp(radarScore-10,0,100);
   else if(age>=7) radarScore=clamp(radarScore-6,0,100);
   else if(age>=4) radarScore=clamp(radarScore-2,0,100);
-  // Pine v6.6.18-inspired reference diagnostics, not an identical TradingView signal.
-  const pineBase=h4Bars.slice(-9,-1);
-  const pineBaseHigh=Math.max(...pineBase.map(x=>x.h)),pineBaseLow=Math.min(...pineBase.map(x=>x.l));
-  const pineBaseOK=(pineBaseHigh-pineBaseLow)<=4*a4;
-  const pineDailyOK=d.c>d50;
-  const pineTrendOK=h4.c>h450&&h420>h450;
-  const pineExtensionOK=h1.c<=h420+2*a4;
-  const pineLiquidityOK=Number.isFinite(dollarVolume20)&&dollarVolume20>=1e6;
-  const pineMinTick=Math.max(h1.c*.00001,.000001);
-  const pineBreakEntry=pineBaseHigh+pineMinTick;
-  const pineBreakStop=Math.min(...h4Bars.slice(-7,-1).map(x=>x.l))-.2*a4;
-  const pinePullEntry=Math.max(h1Bars.at(-2).h+pineMinTick,h420);
-  const pinePullStop=Math.min(...h1Bars.slice(-3).map(x=>x.l))-.2*a4;
-  const pinePullLocation=h1.l<=h420+.25*a4&&h1.l>=h450-.5*a4;
+  // v6.6.18 comparison: only completed context candles; keep historical state web-only.
+  // TradingView indicator uses security(1D/4H, close[1] etc.), not live 1D/4H.
+  const ctxD=dBars.slice(0,-1),ctx4=h4Bars.slice(0,-1);
+  const dRef=ctxD.at(-1),dPrev=ctxD.at(-2),four=ctx4.at(-1);
+  const emaPine=(values,n)=>{
+    if(values.length<n)return null;
+    let v=values.slice(0,n).reduce((a,b)=>a+b,0)/n;
+    for(let i=n;i<values.length;i++)v+=2/(n+1)*(values[i]-v);
+    return v;
+  };
+  const rmaPine=(values,n)=>{
+    if(values.length<n)return null;
+    let v=values.slice(0,n).reduce((a,b)=>a+b,0)/n;
+    for(let i=n;i<values.length;i++)v=(v*(n-1)+values[i])/n;
+    return v;
+  };
+  const trueRanges=ctx4.map((b,i)=>i?Math.max(b.h-b.l,Math.abs(b.h-ctx4[i-1].c),Math.abs(b.l-ctx4[i-1].c)):b.h-b.l);
+  const pineAtr4=rmaPine(trueRanges,14);
+  const pineE20=emaPine(ctx4.map(b=>b.c),20),pineE50=emaPine(ctx4.map(b=>b.c),50);
+  const pineD50=emaPine(ctxD.map(b=>b.c),50);
+  const pineD50Prev=emaPine(ctxD.slice(0,-1).map(b=>b.c),50);
+  const pineTurn=ctxD.length>=20?ctxD.slice(-20).reduce((n,b)=>n+b.c*b.v,0)/20:null;
+  const pineResistance=ctxD.length>=60?Math.max(...ctxD.slice(-60).map(b=>b.h)):null;
+  const pineBase=ctx4.slice(-8),wide=ctx4.slice(-24);
+  const pineBaseHigh=pineBase.length===8?Math.max(...pineBase.map(b=>b.h)):null;
+  const pineBaseLow=pineBase.length===8?Math.min(...pineBase.map(b=>b.l)):null;
+  const pineWideRange=wide.length===24?Math.max(...wide.map(b=>b.h))-Math.min(...wide.map(b=>b.l)):null;
+  const pineBaseOK=Number.isFinite(pineBaseHigh)&&Number.isFinite(pineAtr4)&&pineAtr4>0&&pineBaseHigh-pineBaseLow<=4*pineAtr4&&pineBaseHigh-pineBaseLow<=pineWideRange*.75;
+  const pineDailyOK=Number.isFinite(pineD50Prev)&&dRef.c>pineD50&&pineD50>=pineD50Prev;
+  const pineTrendOK=Number.isFinite(pineE50)&&four.c>pineE50&&pineE20>pineE50;
+  const pineExtensionOK=Number.isFinite(pineAtr4)&&h1.c<=pineE20+2*pineAtr4;
+  const pineLiquidityOK=Number.isFinite(pineTurn)&&pineTurn>=1e6;
+  const pineTick=h1.c>=1?.01:.0001; // approximate tick; broker-specific increments need reference data
+  const pineBreakEntry=Number.isFinite(pineBaseHigh)?pineBaseHigh+pineTick:null;
+  const pineLow6=ctx4.length>=6?Math.min(...ctx4.slice(-6).map(b=>b.l)):null;
+  const pineBreakStop=Number.isFinite(pineLow6)&&Number.isFinite(pineAtr4)?pineLow6-.2*pineAtr4:null;
+  const pinePullEntry=Math.max(h1Bars.at(-2).h+pineTick,pineE20||0);
+  const pineRecentLow=Math.min(...h1Bars.slice(-3).map(b=>b.l));
+  const pinePullStop=Number.isFinite(pineAtr4)?pineRecentLow-.2*pineAtr4:null;
+  const pinePullLocation=Number.isFinite(pineAtr4)&&pineRecentLow<=pineE20+.25*pineAtr4&&pineRecentLow>=pineE50-.5*pineAtr4;
   const pinePlan=(entry,sl)=>{
     const risk=entry-sl,cost=entry*.004;
-    const resistance=Math.max(...dBars.slice(-61,-1).map(x=>x.h));
-    const target=risk>0?Math.min(entry+2.5*risk,resistance>entry?resistance:Infinity):null;
-    const netRR=risk>0&&Number.isFinite(target)?(target-entry-cost)/(risk+cost):null;
-    return {entry,stop:sl,target,netRR,valid:risk>0&&sl>0&&risk/entry<=.10&&netRR>=2};
+    const target=Number.isFinite(pineResistance)&&Number.isFinite(risk)&&risk>0?Math.min(entry+2.5*risk,pineResistance>entry+pineTick?pineResistance:entry+2.5*risk):null;
+    const netRR=Number.isFinite(target)&&risk>0?(target-entry-cost)/(risk+cost):null;
+    return {entry,stop:sl,target,netRR,valid:Number.isFinite(entry)&&Number.isFinite(sl)&&risk>pineTick&&sl>0&&risk/entry<=.10&&netRR>=2};
   };
   const pineB=pinePlan(pineBreakEntry,pineBreakStop),pineP=pinePlan(pinePullEntry,pinePullStop);
   const pineContextOK=pineDailyOK&&pineTrendOK&&pineExtensionOK&&pineLiquidityOK;
   const pineBreakReady=pineContextOK&&pineBaseOK&&pineB.valid;
   const pinePullReady=pineContextOK&&pinePullLocation&&pineP.valid;
-  const pineBreakEvent=h1.c>pineBreakEntry&&h1Bars.at(-2).c<=pineBreakEntry&&h1.c>h1.o&&rvol>=1.1;
-  const pinePullEvent=h1.c>pinePullEntry&&h1.c>h1.o&&rvol>=.8;
-  const pineReferenceRoute=pineBreakReady&&pineBreakEvent?'RUPTURA':pinePullReady&&pinePullEvent?'RETROCES':pineBreakReady?'RUPTURA':pinePullReady?'RETROCES':null;
-  const pineReferenceState=pineBreakReady&&pineBreakEvent||pinePullReady&&pinePullEvent?'CANDIDAT CONFIRMAT':pineReferenceRoute?'PLA PREPARAT':'SENSE PLA VALID';
+  const pineBreakEvent=Number.isFinite(pineBreakEntry)&&h1.c>pineBreakEntry&&h1Bars.at(-2).c<=pineBreakEntry&&h1.c>h1.o&&Number.isFinite(rvol)&&rvol>=1.1;
+  const pinePullEvent=h1.c>pinePullEntry&&h1.c>h1.o&&Number.isFinite(rvol)&&rvol>=.8;
+  const pineConfirmedRoute=pineBreakReady&&pineBreakEvent?'RUPTURA':pinePullReady&&pinePullEvent?'RETROCES':null;
+  const pineReferenceRoute=pineConfirmedRoute||(pineBreakReady?'RUPTURA':pinePullReady?'RETROCES':null);
+  const pineReferenceState=pineConfirmedRoute?'CANDIDAT CONFIRMAT':pineReferenceRoute?'PLA PREPARAT':'SENSE PLA VALID';
   const pineReferencePlan=pineReferenceRoute==='RUPTURA'?pineB:pineReferenceRoute==='RETROCES'?pineP:null;
-  // Conservative status gate: the earlier proprietary radar could show A/A+
-  // even when the Pine 6.6.18-inspired plan was invalid or lacked 1H volume.
-  // Pine reference is approximate; NEVER claim a TradingView-confirmed signal.
-  const pineEntryConfirmed=pineReferenceState==='CANDIDAT CONFIRMAT'&&Number.isFinite(rvol)&&rvol>=.8;
+  const pineEntryConfirmed=!!pineConfirmedRoute;
   const pinePlanValid=!!pineReferencePlan?.valid;
   const pineBlockedReason=!pinePlanValid?'Cap pla executable amb R:R net mínim 2':!pineEntryConfirmed?'Falta confirmació de ruptura/retrocés i volum 1H':null;
+  // Do not infer TV CONFIRMED from an independent, delayed consolidated feed.
+  const pineParity='APROXIMACIÓ · ESPelMES I SESSIÓ NO VERIFICADES';
+  const pineChecks=[
+    {name:'Tendència diària 1D',pass:pineDailyOK},
+    {name:'Tendència i base 4H',pass:pineTrendOK&&(pineBaseOK||pinePullLocation)},
+    {name:'Confirmació 1H',pass:pineEntryConfirmed},
+    {name:'Volum 1H',pass:Number.isFinite(rvol)&&rvol>=(pineConfirmedRoute==='RETROCES'?.8:1.1)},
+    {name:'Benefici/risc net >=2',pass:pinePlanValid}
+  ];
+  // REVIEW status requires verified plan and confirmation. All web-only grades remain provisional.
   if(['A+','A','READY'].includes(status)){
     if(!pinePlanValid){
-      status='WATCH';
-      auth='NO';
-      actionNow='SENSE PLA EXECUTABLE · VIGILAR';
-      radarScore=clamp(radarScore-24,0,100);
+      status='WATCH';auth='NO';actionNow='SENSE PLA EXECUTABLE · VIGILAR';radarScore=clamp(radarScore-24,0,100);
     }else if(!pineEntryConfirmed&&['A+','A'].includes(status)){
-      status='PRE';
-      auth='NO';
-      actionNow='FALTA CONFIRMACIÓ 1H · ESPERAR';
-      radarScore=clamp(radarScore-16,0,100);
+      status='PRE';auth='NO';actionNow='FALTA CONFIRMACIÓ 1H · ESPERAR';radarScore=clamp(radarScore-16,0,100);
     }
   }
   const dayChange=pct(d.c, dBars[dBars.length-2].c);
 
   return {
     symbol,
-    pineEntryConfirmed,pinePlanValid,pineBlockedReason,
+    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
     technicalPrice:h1.c,
     price:h1.c,
