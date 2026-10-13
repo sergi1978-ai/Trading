@@ -303,7 +303,7 @@ async function cryptoScan(){
  cryptoScanning=true;b.disabled=true;b.textContent='Analitzant '+symbols.length+' altcoins…';
  try{
   let processed=0;
-  const batches=[];for(let i=0;i<symbols.length;i+=2)batches.push(symbols.slice(i,i+2));
+  const batches=[];for(let i=0;i<symbols.length;i++)batches.push(symbols.slice(i,i+1));
   for(const batch of batches){
    try{
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),24000);
