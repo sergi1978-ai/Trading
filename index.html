@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v3.4</title>
+<title>Trading 2026 · Radar v3.4.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -84,7 +84,7 @@ td{color:#344256;border-color:#e9edf3}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v3.4</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v3.4.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Navegació Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Radar accions</button><button class="tab" data-tab="top" role="tab" aria-selected="false">★ Top 10 accions</button><button class="tab" data-tab="near" role="tab" aria-selected="false">↗ Entrades accions</button><button class="tab" data-tab="sectors" role="tab" aria-selected="false">▤ Sectors</button><button class="tab" data-tab="discoverStocks" role="tab" aria-selected="false">✦ Descobrir accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Radar altcoins</button></div>
@@ -190,7 +190,9 @@ async function scan(){
    let ej={results:{}};
    try { ej=await er.json(); } catch(_){}
    const map=Object.fromEntries((j.results||[]).map(x=>[x.symbol,x]));
-   document.getElementById('feedHealth').textContent=er.ok?'Alpaca IEX: '+Object.values(ej.results||{}).filter(x=>Number.isFinite(x.extendedPrice)).length+'/'+META.length+' cotitzacions recents (≈ preu indicatiu)':'Alpaca IEX no disponible · preus tècnics separats';
+   const cov=j.coverage;
+   if(cov)document.getElementById('updated').title='Cobertura: '+cov.analyzed+'/'+cov.requested+' anàlisis completes · '+cov.missing+' sense dades · '+cov.retryRequests+' reintents';
+   document.getElementById('feedHealth').textContent=(j.coverage?'Històric '+j.coverage.analyzed+'/'+j.coverage.requested+' · '+j.coverage.missing+' sense dades · ':'')+(er.ok?'IEX '+Object.values(ej.results||{}).filter(x=>Number.isFinite(x.extendedPrice)).length+'/'+META.length+' cotitzacions recents (≈ indicatiu)':'Preus live no disponibles');
    rows=META.map(m=>{
      const base={...m,...(map[m.ticker]||{})};
      const ex=(ej.results||{})[m.ticker]||{};
