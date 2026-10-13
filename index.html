@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.8</title>
+<title>Trading 2026 · Radar v4.9</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -142,10 +142,12 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 /* v4.7 concise first-look equities */
 .simplebox table{min-width:850px}.simplebox td,.simplebox th{padding:11px 13px!important;white-space:nowrap!important;line-height:1.25!important}.simplebox .simple-sector{font-size:11px!important;margin-top:3px}.simplebox .status{font-size:11px}.simplebox tbody tr{height:55px}.simplebox .open-detail{font-size:14px}
 .risk-calc-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.risk-calc-inputs label{color:#c8d7e9;font-size:12px}.risk-calc-inputs input{display:block;width:100%;margin-top:5px}.risk-calc-result{margin-top:12px}.risk-calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:10px}.risk-calc-metrics>div{border:1px solid #405b78;background:#182a40;border-radius:10px;padding:10px}.risk-calc-metrics small{display:block;color:#bed0e6;font-size:11px}.risk-calc-metrics strong{display:block;font-size:18px;color:#fff;margin-top:5px}@media(max-width:580px){.risk-calc-inputs{grid-template-columns:1fr}}
+
+.score-badge{display:inline-block;min-width:45px;text-align:center;border:1px solid;border-radius:8px;padding:5px 9px;font-weight:850;font-variant-numeric:tabular-nums}.score-excellent{background:#104638;color:#7cf5c4;border-color:#2ca785}.score-good{background:#204a34;color:#a9f2a9;border-color:#579b66}.score-wait{background:#56451d;color:#ffe08b;border-color:#a8873b}.score-low{background:#593722;color:#ffbe89;border-color:#a96b40}.score-poor{background:#532938;color:#ffacbc;border-color:#a85270}.score-na{background:#28374b;color:#c3d2e7;border-color:#50627c}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.8</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.9</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -232,6 +234,7 @@ async function loadCompany(ticker){
    <p class="small"><a href="${safe(c.source)}" target="_blank" rel="noopener noreferrer">Font: SEC · dades oficials XBRL ↗</a></p>`;
  }catch(e){if(box.isConnected)box.innerHTML=`<h3>Empresa i notícies</h3><p><strong>Dades no disponibles</strong></p><p class="small">${safe(e.message)}. No hi ha valoració empresarial verificable en aquesta fitxa.</p>`;}
 }
+function scoreBadge(v){const cls=!Number.isFinite(v)?'score-na':v>=85?'score-excellent':v>=70?'score-good':v>=55?'score-wait':v>=40?'score-low':'score-poor';return '<span class="score-badge '+cls+'" title="Puntuació orientativa; no és una probabilitat de guany">'+(Number.isFinite(v)?Math.round(v):'—')+'</span>'}
 function render(){
  const sortMode=document.getElementById('radarSort').value,quoteOnly=document.getElementById('quoteOnly').value;
  const q=document.getElementById('search').value.toLowerCase(), sf=document.getElementById('sectorFilter').value, st=document.getElementById('statusFilter').value, rf=document.getElementById('riskFilter').value, df=Number(document.getElementById('divFilter').value||0);
