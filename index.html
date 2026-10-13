@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v3.7</title>
+<title>Trading 2026 · Radar v3.8</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -84,7 +84,7 @@ td{color:#344256;border-color:#e9edf3}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v3.7</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v3.8</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Navegació Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Radar accions</button><button class="tab" data-tab="top" role="tab" aria-selected="false">★ Top 10 accions</button><button class="tab" data-tab="near" role="tab" aria-selected="false">↗ Entrades accions</button><button class="tab" data-tab="sectors" role="tab" aria-selected="false">▤ Sectors</button><button class="tab" data-tab="discoverStocks" role="tab" aria-selected="false">✦ Descobrir accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Radar altcoins</button></div>
@@ -102,11 +102,11 @@ td{color:#344256;border-color:#e9edf3}
 <section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Acció</th><th>Radar</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Últim preu recent</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
 <section id="sectorsTab" hidden><div class="sectorgrid" id="sectorGrid"></div></section>
 <section id="discoverTab" hidden><div class="discover-header"><div><h2 id="discoveryTitle">Altcoins · Oportunitats i impuls</h2><div class="discover-note">Preselecció de mercat, separada dels senyals del motor. No equival a una entrada del Pine.</div></div><button id="discoverBtn" class="btn primary" type="button">₿ Cercar altcoins</button><button id="cryptoScanBtn" class="btn" type="button">Analitzar totes les altcoins</button></div><div class="toolbar"><span class="pill" id="discoverInfo" role="status" aria-live="polite">Prem «Cercar candidats» per començar</span></div>
-<div class="market-stats" id="cryptoStats" aria-label="Estat de les criptomonedes"></div><div id="cryptoTopSlot"></div>
+<div id="cryptoAlerts" role="status" aria-live="polite" style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0"></div><div class="market-stats" id="cryptoStats" aria-label="Estat de les criptomonedes"></div><div id="cryptoTopSlot"></div>
 <div class="nav-discovery"><button class="btn active" id="cryptoOpportunity" type="button">◎ Oportunitats</button><button class="btn" id="cryptoMomentum" type="button">↗ Impuls 24h</button><button class="btn" id="cryptoWatchMode" type="button">★ La meva llista</button><input id="cryptoWatchInput" placeholder="Afegir ticker (SOL, ONDO...)" aria-label="Ticker per seguir" style="max-width:220px"><button class="btn" id="cryptoWatchAdd" type="button">+ Afegir</button></div>
 <div class="discover-controls"><input id="cryptoQuery" placeholder="Buscar criptomoneda…" aria-label="Buscar criptomoneda"><select id="cryptoState"><option value="">Tots els estats</option><option value="A">A / A+</option><option value="READY">READY</option><option value="PRE">PRE</option><option value="WATCH">WATCH</option><option value="NO PERSEGUIR">No perseguir</option><option value="PENDENT">Pendent</option><option value="SENSE DADES">Sense dades</option></select><select id="cryptoScore"><option value="0">Qualsevol score</option><option value="40">≥ 40</option><option value="60">≥ 60</option><option value="80">≥ 80</option></select><select id="cryptoProvider"><option value="">Tots els proveïdors</option><option value="Coinbase">Coinbase</option><option value="Kraken">Kraken</option></select><button class="btn" id="cryptoReset" type="button">Netejar filtres</button></div>
 <div class="discover-grid">
-<article class="discover-panel"><h3>Accions · Estats Units</h3><p>Descoberta per activitat de mercat. Incorpora una candidata al radar Alpaca per obtenir-ne indicadors tècnics.</p><div class="tablebox"><table><thead><tr><th>Actiu</th><th>Preu</th><th>Variació</th><th>Seguiment</th></tr></thead><tbody id="discoverStocks"><tr><td colspan="4">Sense consulta</td></tr></tbody></table></div></article>
+<article class="discover-panel"><h3>Accions · Estats Units</h3><p>Descoberta per activitat de mercat. Incorpora una candidata al radar Alpaca per obtenir-ne indicadors tècnics.</p><div class="tablebox"><table><thead><tr><th>Actiu</th><th>Preu</th><th>Variació</th><th>Seguiment</th><th>Trigger %</th><th>RVOL</th><th>Últim canvi</th></tr></thead><tbody id="discoverStocks"><tr><td colspan="4">Sense consulta</td></tr></tbody></table></div></article>
 <article class="discover-panel"><h3>Criptomonedes · Coinbase / Kraken</h3><p>Top candidats per volum i moviment, amb cotització Coinbase USD/USDC. No són estats PRE/READY verificats; comprova el gràfic abans de decidir.</p><div class="tablebox"><table><thead><tr><th>Altcoin</th><th>Preu</th><th>24h</th><th>Estat</th><th>Score</th><th>Decisió / Motiu</th><th>Entrada</th><th>Stop</th><th>TP1</th><th>Gràfic</th><th>Seguiment</th></tr></thead><tbody id="discoverCrypto"><tr><td colspan="10">Sense consulta</td></tr></tbody></table></div></article>
 </div></section>
 </div>
@@ -232,6 +232,28 @@ function persistCryptoWatch(){localStorage.setItem(CRYPTO_WATCH_KEY,JSON.stringi
 function watchCandidate(symbol){return discoveredCrypto.find(x=>x.symbol===symbol)||{symbol,name:symbol,price:cryptoSignals[symbol]?.price??NaN,changePct:0,source:'Seguiment'}}
 function mergeWatchCandidates(coins){const map=new Map((coins||[]).map(x=>[x.symbol,x]));for(const symbol of cryptoWatch)if(!map.has(symbol))map.set(symbol,watchCandidate(symbol));return [...map.values()]}
 
+const CRYPTO_HISTORY_KEY='trading2026_crypto_history_v1';
+let cryptoHistory={};
+try{const obj=JSON.parse(localStorage.getItem(CRYPTO_HISTORY_KEY)||'{}');if(obj&&typeof obj==='object')cryptoHistory=obj}catch(_){}
+function saveCryptoObservation(x){
+ if(!x||!x.symbol)return;
+ const symbol=x.symbol,prev=(cryptoHistory[symbol]||[]).at(-1);
+ const entry={time:Date.now(),status:x.status||'SENSE DADES',price:x.price,trigger:x.trigger,stop:x.stop,rvol:x.rvol,score:x.score};
+ if(prev&&prev.status===entry.status&&Math.abs((prev.price||0)-(entry.price||0))<.000001)return;
+ cryptoHistory[symbol]=[...(cryptoHistory[symbol]||[]),entry].slice(-30);
+ const keys=Object.keys(cryptoHistory);if(keys.length>140)for(const key of keys.slice(0,keys.length-140))delete cryptoHistory[key];
+ try{localStorage.setItem(CRYPTO_HISTORY_KEY,JSON.stringify(cryptoHistory))}catch(_){}
+ if(prev&&prev.status!==entry.status&&cryptoWatch.includes(symbol)){
+  const el=document.getElementById('cryptoAlerts');
+  if(el){const alert=document.createElement('div');alert.className='pill';alert.textContent='★ '+symbol+': '+prev.status+' → '+entry.status+' · '+new Date().toLocaleTimeString('ca-ES');el.prepend(alert);while(el.children.length>5)el.lastElementChild.remove()}
+ }
+}
+function cryptoHistoryText(symbol){
+ const history=cryptoHistory[symbol]||[];
+ if(!history.length)return 'Sense historial';
+ const last=history.at(-1),previous=history.length>1?history.at(-2):null;
+ return (previous&&previous.status!==last.status?previous.status+' → ':'')+last.status+' · '+new Date(last.time).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
 function renderTop10(){
  const weight={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
  const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.trigger)&&Number.isFinite(r.stop)).sort((a,b)=>(weight[b.status]??0)-(weight[a.status]??0)||(b.radarScore||0)-(a.radarScore||0)).slice(0,10);
@@ -269,8 +291,8 @@ function paintCrypto(){
   const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent((a?.source||x.source||'').includes('Kraken')?'KRAKEN:'+pair.replace('-',''):'COINBASE:'+pair.replace('-',''));
   const reason=safe((t.failed||a?.reason||(!a?'Encara no analitzada':'Senyal orientatiu, validar al gràfic'))+(a?.pineReferenceState?' · Ref. Pine 6.6.18: '+a.pineReferenceState:'')+(a?.thirtyConfirm?' · Confirmació 30m':'')+(a?.volumeSupport4H?' · Suport 4H amb volum':'')+(Number.isFinite(a?.confidenceGrade)?' · Filtres '+a.confidenceGrade+'/7':'')+(Number.isFinite(a?.riskRewardToResistance)?' · R:R resistència '+a.riskRewardToResistance.toFixed(1):''));
   const digits=Number(x.price)<1?5:2;
-  return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),digits)+' $</td><td class="'+(Number(x.changePct)>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td class="score-number">'+(t.score===null?'—':t.score+'/100')+'</td><td><strong>'+safe(t.decision)+'</strong><div class="detail-reason" title="'+reason+'">'+reason+'</div></td><td>'+fmt(a?.trigger,5)+'</td><td>'+fmt(a?.stop,5)+'</td><td>'+fmt(a?.tp1,5)+'</td><td><a class="action-link" href="'+link+'" target="_blank" rel="noopener noreferrer">Gràfic ↗</a></td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">'+(cryptoWatch.includes(x.symbol)?'★ Treure':'☆ Seguir')+'</button></td></tr>';
- }).join(''):'<tr><td colspan="11">No hi ha criptomonedes que compleixin aquests filtres.</td></tr>';
+  return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),digits)+' $</td><td class="'+(Number(x.changePct)>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td class="score-number">'+(t.score===null?'—':t.score+'/100')+'</td><td><strong>'+safe(t.decision)+'</strong><div class="detail-reason" title="'+reason+'">'+reason+'</div></td><td>'+fmt(a?.trigger,5)+'</td><td>'+fmt(a?.stop,5)+'</td><td>'+fmt(a?.tp1,5)+'</td><td><a class="action-link" href="'+link+'" target="_blank" rel="noopener noreferrer">Gràfic ↗</a></td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">'+(cryptoWatch.includes(x.symbol)?'★ Treure':'☆ Seguir')+'</button></td><td>'+(a&&Number.isFinite(a.trigger)&&a.trigger>0&&Number.isFinite(a.price)?fmt((a.trigger/a.price-1)*100,2)+'%':'—')+'</td><td>'+(Number.isFinite(a?.rvol)?fmt(a.rvol,2)+'×':'—')+'</td><td>'+safe(cryptoHistoryText(x.symbol))+'</td></tr>';
+ }).join(''):'<tr><td colspan="14">No hi ha criptomonedes que compleixin aquests filtres.</td></tr>';
 }
 ['cryptoQuery','cryptoState','cryptoScore','cryptoProvider'].forEach(id=>document.getElementById(id).addEventListener('input',paintCrypto));
 document.getElementById('cryptoReset').onclick=()=>{document.getElementById('cryptoQuery').value='';['cryptoState','cryptoProvider'].forEach(id=>document.getElementById(id).value='');document.getElementById('cryptoScore').value='0';paintCrypto()};
@@ -312,7 +334,7 @@ async function cryptoScan(){
     finally{clearTimeout(timeout)}
     const data=await response.json();if(!response.ok)throw Error(data.error||'HTTP '+response.status);
     const received=new Set();
-    for(const x of data.results||[]){if(!batch.includes(x.symbol))continue;cryptoSignals[x.symbol]=x;delete cryptoFailures[x.symbol];received.add(x.symbol)}
+    for(const x of data.results||[]){if(!batch.includes(x.symbol))continue;cryptoSignals[x.symbol]=x;delete cryptoFailures[x.symbol];saveCryptoObservation(x);received.add(x.symbol)}
     for(const x of data.errors||[]){if(!batch.includes(x.symbol))continue;cryptoFailures[x.symbol]=x.message||'Històric insuficient';received.add(x.symbol)}
     for(const symbol of batch)if(!received.has(symbol))cryptoFailures[symbol]='El proveïdor no ha retornat cap resultat';
    }catch(err){for(const symbol of batch)cryptoFailures[symbol]=err.name==='AbortError'?'Temps de resposta esgotat':String(err.message||err)}
