@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.14</title>
+<title>Trading 2026 · Radar v4.15</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -259,7 +259,7 @@ function render(){
   const noData=r.status==='SENSE DADES'||!Number.isFinite(r.technicalPrice);
   const dist=Number.isFinite(r.distToTrigger)?(r.distToTrigger<=0?'Superat':fmt(r.distToTrigger,1)+'%'):'—';
   const rr=Number.isFinite(r.pineReferenceNetRR)?fmt(r.pineReferenceNetRR,1):'—';
-  const tip=safe([r.actionNow,r.pineBlockedReason,r.pineReferenceState,r.volumeLabel].filter(Boolean).join(' · '));
+  const tip=safe([r.dataState,r.error,r.actionNow,r.pineBlockedReason,r.pineReferenceState,r.volumeLabel].filter(Boolean).join(' · '));
   return '<tr title="'+tip+'"><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+' ↗</button><div class="muted simple-sector">'+safe(r.sector||'')+'</div></td><td><span class="status '+statusClass(r.status)+'">'+status+'</span></td><td class="score">'+scoreBadge(r.radarScore)+'</td><td>'+fmt(r.livePriceAvailable?r.price:r.technicalPrice)+'</td><td>'+fmt(r.trigger)+'</td><td class="'+(r.distToTrigger<=2?'near':'')+'">'+dist+'</td><td>'+volumeArrow(r)+'</td><td class="'+(r.pineReferenceNetRR>=2?'good':'')+'">'+rr+'</td></tr>';
  }).join('')||'<tr><td colspan="8">No hi ha resultats amb aquests filtres.</td></tr>';
  document.getElementById('tbody').innerHTML=f.map(r=>`<tr><td class=ticker><button class="open-detail" data-ticker="${safe(r.ticker)}">${safe(r.ticker)} ↗</button></td><td>${r.livePriceAvailable?fmt(r.price)+(r.extendedIndicative?' ≈':''):'—'}</td><td class="${r.dayChange>=0?'pos':'neg'}">${Number.isFinite(r.dayChange)?fmt(r.dayChange,2)+'%':'—'}</td><td><span class="action">${safe(r.actionNow||'—')}</span></td><td class="score">${scoreBadge(r.radarScore)}</td><td class="${(r.rsMarket||0)>=0?'good':'bad'}">${Number.isFinite(r.rsMarket)?fmt(r.rsMarket,1)+'%':'—'}</td><td class="${(r.rvol||0)>=1.3?'good':''}">${Number.isFinite(r.rvol)?fmt(r.rvol,2)+'x':'—'}</td><td>${safe(r.volumeLabel||'—')}</td><td><span class="sess ${(r.session||'TANCAT').replaceAll(' ','_')}">${safe(r.session||'—')}</span></td><td>${fmt(r.technicalPrice)}</td><td class="${(r.extendedChangePct||0)>=0?'pos':'neg'}">${Number.isFinite(r.extendedChangePct)?fmt(r.extendedChangePct,2)+'%':'—'}</td><td class=muted>${safe(r.extendedActivity||'—')}</td><td>${safe(r.sector)}</td><td class=muted>${safe(r.theme)}</td><td>${fmt(r.dividend,1)}%</td><td>${safe(r.risk)}</td><td><span class="status ${statusClass(r.status)}">${safe(r.status||'SENSE DADES')}</span>${r.dataState?`<div class="muted" style="margin-top:4px;font-size:10px">${safe(r.dataState)}</div>`:''}</td><td>${scoreBadge(r.entryQuality)}</td><td>${fmt(r.trendScore,0)}</td><td>${Number.isFinite(r.zoneLow)?fmt(r.zoneLow)+'–'+fmt(r.zoneHigh):'—'}</td><td>${fmt(r.trigger)}</td><td class="${r.distToTrigger<=2?'near':''}">${Number.isFinite(r.distToTrigger)?(r.distToTrigger<=0?'superat':fmt(r.distToTrigger,2)+'%'):'—'}</td><td>${safe(r.ageLabel||'—')}${Number.isFinite(r.ageHours)?' · '+r.ageHours+'h':''}</td><td>${fmt(r.stop)}</td><td>${Number.isFinite(r.stopPct)?fmt(r.stopPct,1)+'%':'—'}</td><td>${fmt(r.rr,1)}</td><td>${r.supportType?`${safe(r.supportType)} · ${safe(r.supportStrength)}`: '—'}</td></tr>`).join('');
@@ -281,15 +281,18 @@ async function scan(){
  const btn=document.getElementById('scanBtn'); btn.disabled=true; btn.textContent='Escanejant…';
  try{
    const allSymbols=[...new Set(META.map(x=>x.ticker))];
-   const batches=[];for(let i=0;i<allSymbols.length;i+=25)batches.push(allSymbols.slice(i,i+25));
+   const batches=[];for(let i=0;i<allSymbols.length;i+=10)batches.push(allSymbols.slice(i,i+10));
    const combined=[],quotes={},coverages=[],failures=[];
-   for(const symbols of batches){
+   for(const [batchIndex,symbols] of batches.entries()){
+     document.getElementById('updated').textContent='Analitzant lot '+(batchIndex+1)+'/'+batches.length;
      const syms=symbols.join(',');
      const [r,er]=await Promise.all([
        fetch('/api/scan?symbols='+encodeURIComponent(syms),{cache:'no-store'}),
        fetch('/api/extended?symbols='+encodeURIComponent(syms),{cache:'no-store'})
      ]);
-     const jPart=await r.json();if(!r.ok)throw new Error(jPart.error||'Error escàner');
+     let jPart;
+     try{jPart=await r.json();if(!r.ok)throw new Error(jPart.error||'Error escàner')}
+     catch(err){failures.push('scan '+syms+': '+String(err.message||err));continue}
      combined.push(...(jPart.results||[]));if(jPart.coverage)coverages.push(jPart.coverage);
      if(er.ok){try{const qPart=await er.json();Object.assign(quotes,qPart.results||{})}catch(_){failures.push('quotes')}}
      else failures.push('quotes');
@@ -308,7 +311,10 @@ async function scan(){
    if(cov)document.getElementById('updated').title='Cobertura: '+cov.analyzed+'/'+cov.requested+' anàlisis completes · '+cov.missing+' sense dades · '+cov.retryRequests+' reintents';
    document.getElementById('feedHealth').textContent=(j.coverage?'Històric '+(j.coverage.historicalFeed||'iex').toUpperCase()+' '+j.coverage.analyzed+'/'+j.coverage.requested+' · '+j.coverage.missing+' sense dades'+(j.coverage.feedReason?' (SIP no disponible)':'')+' · ':'')+(er.ok?'IEX '+Object.values(ej.results||{}).filter(x=>Number.isFinite(x.extendedPrice)).length+'/'+META.length+' cotitzacions recents (≈ indicatiu)':'Preus live no disponibles');
    rows=META.map(m=>{
-     const base={...m,...(map[m.ticker]||{})};
+     const old=rows.find(x=>x.ticker===m.ticker)||{};
+     const fresh=map[m.ticker];
+     const base={...m,...(!fresh&&Number.isFinite(old.radarScore)?old:{}),...(fresh||{})};
+     if(!fresh&&Number.isFinite(old.radarScore))base.dataState='ÚLTIMA ANÀLISI DESADA · actualització pendent';
      const ex=(ej.results||{})[m.ticker]||{};
      const ep=ex.extendedPrice;
      const edt=(Number.isFinite(ep)&&Number.isFinite(base.trigger)&&base.trigger!==0)
@@ -654,5 +660,5 @@ let activeStockCard='all';
 discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
-render(); scan(); setInterval(scan,60000);
+render(); scan(); setInterval(scan,15*60*1000);
 </script></body></html>
