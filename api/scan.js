@@ -100,7 +100,7 @@ function latestCompleted(bars, tf){
   if(!bars?.length) return bars||[];
   if(tf === '1Day') return bars;
   const now=Date.now();
-  const mins=tf==='1Hour'?60:tf==='4Hour'?240:60;
+  const mins=tf==='30Min'?30:tf==='1Hour'?60:tf==='4Hour'?240:60;
   const t=new Date(last(bars).t).getTime();
   if(now - t < mins*60*1000*0.9 && bars.length>1) return bars.slice(0,-1);
   return bars;
@@ -144,10 +144,11 @@ async function fetchBars(symbols, timeframe, start, limit=10000){
 }
 function addDays(d,n){ const x=new Date(d); x.setUTCDate(x.getUTCDate()+n); return x.toISOString(); }
 
-function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
+function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[]){
   const dBars=latestCompleted(dBarsRaw,'1Day');
   const h4Bars=latestCompleted(h4BarsRaw,'4Hour');
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
+  const m30=latestCompleted(m30Raw,'30Min');
   if(dBars.length<25 || h4Bars.length<25 || h1Bars.length<25) return {symbol,status:'SENSE DADES',error:`Històric insuficient (1D ${dBars.length} · 4H ${h4Bars.length} · 1H ${h1Bars.length})`};
 
   const dc=dBars.map(x=>x.c), c4=h4Bars.map(x=>x.c), c1=h1Bars.map(x=>x.c);
@@ -292,6 +293,16 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
     radarScore=clamp(radarScore-20,0,100);
   }
   const estimatedSuccessProbability=null; // No calibrated probability until historical walk-forward validation.
+  const thirty=m30.length>=22?m30.at(-1):null;
+  const thirtyPrev=m30.length>=22?m30.slice(-9,-1):[];
+  const thirtyVolumeAvg=m30.length>=22?sma(m30.slice(-21,-1).map(x=>x.v||0),20):null;
+  const thirtyRvol=thirty&&thirtyVolumeAvg>0?thirty.v/thirtyVolumeAvg:null;
+  const thirtyResistance=thirtyPrev.length?Math.max(...thirtyPrev.map(x=>x.h)):null;
+  const thirtyConfirm=!!(thirty&&thirty.c>thirty.o&&thirty.c>ema(m30.map(x=>x.c),20)&&Number.isFinite(thirtyRvol)&&thirtyRvol>=1.05);
+  const volumeSupport4H=Number.isFinite(volume.rvol4h)&&volume.rvol4h>=1.2&&Number.isFinite(support.v)&&Math.abs(h4.l-support.v)<=a4*0.7&&h4.c>support.v&&h4.c>=h4.o;
+  const technicalConfidence=confidenceGrade+(thirtyConfirm?1:0)+(volumeSupport4H?1:0);
+  // Confirmation 30m refines entry timing but never overrides a higher-timeframe risk block.
+  if(!riskBlocked&&thirty&&['READY','PRE'].includes(status)&&thirtyConfirm&&confidenceGrade>=5)radarScore=clamp(radarScore+4,0,100);
   let actionNow='ESPERA';
   if(status==='INVALIDAT') actionNow='INVALIDAT';
   else if(status==='NO SETUP') actionNow='NO SETUP';
@@ -331,7 +342,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[]){
     rr,target1,target2,
     ageHours:age,ageLabel,
     rsi1h:rsi1,rsi4h:rsi4,
-    rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,confidenceGrade,confidenceChecks:qualityChecks,estimatedSuccessProbability,riskBlocked,rrToResistance,stopDistancePct,dollarVolume20,liquidityKnown,...volume,
+    thirtyConfirm,thirtyRvol,thirtyResistance,volumeSupport4H,technicalConfidence,thirtyCoverage:m30.length,rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,confidenceGrade,confidenceChecks:qualityChecks,estimatedSuccessProbability,riskBlocked,rrToResistance,stopDistancePct,dollarVolume20,liquidityKnown,...volume,
     benchmark:BENCHMARK[symbol]||'QQQ',
     updatedAt:h1.t
   };
@@ -395,10 +406,14 @@ export default async function handler(req,res){
       h1[s] = await retryMissing(s,'1Hour',startIntraday,h1[s], 25);
     }
 
+    // Limit extra provider requests: 30m confirmation only for leading 20 candidates.
+    const top30=raw.map(s=>({symbol:s,last:h1[s]?.at(-1)?.c||0})).filter(x=>x.last>0).slice(0,20).map(x=>x.symbol);
+    let m30={};
+    try{m30=await fetchBars(top30,'30Min',addDays(new Date(),-14),5000)}catch(_){m30={}}
     const out=raw.map(s=>{
       const preferred = BENCHMARK[s] || 'QQQ';
       const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
-      const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars);
+      const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars,m30[s]||[]);
       if(r.status==='SENSE DADES'){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
         r.dataCounts=counts;
@@ -409,7 +424,7 @@ export default async function handler(req,res){
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v2.8.1',results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.3 · 30m + suport-volum',results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
