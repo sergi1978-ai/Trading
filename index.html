@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v3.5</title>
+<title>Trading 2026 · Radar v3.5.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -84,7 +84,7 @@ td{color:#344256;border-color:#e9edf3}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v3.5</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v3.5.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Navegació Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Radar accions</button><button class="tab" data-tab="top" role="tab" aria-selected="false">★ Top 10 accions</button><button class="tab" data-tab="near" role="tab" aria-selected="false">↗ Entrades accions</button><button class="tab" data-tab="sectors" role="tab" aria-selected="false">▤ Sectors</button><button class="tab" data-tab="discoverStocks" role="tab" aria-selected="false">✦ Descobrir accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Radar altcoins</button></div>
@@ -228,7 +228,7 @@ let discoveredCrypto=[],cryptoSignals={},cryptoFailures={};let cryptoScanning=fa
 function renderTop10(){
  const weight={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
  const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.trigger)&&Number.isFinite(r.stop)).sort((a,b)=>(weight[b.status]??0)-(weight[a.status]??0)||(b.radarScore||0)-(a.radarScore||0)).slice(0,10);
- document.getElementById('topStockBody').innerHTML=stocks.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button></td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status)+'</span></td><td>'+fmt(r.radarScore,0)+'</td><td>'+fmt(r.entryQuality,0)+'</td><td>'+fmt(r.technicalPrice)+'</td><td>'+(r.livePriceAvailable?fmt(r.extendedPrice)+(r.extendedIndicative?' ≈':''):'—')+'</td><td>'+fmt(r.trigger)+'</td><td>'+fmt(r.stop)+'</td><td>'+safe(r.actionNow||'Vigilar')+'</td></tr>').join('')||'<tr><td colspan="10">Esperant dades tècniques Alpaca</td></tr>';
+ document.getElementById('topStockBody').innerHTML=stocks.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button></td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status)+'</span></td><td>'+fmt(r.radarScore,0)+'</td><td>'+fmt(r.entryQuality,0)+'</td><td>'+fmt(r.technicalPrice)+'</td><td>'+(r.livePriceAvailable?fmt(r.extendedPrice)+(r.extendedIndicative?' ≈':''):'—')+'</td><td>'+fmt(r.trigger)+'</td><td>'+fmt(r.stop)+'</td><td>'+safe(r.actionNow||'Vigilar')+(r.pineBlockedReason?' · '+safe(r.pineBlockedReason):'')+'</td></tr>').join('')||'<tr><td colspan="10">Esperant dades tècniques Alpaca</td></tr>';
  const coins=discoveredCrypto.map(x=>({x,a:cryptoSignals[x.symbol]})).filter(v=>v.a&&Number.isFinite(v.a.score)).sort((a,b)=>(weight[b.a.status]??1)-(weight[a.a.status]??1)||(b.a.score||0)-(a.a.score||0)).slice(0,10);
  document.getElementById('topCryptoBody').innerHTML=coins.map(({x,a},i)=>'<tr><td>'+(i+1)+'</td><td>'+safe(x.symbol)+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.status)+'</span></td><td>'+fmt(a.score,0)+'/100</td><td>'+fmt(a.price,5)+'</td><td>'+fmt(a.trigger,5)+'</td><td>'+fmt(a.stop,5)+'</td><td>'+safe(a.reason||'Validar al gràfic')+'</td></tr>').join('')||'<tr><td colspan="8">Descobreix i analitza altcoins per omplir el top 10</td></tr>';
 }
