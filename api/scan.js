@@ -406,24 +406,23 @@ export default async function handler(req,res){
         bh1.QQQ = q.QQQ || [];
       } catch (_) {}
     }
-    // Fallback v2.2: Alpaca/IEX de vegades omet un símbol dins d'una petició múltiple.
-    // Si un actiu arriba amb historial insuficient, el repetim individualment abans de marcar-lo SENSE DADES.
-    async function retryMissing(symbol, tf, start, current, minBars){
-      if((current?.length||0) >= minBars) return current || [];
-      try{
-        const one = await fetchBars([symbol], tf, start, 10000);
-        return one[symbol] || current || [];
-      }catch(err){
-        return current || [];
+    // Retry only genuinely missing symbols, in bounded parallel batches.
+    // Previous version performed up to 210 sequential API calls for 70 stocks.
+    const retryTasks=[];
+    for(const sym of raw){
+      for(const [tf,start,collection] of [['1Day',startDay,d],['4Hour',startIntraday,h4],['1Hour',startIntraday,h1]]){
+        if((collection[sym]?.length||0)<25)retryTasks.push({sym,tf,start,collection});
       }
     }
-
-    for(const s of raw){
-      d[s]  = await retryMissing(s,'1Day', startDay,      d[s],  25);
-      h4[s] = await retryMissing(s,'4Hour',startIntraday,h4[s], 25);
-      h1[s] = await retryMissing(s,'1Hour',startIntraday,h1[s], 25);
+    const retryErrors=[];
+    for(let i=0;i<retryTasks.length;i+=5){
+      await Promise.all(retryTasks.slice(i,i+5).map(async t=>{
+        try{
+          const result=await fetchBars([t.sym],t.tf,t.start,10000);
+          if((result[t.sym]?.length||0)>(t.collection[t.sym]?.length||0))t.collection[t.sym]=result[t.sym];
+        }catch(e){retryErrors.push(t.sym+' '+t.tf+': '+String(e.message||e).slice(0,80))}
+      }));
     }
-
     // Limit extra provider requests: 30m confirmation only for leading 20 candidates.
     const top30=raw.map(symbol=>({symbol,pre:compute(symbol,d[symbol]||[],h4[symbol]||[],h1[symbol]||[],bh1[BENCHMARK[symbol]||'QQQ']||bh1.QQQ||[])})).filter(x=>Number.isFinite(x.pre.radarScore)).sort((a,b)=>b.pre.radarScore-a.pre.radarScore).slice(0,20).map(x=>x.symbol);
     let m30={};
@@ -442,7 +441,7 @@ export default async function handler(req,res){
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.3 · 30m + suport-volum',results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.4.1',coverage:{requested:raw.length,analyzed:out.filter(x=>x.status!=='SENSE DADES').length,missing:out.filter(x=>x.status==='SENSE DADES').length,retryRequests:retryTasks.length,retryErrors:retryErrors.slice(0,12)},results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
