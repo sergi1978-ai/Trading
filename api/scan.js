@@ -142,9 +142,30 @@ async function fetchBars(symbols,timeframe,start,limit=10000,historyFeed='iex',h
 }
 function addDays(d,n){ const x=new Date(d); x.setUTCDate(x.getUTCDate()+n); return x.toISOString(); }
 
+function aggregateFourHourFromHourly(hourly){
+ const valid=latestCompleted(hourly,'1Hour');
+ const buckets=new Map();
+ for(const b of valid){
+  const day=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(b.t));
+  if(!buckets.has(day))buckets.set(day,[]);
+  buckets.get(day).push(b);
+ }
+ const out=[];
+ for(const group of buckets.values()){
+  group.sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
+  // Group by four completed hourly candles within the same NY trading date.
+  for(let i=0;i+4<=group.length;i+=4){
+   const x=group.slice(i,i+4);
+   out.push({t:x[0].t,o:x[0].o,h:Math.max(...x.map(v=>v.h)),l:Math.min(...x.map(v=>v.l)),c:x[3].c,v:x.reduce((a,v)=>a+(v.v||0),0)});
+  }
+ }
+ return out.sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
+}
 function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[]){
   const dBars=latestCompleted(dBarsRaw,'1Day');
-  const h4Bars=latestCompleted(h4BarsRaw,'4Hour');
+  let h4Bars=latestCompleted(h4BarsRaw,'4Hour');
+  const rebuilt=aggregateFourHourFromHourly(h1BarsRaw);
+  if(h4Bars.length<25&&rebuilt.length>=25)h4Bars=rebuilt;
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
   const m30=latestCompleted(m30Raw,'30Min');
   if(dBars.length<25 || h4Bars.length<25 || h1Bars.length<25) return {symbol,status:'SENSE DADES',error:`Històric insuficient (1D ${dBars.length} · 4H ${h4Bars.length} · 1H ${h1Bars.length})`};
@@ -493,7 +514,7 @@ export default async function handler(req,res){
       if(r.status==='SENSE DADES'){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
         r.dataCounts=counts;
-        r.dataState='Històric insuficient: 1D '+counts.d+' · 4H '+counts.h4+' · 1H '+counts.h1+' (mínim 25 per període)';
+        r.dataState='Històric insuficient: 1D '+counts.d+' · 4H '+counts.h4+' · 1H '+counts.h1+' (mínim 25; si 4H manca, prova reconstrucció 1H)';
 
       }
       return r;
