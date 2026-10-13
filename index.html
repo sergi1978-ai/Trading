@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.0</title>
+<title>Trading 2026 · Radar v4.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -84,10 +84,11 @@ td{color:#344256;border-color:#e9edf3}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.0</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
-<div class="tabs" role="tablist" aria-label="Navegació Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Radar accions</button><button class="tab" data-tab="top" role="tab" aria-selected="false">★ Top 10 accions</button><button class="tab" data-tab="near" role="tab" aria-selected="false">↗ Entrades accions</button><button class="tab" data-tab="sectors" role="tab" aria-selected="false">▤ Sectors</button><button class="tab" data-tab="discoverStocks" role="tab" aria-selected="false">✦ Descobrir accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Radar altcoins</button></div>
+<div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
+<div class="toolbar" id="stockViewBar" style="margin:12px 0"><label for="stockViewSelect" style="font-weight:600">Vista d'accions</label><select id="stockViewSelect" aria-label="Escollir vista d'accions"><option value="radar">La meva anàlisi</option><option value="top">Top 10 accions</option><option value="near">Entrades properes</option><option value="sectors">Sectors</option><option value="discoverStocks">Descobrir accions</option></select><button id="stockScanQuick" type="button" class="btn primary">↻ Analitzar accions</button></div>
 <div id="stockControls"><div class="cards" id="cards"></div><div class="toolbar">
 <input id="search" placeholder="Ticker, sector o tema…">
 <select id="sectorFilter"><option value="">Tots els sectors</option></select>
@@ -413,15 +414,20 @@ document.getElementById('stocksDiscoverBtn').onclick=discover;
 function filterDiscoveredStocks(){const q=document.getElementById('stockDiscoverQuery').value.toUpperCase();const sorted=[...document.querySelectorAll('#discoverStocks tr')].filter(r=>r.querySelector('td'));sorted.forEach(r=>r.hidden=!!q&&!r.cells[0]?.textContent.toUpperCase().includes(q));if(document.getElementById('stockDiscoverSort').value==='symbol')sorted.sort((a,b)=>a.cells[0].textContent.localeCompare(b.cells[0].textContent)).forEach(r=>r.parentElement.appendChild(r))}
 ['stockDiscoverQuery','stockDiscoverSort'].forEach(id=>document.getElementById(id).addEventListener('input',filterDiscoveredStocks));
 function activateTab(tab,scroll=true){
- const stockTab=['radar','top','near','sectors','discoverStocks'].includes(tab);
+ const isCrypto=tab==='discover';
+ const stockTab=!isCrypto;
  document.getElementById('stockControls').hidden=!stockTab||tab==='discoverStocks';
- document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===tab;x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
+ document.getElementById('stockViewBar').hidden=!stockTab;
+ if(stockTab)document.getElementById('stockViewSelect').value=tab;
+ document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===(isCrypto?'discover':'radar');x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
  ['radar','top','near','sectors','discover','discoverStocks'].forEach(t=>{document.getElementById(t+'Tab').hidden=t!==tab});
  if(tab==='discoverStocks'&&!discoveredCrypto.length)discover();
  if(tab==='discover')paintCrypto();
  if(scroll)window.scrollTo({top:0,behavior:'smooth'});
 }
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
+document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
+document.getElementById('stockScanQuick').onclick=()=>scan();
 discoveredCrypto=mergeWatchCandidates([]);activateTab('radar',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows;}catch(e){}
