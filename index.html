@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v3.0</title>
+<title>Trading 2026 · Radar v3.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -84,7 +84,7 @@ td{color:#344256;border-color:#e9edf3}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v3.0</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v3.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Navegació Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Radar accions</button><button class="tab" data-tab="top" role="tab" aria-selected="false">★ Top 10 accions</button><button class="tab" data-tab="near" role="tab" aria-selected="false">↗ Entrades accions</button><button class="tab" data-tab="sectors" role="tab" aria-selected="false">▤ Sectors</button><button class="tab" data-tab="discoverStocks" role="tab" aria-selected="false">✦ Descobrir accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Radar altcoins</button></div>
@@ -221,7 +221,7 @@ async function scan(){
  }catch(e){alert('Error escàner: '+e.message);}
  finally{scanInProgress=false;btn.disabled=false;btn.textContent='↻ Escaneja ara';}
 }
-let discoveredCrypto=[],cryptoSignals={},cryptoFailures={};
+let discoveredCrypto=[],cryptoSignals={},cryptoFailures={};let cryptoScanning=false;
 function renderTop10(){
  const weight={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
  const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.trigger)&&Number.isFinite(r.stop)).sort((a,b)=>(weight[b.status]??0)-(weight[a.status]??0)||(b.radarScore||0)-(a.radarScore||0)).slice(0,10);
@@ -267,9 +267,11 @@ document.getElementById('cryptoReset').onclick=()=>{document.getElementById('cry
 ['cryptoOpportunity','cryptoMomentum'].forEach(id=>document.getElementById(id).onclick=()=>{cryptoMode=id==='cryptoMomentum'?'momentum':'opportunity';document.getElementById('cryptoOpportunity').classList.toggle('active',cryptoMode==='opportunity');document.getElementById('cryptoMomentum').classList.toggle('active',cryptoMode==='momentum');paintCrypto()});
 
 async function cryptoScan(){
+ if(cryptoScanning)return;
+ cryptoScanning=true;
  const b=document.getElementById('cryptoScanBtn'),info=document.getElementById('discoverInfo');
  const symbols=discoveredCrypto.map(x=>x.symbol).filter(x=>/^[A-Z0-9]{2,12}$/.test(x));
- if(!symbols.length){info.textContent='Primer cal descobrir candidats';await discover();if(!discoveredCrypto.length)return;return cryptoScan()}
+ if(!symbols.length){cryptoScanning=false;info.textContent='Primer cal descobrir candidats';return}
  b.disabled=true;b.textContent='Analitzant '+symbols.length+' altcoins…';
  try{
  let success=0,failed=0;
@@ -285,7 +287,7 @@ async function cryptoScan(){
  renderTop10();
  info.textContent=success+' analitzades · '+failed+' sense dades dels '+symbols.length+' intents · Senyals orientatius: validar al Pine';
  }catch(e){info.textContent='Error: '+e.message}
- finally{b.disabled=false;b.textContent='Analitzar totes les altcoins'}
+ finally{cryptoScanning=false;b.disabled=false;b.textContent='↻ Reanalitzar totes les altcoins'}
 }
 document.getElementById('cryptoScanBtn').onclick=cryptoScan;
 let discoverOffset=0;
@@ -304,9 +306,10 @@ async function discover(){
    return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),2)+' $</td><td class="'+(x.changePct>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn add-discovered" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Al radar':'+ Analitzar')+'</button></td></tr>';
   }).join(''):'<tr><td colspan="4">Sense resultats d’accions</td></tr>';
   discoveredCrypto=coins;cryptoSignals={};cryptoFailures={};paintCrypto();renderTop10();filterDiscoveredStocks();
+  if(coins.length&&!cryptoScanning)cryptoScan();
   info.textContent=stocks.length+' accions · '+coins.length+' criptomonedes amb cotització · '+(data.errors?.length||0)+' incidències de proveïdor';
  }catch(e){info.textContent='La cerca ha fallat: '+e.message+' · Reintenta més tard; comprova /api/discover'}
- finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Cercar candidats'}
+ finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Actualitzar candidats'}
 }
 document.getElementById('discoverBtn').onclick=discover;
 document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered');if(!b)return;const ticker=b.dataset.symbol;
