@@ -83,7 +83,7 @@ function volumeReading(bars, support, atr4){
   const quietPullback=down && ratio<0.75;
   const score=clamp(Math.round(50+(bounce?25:0)+(quietPullback?10:0)+(up&&ratio>=1.5?15:0)-(selling?30:0)-(ratio<0.5&&up?10:0)),0,100);
   const reason=bounce?'Rebot prop del suport amb més volum':selling?'Baixada amb volum alt':quietPullback?'Retrocés amb menys volum':up&&ratio>=1.5?'Pujada amb volum alt':'Volum sense senyal clar';
-  return {volumeScore:score,volumeLabel:score>=70?'Favorable':score<=35?'Desfavorable':'Mixt',volumeReason:reason,rvol4h:Math.round(ratio*100)/100};
+  return {volumeScore:score,volumeLabel:score>=70?'Favorable':score<=35?'Desfavorable':'Mixt',volumeReason:reason,rvol4h:Math.round(ratio*100)/100,volumeDirection:ratio>=0.9&&up?'ALCISTA':ratio>=0.9&&down?'BAIXISTA':'NEUTRAL'};
 }
 
 function pivotHigh(bars, len=3){
