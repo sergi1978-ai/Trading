@@ -98,7 +98,7 @@ function pivotHigh(bars, len=3){
 function latestCompleted(bars, tf){
   // API may include current incomplete bar. For intraday, drop the last if very recent.
   if(!bars?.length) return bars||[];
-  if(tf === '1Day') return bars;
+  if(tf === '1Day') { const now=Date.now(); const t=new Date(last(bars).t).getTime(); return now-t<20*60*60*1000&&bars.length>1?bars.slice(0,-1):bars; }
   const now=Date.now();
   const mins=tf==='30Min'?30:tf==='1Hour'?60:tf==='4Hour'?240:60;
   const t=new Date(last(bars).t).getTime();
@@ -322,7 +322,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   else if(age>=4) radarScore=clamp(radarScore-2,0,100);
   // v6.6.18 comparison: only completed context candles; keep historical state web-only.
   // TradingView indicator uses security(1D/4H, close[1] etc.), not live 1D/4H.
-  const ctxD=dBars.slice(0,-1),ctx4=h4Bars.slice(0,-1);
+  const ctxD=dBars,ctx4=h4Bars; // latestCompleted already removes open intraday bar
   const dRef=ctxD.at(-1),dPrev=ctxD.at(-2),four=ctx4.at(-1);
   const emaPine=(values,n)=>{
     if(values.length<n)return null;
@@ -380,7 +380,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const pinePlanValid=!!pineReferencePlan?.valid;
   const pineBlockedReason=!pinePlanValid?'Cap pla executable amb R:R net mínim 2':!pineEntryConfirmed?'Falta confirmació de ruptura/retrocés i volum 1H':null;
   // Do not infer TV CONFIRMED from an independent, delayed consolidated feed.
-  const pineParity='APROXIMACIÓ · ESPelMES I SESSIÓ NO VERIFICADES';
+  const pineParity='APROXIMACIÓ · ESPELMES I SESSIÓ NO VERIFICADES';
   const pineChecks=[
     {name:'Tendència diària 1D',pass:pineDailyOK},
     {name:'Tendència i base 4H',pass:pineTrendOK&&(pineBaseOK||pinePullLocation)},
