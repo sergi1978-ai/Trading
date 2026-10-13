@@ -350,10 +350,30 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const pineReferenceRoute=pineBreakReady&&pineBreakEvent?'RUPTURA':pinePullReady&&pinePullEvent?'RETROCES':pineBreakReady?'RUPTURA':pinePullReady?'RETROCES':null;
   const pineReferenceState=pineBreakReady&&pineBreakEvent||pinePullReady&&pinePullEvent?'CANDIDAT CONFIRMAT':pineReferenceRoute?'PLA PREPARAT':'SENSE PLA VALID';
   const pineReferencePlan=pineReferenceRoute==='RUPTURA'?pineB:pineReferenceRoute==='RETROCES'?pineP:null;
+  // Conservative status gate: the earlier proprietary radar could show A/A+
+  // even when the Pine 6.6.18-inspired plan was invalid or lacked 1H volume.
+  // Pine reference is approximate; NEVER claim a TradingView-confirmed signal.
+  const pineEntryConfirmed=pineReferenceState==='CANDIDAT CONFIRMAT'&&Number.isFinite(rvol)&&rvol>=.8;
+  const pinePlanValid=!!pineReferencePlan?.valid;
+  const pineBlockedReason=!pinePlanValid?'Cap pla executable amb R:R net mínim 2':!pineEntryConfirmed?'Falta confirmació de ruptura/retrocés i volum 1H':null;
+  if(['A+','A','READY'].includes(status)){
+    if(!pinePlanValid){
+      status='WATCH';
+      auth='NO';
+      actionNow='SENSE PLA EXECUTABLE · VIGILAR';
+      radarScore=clamp(radarScore-24,0,100);
+    }else if(!pineEntryConfirmed&&['A+','A'].includes(status)){
+      status='PRE';
+      auth='NO';
+      actionNow='FALTA CONFIRMACIÓ 1H · ESPERAR';
+      radarScore=clamp(radarScore-16,0,100);
+    }
+  }
   const dayChange=pct(d.c, dBars[dBars.length-2].c);
 
   return {
     symbol,
+    pineEntryConfirmed,pinePlanValid,pineBlockedReason,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
     technicalPrice:h1.c,
     price:h1.c,
