@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.3</title>
+<title>Trading 2026 · Radar v4.4</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -81,10 +81,59 @@ td{color:#344256;border-color:#e9edf3}
 .tabs{gap:7px;scroll-padding:12px}
 .tab{white-space:nowrap}
 @media(max-width:700px){.tabs{position:sticky;top:0;gap:6px;padding:10px}.tab{font-size:12px}}
+
+/* v4.4 Accessible dark cockpit: override legacy light-theme rules */
+:root{color-scheme:dark;--bg:#09111e;--panel:#121e30;--line:#334761;--text:#f1f6ff;--muted:#b0c0d6;--g:#55e4b2;--y:#ffd16f;--b:#88bcff;--r:#ff8da2;--p:#c4a8ff}
+html,body{background:#09111e!important;color:var(--text)!important}
+body{background-image:radial-gradient(ellipse at 12% 0%,#1b3551 0,transparent 42%)!important}
+h1,h2,h3,h4,strong,.ticker,.score,.v{color:#f4f8ff}
+.top,.card,.discover-panel,.discover-header,.sectorcard,.tablebox,.simplebox,.detail,.detail-box,.market-stats .stat,.discover-controls,#cryptoChartPanel{
+ background:#131f31!important;color:#eef5ff!important;border:1px solid #36506e!important;box-shadow:none!important
+}
+.top{background:linear-gradient(120deg,#19314c,#111b2d)!important}
+.discover-header{background:#192940!important}
+.card,.market-stats .stat{background:#17273b!important}
+.detail-box{background:#1a2c42!important}
+.discover-controls{background:#132238!important}
+#cryptoChartPanel{background:#132238!important}
+#cryptoChartPanel svg{background:#101c2c;border-radius:8px}
+th,.simplebox th,.discover-panel th,.tablebox th{
+ background:#21334b!important;color:#e0eafb!important;border-bottom:1px solid #49617e!important
+}
+td,.simplebox td,.discover-panel td,.tablebox td{
+ background:transparent!important;color:#e6efff!important;border-bottom:1px solid #30445f!important
+}
+tbody tr:nth-child(even){background:#17283c!important}
+tbody tr:nth-child(odd){background:#112034!important}
+.tablebox tbody tr:hover td,.simplebox tbody tr:hover td,.discover-panel tr:hover td,
+tbody tr:hover{background:#263e58!important;color:#fff!important}
+.tablebox,.simplebox{background:#101c2d!important}
+input,select,textarea,.btn,.tab{background:#1c3047!important;color:#eef5ff!important;border-color:#46607f!important}
+input::placeholder,textarea::placeholder{color:#a5b7cd;opacity:1}
+input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{outline:2px solid #91c5ff;outline-offset:2px}
+.btn:hover,.tab:hover{background:#2a4665!important;color:#fff!important}
+.btn.primary,.tab.active,.crypto-fast-state.active,.nav-discovery .btn.active{background:#2465c5!important;border-color:#72abff!important;color:#fff!important}
+.pill{background:#21344c!important;color:#d8e8fc!important;border-color:#415b7c!important}
+.sub,.muted,.k,.detail-reason,.discover-note,.discover-panel p,.market-stats small{color:#b8c9dd!important}
+.market-stats strong,.detail strong{color:#f2f7ff!important}
+.notice{background:#142b46!important;color:#d2e8ff!important;border-color:#36628b!important}
+.status.A,.status.Aplus,.chip-a{background:#124332!important;color:#7af2bd!important;border-color:#2d8a65!important}
+.status.READY,.chip-ready{background:#135149!important;color:#9bf5d9!important;border-color:#2e9c88!important}
+.status.PRE,.chip-pre{background:#5b421d!important;color:#ffde94!important;border-color:#a47a35!important}
+.status.WATCH,.chip-watch{background:#1d3e65!important;color:#b4d9ff!important;border-color:#4c80bb!important}
+.status.INVALIDAT,.chip-error{background:#592a3b!important;color:#ffb6c4!important;border-color:#a34e69!important}
+.status.NO_SETUP,.status.SENSE_DADES,.chip-pending{background:#29374d!important;color:#d5e0f1!important;border-color:#52627b!important}
+.chip-avoid{background:#573b2b!important;color:#ffd0a6!important;border-color:#ab7545!important}
+.pos,.disc-up,.good{color:#69edb9!important}.neg,.disc-down,.bad{color:#ff9cad!important}.near,.hot{color:#ffdd8b!important}
+.open-detail,.action-link{color:#a7d2ff!important}
+.tabs{background:#091625f5!important}
+#cryptoTopSlot .discover-panel{background:#17273b!important}
+@media(max-width:700px){.tabs{background:#091625f5!important}}
+
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.3</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.4</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
