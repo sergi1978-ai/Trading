@@ -407,7 +407,7 @@ export default async function handler(req,res){
     }
 
     // Limit extra provider requests: 30m confirmation only for leading 20 candidates.
-    const top30=raw.map(s=>({symbol:s,last:h1[s]?.at(-1)?.c||0})).filter(x=>x.last>0).slice(0,20).map(x=>x.symbol);
+    const top30=raw.map(symbol=>({symbol,pre:compute(symbol,d[symbol]||[],h4[symbol]||[],h1[symbol]||[],bh1[BENCHMARK[symbol]||'QQQ']||bh1.QQQ||[])})).filter(x=>Number.isFinite(x.pre.radarScore)).sort((a,b)=>b.pre.radarScore-a.pre.radarScore).slice(0,20).map(x=>x.symbol);
     let m30={};
     try{m30=await fetchBars(top30,'30Min',addDays(new Date(),-14),5000)}catch(_){m30={}}
     const out=raw.map(s=>{
