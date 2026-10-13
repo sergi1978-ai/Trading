@@ -1,7 +1,25 @@
 // Trading 2026 v2.8 - crypto technical screening; closed candles only.
 // Coinbase Exchange public candles (300 max/request), Kraken OHLC fallback.
-const TIMEOUT=8500;
-async function json(url){const a=new AbortController(),t=setTimeout(()=>a.abort(),TIMEOUT);try{const r=await fetch(url,{signal:a.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(t)}}
+const TIMEOUT=9000;
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const responseCache=new Map();
+async function json(url){
+ const cached=responseCache.get(url);
+ if(cached&&Date.now()-cached.time<60000)return cached.data;
+ let lastError;
+ for(let attempt=0;attempt<2;attempt++){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),TIMEOUT);
+  try{
+   const r=await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});
+   if(r.status===429){lastError=Error('LIMIT D’API (429)');}
+   else if(!r.ok)throw Error('HTTP '+r.status);
+   else{const data=await r.json();responseCache.set(url,{time:Date.now(),data});if(responseCache.size>100)responseCache.clear();return data}
+  }catch(e){lastError=e;if(!String(e.message).includes('429')&&attempt===0)break}
+  finally{clearTimeout(timer)}
+  if(attempt===0)await wait(800);
+ }
+ throw lastError||Error('Proveïdor no disponible');
+}
 function normalizeCoinbase(raw,sec){const now=Date.now();return (Array.isArray(raw)?raw:[]).map(x=>({t:x[0]*1000,l:x[1],h:x[2],o:x[3],c:x[4],v:x[5]})).filter(x=>x.t+sec*1000<=now&&[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&x.c>0).sort((a,b)=>a.t-b.t)}
 async function getCoinbase(pair,seconds){const end=new Date(),start=new Date(end.getTime()-seconds*1000*285);const url='https://api.exchange.coinbase.com/products/'+encodeURIComponent(pair)+'/candles?granularity='+seconds+'&start='+encodeURIComponent(start.toISOString())+'&end='+encodeURIComponent(end.toISOString());const rows=normalizeCoinbase(await json(url),seconds);if(rows.length<45)throw Error('Coinbase: espelmes insuficients');return rows}
 async function getKraken(base,min){const pair=base==='BTC'?'XBTUSD':base+'USD';const r=await json('https://api.kraken.com/0/public/OHLC?pair='+encodeURIComponent(pair)+'&interval='+min);if(r.error?.length)throw Error(r.error.join(' | '));const key=Object.keys(r.result||{}).find(k=>k!=='last');if(!key)throw Error('Kraken: parell sense dades');const now=Date.now();return (r.result[key]||[]).map(x=>({t:Number(x[0])*1000,o:Number(x[1]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4]),v:Number(x[6])})).filter(x=>x.t+min*60000<=now&&[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&x.c>0).sort((a,b)=>a.t-b.t)}
@@ -125,4 +143,4 @@ function scanOne(symbol,pack){
  return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
 }
 async function single(s){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half})}
-export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];for(let i=0;i<syms.length;i+=2){await Promise.all(syms.slice(i,i+2).map(async s=>{try{result.push(await single(s))}catch(e){errors.push({symbol:s,message:e.message})}}))}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
+export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];for(let i=0;i<syms.length;i++){const symbol=syms[i];try{result.push(await single(symbol))}catch(e){errors.push({symbol,message:String(e.message||e)})}if(i<syms.length-1)await wait(250)}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
