@@ -5,7 +5,36 @@ async function json(url){const a=new AbortController(),t=setTimeout(()=>a.abort(
 function normalizeCoinbase(raw,sec){const now=Date.now();return (Array.isArray(raw)?raw:[]).map(x=>({t:x[0]*1000,l:x[1],h:x[2],o:x[3],c:x[4],v:x[5]})).filter(x=>x.t+sec*1000<=now&&[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&x.c>0).sort((a,b)=>a.t-b.t)}
 async function getCoinbase(pair,seconds){const end=new Date(),start=new Date(end.getTime()-seconds*1000*285);const url='https://api.exchange.coinbase.com/products/'+encodeURIComponent(pair)+'/candles?granularity='+seconds+'&start='+encodeURIComponent(start.toISOString())+'&end='+encodeURIComponent(end.toISOString());const rows=normalizeCoinbase(await json(url),seconds);if(rows.length<45)throw Error('Coinbase: espelmes insuficients');return rows}
 async function getKraken(base,min){const pair=base==='BTC'?'XBTUSD':base+'USD';const r=await json('https://api.kraken.com/0/public/OHLC?pair='+encodeURIComponent(pair)+'&interval='+min);if(r.error?.length)throw Error(r.error.join(' | '));const key=Object.keys(r.result||{}).find(k=>k!=='last');if(!key)throw Error('Kraken: parell sense dades');const now=Date.now();return (r.result[key]||[]).map(x=>({t:Number(x[0])*1000,o:Number(x[1]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4]),v:Number(x[6])})).filter(x=>x.t+min*60000<=now&&[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&x.c>0).sort((a,b)=>a.t-b.t)}
-async function candles(symbol,sec){let errors=[];for(const q of [symbol+'-USD',symbol+'-USDC']){try{return {rows:await getCoinbase(q,sec),source:'Coinbase',pair:q}}catch(e){errors.push(e.message)}}try{return {rows:await getKraken(symbol,sec/60),source:'Kraken',pair:symbol+'/USD'}}catch(e){throw Error(errors.join('; ')+'; '+e.message)}}
+async function candles(symbol,sec){
+ // Kraken supports 240m for 4H, whereas Coinbase candles support 6H but not 4H.
+ const errors=[];
+ const krakenMinutes=sec===21600?240:sec/60;
+ // Prefer one provider with consistent OHLCV; fallback only on failure.
+ try{
+  const rows=await getKraken(symbol,krakenMinutes);
+  if(rows.length>=55)return {rows,source:'Kraken',pair:symbol+'/USD'};
+  errors.push('Kraken: espelmes insuficients');
+ }catch(e){errors.push('Kraken: '+e.message)}
+ // Coinbase does not provide 4H granularity. Generate true 4H OHLCV from hourly candles.
+ for(const q of [symbol+'-USD',symbol+'-USDC']){
+  try{
+   const oneHour=sec===21600;
+   const raw=await getCoinbase(q,oneHour?3600:sec);
+   if(!oneHour)return {rows:raw,source:'Coinbase',pair:q};
+   const groups=new Map();
+   for(const bar of raw){
+    const bucket=Math.floor(bar.t/14400000)*14400000;
+    const g=groups.get(bucket);
+    if(!g)groups.set(bucket,{t:bucket,o:bar.o,h:bar.h,l:bar.l,c:bar.c,v:bar.v,count:1});
+    else{g.h=Math.max(g.h,bar.h);g.l=Math.min(g.l,bar.l);g.c=bar.c;g.v+=bar.v;g.count++}
+   }
+   const rows=[...groups.values()].filter(x=>x.count===4).sort((a,b)=>a.t-b.t);
+   if(rows.length>=55)return {rows,source:'Coinbase 1H→4H',pair:q};
+   errors.push('Coinbase '+q+': menys de 55 espelmes completes 4H');
+  }catch(e){errors.push('Coinbase '+q+': '+e.message)}
+ }
+ throw Error(errors.join('; '));
+}
 function ema(a,n){if(a.length<n)return null;let e=a.slice(0,n).reduce((s,x)=>s+x,0)/n;for(let i=n;i<a.length;i++)e+=2/(n+1)*(a[i]-e);return e}
 function rsi(a,n=14){if(a.length<n+1)return null;const dif=a.slice(-n-1).map((x,i)=>i?x-a[a.length-n-2+i]:null).slice(1);const gain=dif.reduce((s,x)=>s+Math.max(x,0),0)/n,loss=dif.reduce((s,x)=>s+Math.max(-x,0),0)/n;return loss===0?100:100-100/(1+gain/loss)}
 function atr(a,n=14){if(a.length<n+1)return null;const q=a.slice(-n-1),z=q.slice(1).map((x,i)=>Math.max(x.h-x.l,Math.abs(x.h-q[i].c),Math.abs(x.l-q[i].c)));return z.reduce((s,x)=>s+x,0)/n}
