@@ -36,6 +36,12 @@ function scanOne(symbol,pack){
  reason='Configuració orientativa: pendent confirmació al Pine';
  }
  const historicalHigh=Math.max(...h.slice(-35,-1).map(x=>x.h));
+ const support4h=Math.min(...h.slice(-18,-1).map(x=>x.l));
+ const supportAtrDistance=b.atr>0?Math.abs(h.at(-1).l-support4h)/b.atr:null;
+ const volumeSupport4H=Number.isFinite(supportAtrDistance)&&supportAtrDistance<=0.6&&h.at(-1).c>support4h&&h.at(-1).c>=h.at(-1).o&&b.rvol>=1.15;
+ const mLast=m.at(-1),mPrior=m.at(-2);
+ const thirtyConfirm=!!(mLast&&mPrior&&mLast.c>mLast.o&&mLast.c>z.ema20&&z.rvol>=1.05&&mLast.c>=mPrior.c);
+ const thirtyRvol=z.rvol;
  const roomPct=historicalHigh>trigger&&trigger>0?100*(historicalHigh-trigger)/trigger:0;
  const atrPct=c.atr>0?100*c.atr/last.c:null;
  const feasibleRisk=stopPct!==null&&stopPct>=0.7&&stopPct<=7;
@@ -53,10 +59,10 @@ function scanOne(symbol,pack){
  const hardFail=!acceptableLiquidity||!feasibleRisk||extended||bearish||(riskRewardToResistance!==null&&riskRewardToResistance<1.5);
  if(hardFail){status='NO PERSEGUIR';reason=!acceptableLiquidity?'Liquiditat o volum insuficients':!feasibleRisk?'Stop fora del rang de risc':extended?'Sobreextensió':bearish?'Venda agressiva': 'Resistència massa propera per al risc assumit';}
  const originalScore=Math.round(Math.min(100,(dailyTrend?20:0)+(fourTrend?20:0)+(momentum?15:0)+(volumeOk?15:0)+(liquid?10:0)+(canPlan?10:0)+((breakUp||retest||near)?10:0)-(extended?20:0)));
- const score=Math.max(0,Math.min(100,originalScore-(hardFail?20:0)));
+ const score=Math.max(0,Math.min(100,originalScore-(hardFail?20:0)+(thirtyConfirm?5:0)+(volumeSupport4H?5:0)));
  const confidenceGrade=successFactors.filter(x=>x.pass).length;
  const estimatedSuccessProbability=null; // requires out-of-sample event-based backtesting, not an invented likelihood
- return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
+ return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
 }
 async function single(s){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half})}
 export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];for(let i=0;i<syms.length;i+=2){await Promise.all(syms.slice(i,i+2).map(async s=>{try{result.push(await single(s))}catch(e){errors.push({symbol:s,message:e.message})}}))}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
