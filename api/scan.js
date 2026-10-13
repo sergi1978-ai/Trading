@@ -105,13 +105,25 @@ function latestCompleted(bars, tf){
   if(now - t < mins*60*1000*0.9 && bars.length>1) return bars.slice(0,-1);
   return bars;
 }
+async function chooseHistoricalFeed(){
+ const cutoff=new Date(Date.now()-20*60*1000).toISOString();
+ const start=new Date(Date.now()-8*86400000).toISOString();
+ const params=new URLSearchParams({symbols:'SPY',timeframe:'1Day',start,end:cutoff,limit:'15',feed:'sip',adjustment:'raw'});
+ try{
+  const response=await fetch(ALPACA+'?'+params,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
+  if(response.ok){const data=await response.json();if((data.bars?.SPY||[]).length)return {feed:'sip',cutoff,fallback:false};}
+  return {feed:'iex',cutoff,fallback:true,reason:'SIP no disponible amb les credencials actuals'};
+ }catch(e){return {feed:'iex',cutoff,fallback:true,reason:'Error comprovant SIP: '+String(e.message||e)};}
+}
+let activeHistoryFeed='iex',activeHistoryCutoff=null;
 async function fetchBars(symbols,timeframe,start,limit=10000){
  const merged={},CHUNK=7;
  for(let i=0;i<symbols.length;i+=CHUNK){
   const batch=symbols.slice(i,i+CHUNK);
   let pageToken=null,page=0;
   do{
-   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'raw',feed:'iex',sort:'asc'});
+   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'raw',feed:activeHistoryFeed,sort:'asc'});
+   if(activeHistoryFeed==='sip'&&activeHistoryCutoff)params.set('end',activeHistoryCutoff);
    if(pageToken)params.set('page_token',pageToken);
    const r=await fetch(`${ALPACA}?${params}`,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
    const body=await r.text();
@@ -375,6 +387,9 @@ export default async function handler(req,res){
     }
     const raw=(req.query.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean).slice(0,60);
     if(!raw.length) return res.status(400).json({error:'Cal indicar ?symbols=PLTR,CRM,...'});
+    const feedInfo=await chooseHistoricalFeed();
+    activeHistoryFeed=feedInfo.feed;
+    activeHistoryCutoff=feedInfo.cutoff;
     const startDay=addDays(new Date(),-130);
     const startIntraday=addDays(new Date(),-60);
     const benchSymbols=[...new Set(raw.map(s=>BENCHMARK[s]||'QQQ'))];
@@ -441,7 +456,7 @@ export default async function handler(req,res){
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.4.1',coverage:{requested:raw.length,analyzed:out.filter(x=>x.status!=='SENSE DADES').length,missing:out.filter(x=>x.status==='SENSE DADES').length,retryRequests:retryTasks.length,retryErrors:retryErrors.slice(0,12)},results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.5 · SIP retardat amb alternativa IEX',coverage:{historicalFeed:activeHistoryFeed,sipAvailable:activeHistoryFeed==='sip',feedReason:feedInfo.reason||null,requested:raw.length,analyzed:out.filter(x=>x.status!=='SENSE DADES').length,missing:out.filter(x=>x.status==='SENSE DADES').length,retryRequests:retryTasks.length,retryErrors:retryErrors.slice(0,12)},results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
