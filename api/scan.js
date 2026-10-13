@@ -477,7 +477,7 @@ export default async function handler(req,res){
     for(let i=0;i<retryTasks.length;i+=5){
       await Promise.all(retryTasks.slice(i,i+5).map(async t=>{
         try{
-          const result=await fetchBars([t.sym],t.tf,t.start,10000,feedInfo.feed,feedInfo.cutoff);
+          const result=await fetchBars([t.sym],t.tf,addDays(new Date(),t.tf==='1Day'?-240:-160),10000,feedInfo.feed,feedInfo.cutoff);
           if((result[t.sym]?.length||0)>(t.collection[t.sym]?.length||0))t.collection[t.sym]=result[t.sym];
         }catch(e){retryErrors.push(t.sym+' '+t.tf+': '+String(e.message||e).slice(0,80))}
       }));
@@ -493,9 +493,8 @@ export default async function handler(req,res){
       if(r.status==='SENSE DADES'){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
         r.dataCounts=counts;
-        r.dataState = counts.d>=25 && (counts.h4<25 || counts.h1<25)
-          ? 'DADES 1D OK · intradia '+feedInfo.feed.toUpperCase()+' insuficient'
-          : 'HISTÒRIC INSUFICIENT';
+        r.dataState='Històric insuficient: 1D '+counts.d+' · 4H '+counts.h4+' · 1H '+counts.h1+' (mínim 25 per període)';
+
       }
       return r;
     });
