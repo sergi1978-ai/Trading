@@ -90,8 +90,39 @@ function scanOne(symbol,pack){
  const originalScore=Math.round(Math.min(100,(dailyTrend?20:0)+(fourTrend?20:0)+(momentum?15:0)+(volumeOk?15:0)+(liquid?10:0)+(canPlan?10:0)+((breakUp||retest||near)?10:0)-(extended?20:0)));
  const score=Math.max(0,Math.min(100,originalScore-(hardFail?20:0)+(thirtyConfirm?5:0)+(volumeSupport4H?5:0)));
  const confidenceGrade=successFactors.filter(x=>x.pass).length;
+
+ // Pine v6.6.18 reference: 8-bar 4H base, ATR compression, confirmed 30m/1H,
+ // minimum net R:R 2.0 after 0.4% estimated round-trip costs.
+ const base4=h.slice(-9,-1),baseHigh=Math.max(...base4.map(x=>x.h)),baseLow=Math.min(...base4.map(x=>x.l));
+ const baseWidth=baseHigh-baseLow,baseOK=b.atr>0&&baseWidth<=4*b.atr;
+ const dailyPineOK=a.c>a.ema50;
+ const trendPineOK=b.c>b.ema50&&b.ema20>b.ema50;
+ const extensionPineOK=b.atr>0&&last.c<=b.ema20+2*b.atr;
+ const pineBreakTrigger=baseHigh+Math.max(last.c*.00001,.00000001);
+ const pineBreakStop=Math.min(...h.slice(-7,-1).map(x=>x.l))-.2*b.atr;
+ const pineBreakEvent=last.c>pineBreakTrigger&&f.at(-2).c<=pineBreakTrigger&&last.c>last.o;
+ const pineBreakVolume=Number.isFinite(c.rvol)&&c.rvol>=1.1;
+ const pinePullLocation=mLast.l<=b.ema20+.25*b.atr&&mLast.l>=b.ema50-.5*b.atr;
+ const pinePullTrigger=Math.max(mPrior.h+Math.max(last.c*.00001,.00000001),b.ema20);
+ const pinePullStop=Math.min(...h.slice(-4).map(x=>x.l))-.2*b.atr;
+ const pinePullEvent=last.c>pinePullTrigger&&last.c>last.o&&Number.isFinite(c.rvol)&&c.rvol>=.8;
+ const pineCosts=entry=>entry*.004;
+ const pinePlan=(entry,sl)=>{
+  const risk=entry-sl,cost=pineCosts(entry),dailyResistance=Math.max(...d.slice(-61,-1).map(x=>x.h));
+  const goal=risk>0?Math.min(entry+2.5*risk,dailyResistance>entry?dailyResistance:Infinity):null;
+  const netRR=risk>0&&Number.isFinite(goal)?(goal-entry-cost)/(risk+cost):null;
+  return {entry,stop:sl,goal,netRR,valid:risk>0&&sl>0&&100*risk/entry<=10&&netRR>=2};
+ };
+ const pineBreakPlan=pinePlan(pineBreakTrigger,pineBreakStop),pinePullPlan=pinePlan(pinePullTrigger,pinePullStop);
+ const pineContextOK=dailyPineOK&&trendPineOK&&extensionPineOK&&liquid;
+ const pineBreakReady=pineContextOK&&baseOK&&pineBreakPlan.valid;
+ const pinePullReady=pineContextOK&&pinePullLocation&&pinePullPlan.valid;
+ const pineSignalCandidate=(pineBreakReady&&pineBreakEvent&&pineBreakVolume)?'RUPTURA':(pinePullReady&&pinePullEvent)?'RETROCES':null;
+ const pineReferenceState=pineSignalCandidate?'CANDIDAT CONFIRMAT':pineBreakReady||pinePullReady?'PLA PREPARAT':'SENSE PLA VALID';
+ const pineReferenceRoute=pineSignalCandidate||(pineBreakReady?'RUPTURA':pinePullReady?'RETROCES':'—');
+ const pineReferencePlan=pineReferenceRoute==='RUPTURA'?pineBreakPlan:pineReferenceRoute==='RETROCES'?pinePullPlan:null;
  const estimatedSuccessProbability=null; // requires out-of-sample event-based backtesting, not an invented likelihood
- return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
+ return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
 }
 async function single(s){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half})}
 export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];for(let i=0;i<syms.length;i+=2){await Promise.all(syms.slice(i,i+2).map(async s=>{try{result.push(await single(s))}catch(e){errors.push({symbol:s,message:e.message})}}))}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
