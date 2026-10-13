@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v3.2</title>
+<title>Trading 2026 · Radar v3.3</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -84,7 +84,7 @@ td{color:#344256;border-color:#e9edf3}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v3.2</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v3.3</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Navegació Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Radar accions</button><button class="tab" data-tab="top" role="tab" aria-selected="false">★ Top 10 accions</button><button class="tab" data-tab="near" role="tab" aria-selected="false">↗ Entrades accions</button><button class="tab" data-tab="sectors" role="tab" aria-selected="false">▤ Sectors</button><button class="tab" data-tab="discoverStocks" role="tab" aria-selected="false">✦ Descobrir accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Radar altcoins</button></div>
@@ -158,7 +158,7 @@ function render(){
  document.getElementById('simpleBody').innerHTML=f.map(r=>{
    const missing=r.status==='SENSE DADES'||!Number.isFinite(r.technicalPrice);
    const decision=missing?'Sense dades per decidir':r.status==='INVALIDAT'?'No entrar · suport perdut':r.tooExtended?'Esperar · preu massa estès':['A','A+'].includes(r.status)?'Senyal tècnic · revisar riscos':['READY','PRE'].includes(r.status)?'Vigilar · falta confirmació':'Esperar';
-   const confidence=Number.isFinite(r.confidenceGrade)?' · Qualitat '+r.confidenceGrade+'/7 filtres'+(r.riskBlocked?' · Risc desfavorable':''):'';
+   const confidence=Number.isFinite(r.confidenceGrade)?' · Qualitat '+r.confidenceGrade+'/7 filtres'+(r.thirtyConfirm?' · 30m confirmat':'')+(r.volumeSupport4H?' · Suport 4H amb volum':'')+(r.riskBlocked?' · Risc desfavorable':''):'';
    const reason=missing?'Cal esperar dades completes de preu.':r.status==='INVALIDAT'?'El preu ha perdut el nivell de sortida calculat.':r.tooExtended?'El preu s’ha allunyat de la zona prevista.':['A','A+'].includes(r.status)?'El sistema tècnic detecta una confirmació; cal revisar empresa, resultats i resistències.':`Tendència ${Number.isFinite(r.trendScore)?r.trendScore>=70?'forta':r.trendScore>=45?'millorant':'feble':'sense dades'}; encara no hi ha entrada confirmada.`;
    return `<tr><td><button class="open-detail" data-ticker="${safe(r.ticker)}">${safe(r.ticker)} ↗</button><div class="muted">${safe(r.theme)}</div></td><td><strong>${decision}</strong></td><td class="why">${reason}${confidence}</td><td>${Number.isFinite(r.volumeScore)?safe(r.volumeLabel)+' · '+fmt(r.rvol4h,1)+'×':'Sense dades'}</td><td>Estudi pendent</td><td>${Number.isFinite(r.trigger)?'Superar '+fmt(r.trigger)+' $':'—'}</td></tr>`;
  }).join('')||'<tr><td colspan="6">No hi ha resultats amb aquests filtres.</td></tr>';
@@ -257,7 +257,7 @@ function paintCrypto(){
  tb.innerHTML=coins.length?coins.map(x=>{
   const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol),pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
   const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent((a?.source||x.source||'').includes('Kraken')?'KRAKEN:'+pair.replace('-',''):'COINBASE:'+pair.replace('-',''));
-  const reason=safe((t.failed||a?.reason||(!a?'Encara no analitzada':'Senyal orientatiu, validar al gràfic'))+(Number.isFinite(a?.confidenceGrade)?' · Filtres '+a.confidenceGrade+'/7':'')+(Number.isFinite(a?.riskRewardToResistance)?' · R:R resistència '+a.riskRewardToResistance.toFixed(1):''));
+  const reason=safe((t.failed||a?.reason||(!a?'Encara no analitzada':'Senyal orientatiu, validar al gràfic'))+(a?.thirtyConfirm?' · Confirmació 30m':'')+(a?.volumeSupport4H?' · Suport 4H amb volum':'')+(Number.isFinite(a?.confidenceGrade)?' · Filtres '+a.confidenceGrade+'/7':'')+(Number.isFinite(a?.riskRewardToResistance)?' · R:R resistència '+a.riskRewardToResistance.toFixed(1):''));
   const digits=Number(x.price)<1?5:2;
   return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),digits)+' $</td><td class="'+(Number(x.changePct)>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td class="score-number">'+(t.score===null?'—':t.score+'/100')+'</td><td><strong>'+safe(t.decision)+'</strong><div class="detail-reason" title="'+reason+'">'+reason+'</div></td><td>'+fmt(a?.trigger,5)+'</td><td>'+fmt(a?.stop,5)+'</td><td>'+fmt(a?.tp1,5)+'</td><td><a class="action-link" href="'+link+'" target="_blank" rel="noopener noreferrer">Gràfic ↗</a></td></tr>';
  }).join(''):'<tr><td colspan="10">No hi ha criptomonedes que compleixin aquests filtres.</td></tr>';
