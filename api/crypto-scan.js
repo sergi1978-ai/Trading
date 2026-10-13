@@ -139,8 +139,31 @@ function scanOne(symbol,pack){
  const pineReferenceState=pineSignalCandidate?'CANDIDAT CONFIRMAT':pineBreakReady||pinePullReady?'PLA PREPARAT':'SENSE PLA VALID';
  const pineReferenceRoute=pineSignalCandidate||(pineBreakReady?'RUPTURA':pinePullReady?'RETROCES':'—');
  const pineReferencePlan=pineReferenceRoute==='RUPTURA'?pineBreakPlan:pineReferenceRoute==='RETROCES'?pinePullPlan:null;
+ // Separate Pine v6.6.18-inspired EXP monitoring from executable trade status.
+ // Compression is measured on completed 4H candles (without the most recent 4H bar).
+ const closed4=h.slice(0,-1),close4=closed4.map(x=>x.c);
+ const smaArr=(arr,n)=>arr.length>=n?arr.slice(-n).reduce((v,x)=>v+x,0)/n:null;
+ const stdev=(arr,n)=>{const avg=smaArr(arr,n);return avg?Math.sqrt(arr.slice(-n).reduce((sum,x)=>sum+(x-avg)**2,0)/n):null};
+ const bbAt=end=>{const seg=close4.slice(0,end);const avg=smaArr(seg,20),dev=stdev(seg,20);return avg>0?4*dev/avg:null};
+ const bbNow=bbAt(close4.length);
+ const bbValues=[];for(let idx=20;idx<=close4.length;idx++){const v=bbAt(idx);if(Number.isFinite(v))bbValues.push(v)}
+ const bbAvg=smaArr(bbValues,40);
+ const earlyCompression=Number.isFinite(bbNow)&&Number.isFinite(bbAvg)&&bbNow<=bbAvg*.90;
+ const earlyHigh=Math.max(...closed4.slice(-12).map(x=>x.h));
+ const earlyTrigger=earlyHigh+Math.max(last.c*.00001,.00000001);
+ const earlyDistance=b.atr>0?(earlyTrigger-last.c)/b.atr:null;
+ const earlyNear=Number.isFinite(earlyDistance)&&earlyDistance>=0&&earlyDistance<=.65;
+ const earlyTrend=a.c>a.ema50*.94&&b.c>b.ema50*.97&&b.ema20>=b.ema50*.98;
+ const earlyVolume=Number.isFinite(c.rvol)&&c.rvol>=1.05;
+ const earlyFirstImpulse=last.c>earlyTrigger&&f.at(-2).c<=earlyTrigger&&last.c>last.o&&earlyVolume;
+ const earlyScore=[earlyCompression,earlyNear||earlyFirstImpulse,earlyVolume,earlyTrend,!extended&&liquid].filter(Boolean).length;
+ const earlyEligible=earlyTrend&&liquid&&!extended&&(earlyCompression||earlyNear||earlyFirstImpulse)&&earlyScore>=3;
+ const earlyStage=earlyEligible?(earlyFirstImpulse?'EXP · PRIMER IMPULS':earlyNear?'EXP · PROP RUPTURA':'EXP · PREPARACIÓ'):earlyScore>=2?'EXPLOSIVE WATCH':'SENSE EXP';
+ // "READY" must never be inferred from a plan with no confirmation.
+ const pineState=pineSignalCandidate?'CANDIDAT CONFIRMAT · WEB':pineReferenceState==='PLA PREPARAT'?'PRE-READY':earlyEligible?earlyStage:status==='NO PERSEGUIR'?'WATCH':status==='WATCH'?'WATCH':'SENSE SETUP';
+ const executionState=pineSignalCandidate?'REVISAR CONFIRMACIÓ AL PINE':'SENSE PLA EXECUTABLE';
  const estimatedSuccessProbability=null; // requires out-of-sample event-based backtesting, not an invented likelihood
- return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
+ return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineState,executionState,earlyScore,earlyStage,earlyCompression,earlyNear,earlyVolume,earlyTrend,pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
 }
 async function single(s){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half})}
 export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];for(let i=0;i<syms.length;i++){const symbol=syms[i];try{result.push(await single(symbol))}catch(e){errors.push({symbol,message:String(e.message||e)})}if(i<syms.length-1)await wait(250)}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
