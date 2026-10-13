@@ -105,42 +105,29 @@ function latestCompleted(bars, tf){
   if(now - t < mins*60*1000*0.9 && bars.length>1) return bars.slice(0,-1);
   return bars;
 }
-async function fetchBars(symbols, timeframe, start, limit=10000){
-  // Alpaca aplica el límit al conjunt de símbols, no a cada ticker.
-  // Amb 50 actius i 1H, una sola petició pot truncar la resposta.
-  // Per això dividim el radar en lots petits i fusionem els resultats.
-  const merged = {};
-  const CHUNK = 7;
-
-  for (let i = 0; i < symbols.length; i += CHUNK) {
-    const batch = symbols.slice(i, i + CHUNK);
-    const params = new URLSearchParams({
-      symbols: batch.join(','),
-      timeframe,
-      start,
-      limit: String(limit),
-      adjustment: 'raw',
-      feed: 'iex',
-      sort: 'asc'
-    });
-
-    const r = await fetch(`${ALPACA}?${params}`, {
-      headers: {
-        'APCA-API-KEY-ID': process.env.ALPACA_API_KEY || '',
-        'APCA-API-SECRET-KEY': process.env.ALPACA_API_SECRET || ''
-      }
-    });
-
-    const body = await r.text();
-    if (!r.ok) throw new Error(`Alpaca ${r.status}: ${body.slice(0,300)}`);
-    const j = JSON.parse(body);
-
-    for (const [sym, bars] of Object.entries(j.bars || {})) {
-      merged[sym] = (merged[sym] || []).concat(bars || []);
-    }
-  }
-
-  return merged;
+async function fetchBars(symbols,timeframe,start,limit=10000){
+ const merged={},CHUNK=7;
+ for(let i=0;i<symbols.length;i+=CHUNK){
+  const batch=symbols.slice(i,i+CHUNK);
+  let pageToken=null,page=0;
+  do{
+   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'raw',feed:'iex',sort:'asc'});
+   if(pageToken)params.set('page_token',pageToken);
+   const r=await fetch(`${ALPACA}?${params}`,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
+   const body=await r.text();
+   if(!r.ok)throw new Error(`Alpaca ${r.status}: ${body.slice(0,220)}`);
+   const j=JSON.parse(body);
+   for(const [sym,bars] of Object.entries(j.bars||{}))merged[sym]=(merged[sym]||[]).concat(bars||[]);
+   pageToken=j.next_page_token||null;
+   page++;
+  }while(pageToken&&page<8);
+  // A cap avoids unbounded serverless execution. Missing symbols remain diagnosable.
+ }
+ for(const sym of Object.keys(merged)){
+  const byTime=new Map(merged[sym].map(x=>[x.t,x]));
+  merged[sym]=[...byTime.values()].sort((a,b)=>new Date(a.t)-new Date(b.t));
+ }
+ return merged;
 }
 function addDays(d,n){ const x=new Date(d); x.setUTCDate(x.getUTCDate()+n); return x.toISOString(); }
 
