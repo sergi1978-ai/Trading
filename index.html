@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.22</title>
+<title>Trading 2026 · Radar v4.22.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -172,10 +172,21 @@ body.crypto-market #stockControls,body.crypto-market #stockManualManager{display
 :where(button,input,select,summary):focus-visible{outline:3px solid #93c5fd!important;outline-offset:3px}
 .muted,.sub{color:#b7c7df}
 @media(max-width:760px){#stockViewBar,#cryptoViewBar{gap:9px}#stockViewBar>label,#cryptoViewBar>label{width:100%}#discoverTab #cryptoScanQuick{margin-left:0}}
+
+#cryptoWatchPanel .simplebox table{min-width:790px;width:100%}
+#cryptoWatchPanel td,#cryptoWatchPanel th{white-space:nowrap;padding:12px 10px}
+#cryptoWatchPanel th{color:#c5d6ec}
+#cryptoWatchPanel .crypto-watch-remove{padding:7px 10px;font-weight:650;min-height:40px}
+#cryptoWatchPanel .open-detail{display:inline-block}
+#discoverTab .discover-grid>article:first-child{display:none!important}
+#cryptoListContent .discover-controls #cryptoScore,#cryptoListContent .discover-controls #cryptoDistance,
+#cryptoListContent .discover-controls #cryptoVol,#cryptoListContent .discover-controls #cryptoProvider,
+#cryptoListContent .discover-controls #cryptoDirection,#cryptoListContent .discover-controls #cryptoReset{display:none!important}
+@media(max-width:820px){#cryptoWatchPanel .simplebox{overflow-x:auto}#cryptoWatchPanel table{min-width:790px}}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.22</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.22.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -196,8 +207,8 @@ body.crypto-market #stockControls,body.crypto-market #stockManualManager{display
 <section id="discoverTab" hidden><div class="discover-header"><div><h2 id="discoveryTitle">Altcoins · Oportunitats i impuls</h2><div class="discover-note">Preselecció de mercat, separada dels senyals del motor. No equival a una entrada del Pine.</div></div><button id="discoverBtn" class="btn" type="button">⌕ Descobrir noves</button><button id="cryptoScanBtn" class="btn" type="button">Analitzar totes les altcoins</button></div><div class="toolbar"><span class="pill" id="discoverInfo" role="status" aria-live="polite">Prem «Cercar candidats» per començar</span></div>
 <div id="cryptoChartPanel" style="display:none;margin:10px 0;padding:16px;border:1px solid #d6e0ed;border-radius:14px;background:white"><div style="display:flex;justify-content:space-between;align-items:center"><strong id="cryptoChartTitle">Historial</strong><button class="btn" id="cryptoChartClose" type="button">Tancar</button></div><svg id="cryptoHistorySvg" viewBox="0 0 700 180" style="width:100%;height:auto;max-height:200px" aria-label="Historial de preu observat"></svg><p id="cryptoChartNote" class="muted">Observacions del radar; no equival a espelmes de mercat.</p></div><div id="cryptoAlerts" role="status" aria-live="polite" style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0"></div><span class="pill" id="coinbaseStatus">Coinbase directe: desconnectat</span><div class="market-stats" id="cryptoStats" aria-label="Estat de les criptomonedes"></div><div id="cryptoTopSlot"></div>
 <div class="toolbar" id="cryptoViewBar" style="margin:12px 0"><label for="cryptoViewSelect" style="font-weight:600">Vista d'altcoins</label><select id="cryptoViewSelect" aria-label="Escollir vista d'altcoins"><option value="top">★ Top 10 altcoins</option><option value="watch">La meva llista</option><option value="opportunity">Descobrir oportunitats</option><option value="momentum">Impuls 24h</option></select><button type="button" class="btn primary" id="cryptoScanQuick">↻ Escanejar altcoins</button></div><div class="nav-discovery"><button class="btn active" id="cryptoWatchMode" type="button">★ La meva llista</button><button class="btn" id="cryptoOpportunity" type="button">◎ Descobrir oportunitats</button><button class="btn" id="cryptoMomentum" type="button">↗ Impuls 24h</button><input id="cryptoWatchInput" placeholder="Afegir ticker (SOL, ONDO...)" aria-label="Ticker per seguir" style="max-width:220px"><button class="btn" id="cryptoWatchAdd" type="button">+ Afegir</button><label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="cryptoAutoScan"> Revisar llista cada 15 min (pàgina oberta)</label></div>
-<div id="cryptoListContent"><div class="toolbar" id="cryptoFastFilters" style="margin:12px 0;gap:6px;flex-wrap:wrap"><strong>Filtrar per estat:</strong><button class="btn crypto-fast-state active" data-state="">TOTES</button><button class="btn crypto-fast-state" data-state="READY">READY</button><button class="btn crypto-fast-state" data-state="PRE-READY">PRE-READY</button><button class="btn crypto-fast-state" data-state="EXP">EXP · PREPARACIÓ</button><button class="btn crypto-fast-state" data-state="WATCH">WATCH</button><button class="btn crypto-fast-state" data-state="SENSE SETUP">SENSE SETUP</button><button class="btn crypto-fast-state" data-state="SENSE DADES">SENSE DADES</button></div><div class="discover-controls"><input id="cryptoQuery" placeholder="Buscar criptomoneda…" aria-label="Buscar criptomoneda"><select id="cryptoState"><option value="">Tots els estats</option><option value="READY">READY</option><option value="PRE-READY">PRE-READY</option><option value="EXP">EXP · preparació / impuls</option><option value="WATCH">WATCH / Explosive Watch</option><option value="SENSE SETUP">SENSE SETUP</option><option value="SENSE DADES">SENSE DADES</option></select><select id="cryptoScore"><option value="0">Qualsevol score</option><option value="40">≥ 40</option><option value="60">≥ 60</option><option value="80">≥ 80</option></select><select id="cryptoDistance"><option value="">Qualsevol distància</option><option value="1">Trigger ≤1%</option><option value="2">Trigger ≤2%</option><option value="5">Trigger ≤5%</option></select><select id="cryptoVol"><option value="">Tot el volum</option><option value="0.8">RVOL ≥0,8×</option><option value="1">RVOL ≥1×</option><option value="1.5">RVOL ≥1,5×</option></select><select id="cryptoProvider"><option value="">Tots els proveïdors</option><option value="Coinbase">Coinbase</option><option value="Kraken">Kraken</option></select><select id="cryptoDirection"><option value="">EXP: totes les direccions</option><option value="ALCISTA">EXP · ALCISTA</option><option value="BAIXISTA">EXP · BAIXISTA</option><option value="NEUTRAL">EXP · NEUTRAL</option></select><button class="btn" id="cryptoReset" type="button">Netejar filtres</button></div>
-<div class="discover-grid">
+<div id="cryptoListContent"><div id="cryptoWatchPanel" hidden><div class="discover-header"><h3>La meva llista d’altcoins</h3><span id="cryptoWatchCount" class="pill"></span></div><p class="muted">La teva selecció · preus tècnics 1H, senyals i nivells de vigilància. Toca una altcoin per consultar el gràfic.</p><div class="simplebox crypto-watch-table"><table><thead><tr><th>Altcoin</th><th>Estat</th><th>Score</th><th>Preu 1H</th><th>Trigger</th><th>Distància</th><th>Volum</th><th>Stop</th><th>Seguiment</th></tr></thead><tbody id="cryptoWatchBody"></tbody></table></div></div><div class="toolbar" id="cryptoFastFilters" style="margin:12px 0;gap:6px;flex-wrap:wrap"><strong>Filtrar per estat:</strong><button class="btn crypto-fast-state active" data-state="">TOTES</button><button class="btn crypto-fast-state" data-state="READY">READY</button><button class="btn crypto-fast-state" data-state="PRE-READY">PRE-READY</button><button class="btn crypto-fast-state" data-state="EXP">EXP · PREPARACIÓ</button><button class="btn crypto-fast-state" data-state="WATCH">WATCH</button><button class="btn crypto-fast-state" data-state="SENSE SETUP">SENSE SETUP</button><button class="btn crypto-fast-state" data-state="SENSE DADES">SENSE DADES</button></div><div class="discover-controls"><input id="cryptoQuery" placeholder="Buscar criptomoneda…" aria-label="Buscar criptomoneda"><select id="cryptoState"><option value="">Tots els estats</option><option value="READY">READY</option><option value="PRE-READY">PRE-READY</option><option value="EXP">EXP · preparació / impuls</option><option value="WATCH">WATCH / Explosive Watch</option><option value="SENSE SETUP">SENSE SETUP</option><option value="SENSE DADES">SENSE DADES</option></select><select id="cryptoScore"><option value="0">Qualsevol score</option><option value="40">≥ 40</option><option value="60">≥ 60</option><option value="80">≥ 80</option></select><select id="cryptoDistance"><option value="">Qualsevol distància</option><option value="1">Trigger ≤1%</option><option value="2">Trigger ≤2%</option><option value="5">Trigger ≤5%</option></select><select id="cryptoVol"><option value="">Tot el volum</option><option value="0.8">RVOL ≥0,8×</option><option value="1">RVOL ≥1×</option><option value="1.5">RVOL ≥1,5×</option></select><select id="cryptoProvider"><option value="">Tots els proveïdors</option><option value="Coinbase">Coinbase</option><option value="Kraken">Kraken</option></select><select id="cryptoDirection"><option value="">EXP: totes les direccions</option><option value="ALCISTA">EXP · ALCISTA</option><option value="BAIXISTA">EXP · BAIXISTA</option><option value="NEUTRAL">EXP · NEUTRAL</option></select><button class="btn" id="cryptoReset" type="button">Netejar filtres</button></div>
+<div class="discover-grid" id="cryptoDiscoveryGrid">
 <article class="discover-panel"><h3>Accions · Estats Units</h3><p>Descoberta per activitat de mercat. Incorpora una candidata al radar Alpaca per obtenir-ne indicadors tècnics.</p><div class="tablebox"><table><thead><tr><th>Actiu</th><th>Preu</th><th>Variació</th><th>Seguiment</th><th>Trigger %</th><th>Suport 4H</th><th>RVOL</th><th>Últim canvi</th><th>Historial</th></tr></thead><tbody id="discoverStocks"><tr><td colspan="4">Sense consulta</td></tr></tbody></table></div></article>
 <article class="discover-panel"><h3>Criptomonedes · Coinbase / Kraken</h3><p>Top candidats per volum i moviment, amb cotització Coinbase USD/USDC. No són estats PRE/READY verificats; comprova el gràfic abans de decidir.</p><div class="tablebox"><table><thead><tr><th>Altcoin</th><th>Preu</th><th>24h</th><th>Estat</th><th>Score</th><th>Decisió / Motiu</th><th>Entrada</th><th>Stop</th><th>TP1</th><th>Gràfic</th><th>Seguiment</th></tr></thead><tbody id="discoverCrypto"><tr><td colspan="10">Sense consulta</td></tr></tbody></table></div></article>
 </div></div></section>
@@ -582,6 +593,27 @@ function paintCrypto(){
  const stats=document.getElementById('cryptoStats'),total=discoveredCrypto.length,analyzed=Object.keys(cryptoSignals).length,failed=Object.keys(cryptoFailures).length;
  const near=discoveredCrypto.filter(x=>['READY','PRE-READY'].includes(cryptoStateData(x).state)||cryptoStateData(x).state.startsWith('EXP')).length;
  stats.innerHTML=[['Candidats',total],['Analitzades',analyzed],['Preparant entrada',near],['Sense dades',failed],['Pendents',Math.max(0,total-analyzed-failed)]].map(([label,value])=>'<div class="stat"><strong>'+value+'</strong><small>'+label+'</small></div>').join('');
+ const watchPanel=document.getElementById('cryptoWatchPanel');
+ const watchMode=cryptoMode==='watch';
+ watchPanel.hidden=!watchMode;
+ document.getElementById('cryptoDiscoveryGrid').hidden=watchMode;
+ document.getElementById('cryptoWatchCount').textContent=cryptoWatch.length+' seguides';
+ if(watchMode){
+  const lines=coins.map(x=>{
+   const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol);
+   const price=Number.isFinite(a?.price)?a.price:Number(x.price);
+   const trigger=a?.trigger;
+   const distance=Number.isFinite(trigger)&&trigger>0&&Number.isFinite(price)&&price>0?(trigger/price-1)*100:null;
+   const volume=Number.isFinite(a?.rvol)?a.rvol:null;
+   const digits=Number.isFinite(price)&&price<1?5:2;
+   const pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
+   const market=(a?.source||x.source||'').includes('Kraken')?'KRAKEN:':'COINBASE:';
+   const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(market+pair.replace('-',''));
+   const score=t.score===null?'—':scoreBadge(t.score);
+   return '<tr><td><a class="open-detail" href="'+link+'" target="_blank" rel="noopener noreferrer">'+sym+' ↗</a></td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td>'+score+'</td><td>'+fmt(price,digits)+'</td><td>'+fmt(trigger,digits)+'</td><td class="'+(distance!==null&&distance<=2?'near':'')+'">'+(distance===null?'—':distance<=0?'Superat':fmt(distance,1)+'%')+'</td><td>'+(volume===null?'—':fmt(volume,1)+'×')+'</td><td>'+fmt(a?.stop,digits)+'</td><td><button type="button" class="btn crypto-watch-remove" data-symbol="'+sym+'" aria-label="Treure '+sym+' de la llista">× Treure</button></td></tr>';
+  });
+  document.getElementById('cryptoWatchBody').innerHTML=lines.join('')||'<tr><td colspan="9">La llista és buida. Afegeix una altcoin a la part superior.</td></tr>';
+ }
  const tb=document.getElementById('discoverCrypto');
  tb.innerHTML=coins.length?coins.map(x=>{
   const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol),pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
@@ -612,6 +644,11 @@ function addCryptoWatch(raw){
 }
 document.getElementById('cryptoWatchAdd').onclick=()=>{const input=document.getElementById('cryptoWatchInput');addCryptoWatch(input.value);input.value=''};
 document.getElementById('cryptoWatchInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('cryptoWatchAdd').click()});
+document.getElementById('cryptoWatchBody').addEventListener('click',e=>{
+ const button=e.target.closest('.crypto-watch-remove');if(!button)return;
+ const sym=button.dataset.symbol;
+ cryptoWatch=cryptoWatch.filter(x=>x!==sym);persistCryptoWatch();paintCrypto();
+});
 document.getElementById('discoverCrypto').addEventListener('click',e=>{
  const button=e.target.closest('.crypto-watch-toggle');if(!button)return;
  const sym=button.dataset.symbol;if(!/^[A-Z0-9]{2,12}$/.test(sym))return;
