@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.19</title>
+<title>Trading 2026 · Radar v4.19.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -152,7 +152,7 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.19</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.19.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -621,7 +621,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered'
  b.disabled=true;b.textContent='✓ Al radar';const sel=document.getElementById('sectorFilter');if(![...sel.options].some(o=>o.value==='Descobertes'))sel.add(new Option('Descobertes','Descobertes'));render();scan();
 });
 
-document.getElementById('scanBtn').onclick=scan;
+document.getElementById('scanBtn').onclick=()=>scan('all');
 document.getElementById('modeBtn').onclick=()=>{const advanced=document.getElementById('advancedBox');advanced.hidden=!advanced.hidden;document.getElementById('simpleBox').hidden=!advanced.hidden;const b=document.getElementById('modeBtn');b.textContent=advanced.hidden?'Veure dades avançades':'Tornar a la vista clara';b.setAttribute('aria-pressed',String(!advanced.hidden));};
 document.addEventListener('click',e=>{const b=e.target.closest('.open-detail');if(b)showDetail(b.dataset.ticker)});
 ['search','sectorFilter','statusFilter','riskFilter','divFilter','quoteOnly','radarSort'].forEach(id=>document.getElementById(id).addEventListener('input',render));
@@ -652,7 +652,7 @@ function activateTab(tab,scroll=true){
 }
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
 document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
-document.getElementById('stockScanQuick').onclick=()=>scan('pending');
+document.getElementById('stockScanQuick').onclick=()=>scan('all');
 document.getElementById('historyStatusFilter').onchange=renderStockHistory;
 document.getElementById('historyExport').onclick=()=>{const headers=['data','ticker','anterior','estat','preu_1h','radar','qualitat','trigger','stop','rendiment_3_sess','rendiment_5_sess','rendiment_10_sess'];const lines=[headers.join(',')];for(const h of stockSignalHistory)lines.push([h.day,h.ticker,h.previous,h.state,h.price,h.radar,h.quality,h.trigger,h.stop,h.d3,h.d5,h.d10].map(v=>v??'').join(','));const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='trading2026_senyals.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
 const showStockManager=()=>{
@@ -702,5 +702,12 @@ let activeStockCard='all';
 discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
-render(); scan('pending'); setInterval(()=>{scan('pending')},15*60*1000);setInterval(()=>{scan('stale')},60*60*1000);
+render();
+async function refreshStocksInPhases(){
+ if(scanInProgress)return;
+ await scan('pending');
+ await scan('stale');
+}
+refreshStocksInPhases();
+setInterval(()=>{refreshStocksInPhases()},15*60*1000);
 </script></body></html>
