@@ -275,75 +275,68 @@ function render(){
  const sec={}; rows.forEach(r=>{sec[r.sector]??=[];sec[r.sector].push(r)});
  document.getElementById('sectorGrid').innerHTML=Object.entries(sec).map(([s,a])=>{const c={};a.forEach(r=>c[r.status]=(c[r.status]||0)+1);return `<div class=sectorcard><b>${s}</b><div class=muted style="margin-top:8px">${a.length} actius · A+ ${c['A+']||0} · A ${c.A||0} · READY ${c.READY||0} · PRE ${c.PRE||0}</div><div style="margin-top:8px;font-size:12px">${a.slice().sort((x,y)=>(y.entryQuality||0)-(x.entryQuality||0)).slice(0,5).map(x=>x.ticker+' '+(x.status||'')).join(' · ')}</div></div>`}).join('');
 }
-async function scan(){
+async function scan(onlyPending=false){
  if(scanInProgress)return;
  scanInProgress=true;
- const btn=document.getElementById('scanBtn'); btn.disabled=true; btn.textContent='Escanejant…';
+ const btn=document.getElementById('scanBtn'),quick=document.getElementById('stockScanQuick');
+ btn.disabled=true;quick.disabled=true;
+ const allSymbols=[...new Set(META.map(x=>x.ticker))];
+ const pending=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)});
+ const selected=onlyPending?pending:allSymbols;
+ if(!selected.length){document.getElementById('updated').textContent='Totes les accions tenen anàlisi';scanInProgress=false;btn.disabled=false;quick.disabled=false;return}
+ let completed=0,errors=0;
+ document.getElementById('updated').textContent=(onlyPending?'Recuperant pendents':'Analitzant')+' 0/'+selected.length;
  try{
-   const allSymbols=[...new Set(META.map(x=>x.ticker))];
-   const batches=[];for(let i=0;i<allSymbols.length;i+=10)batches.push(allSymbols.slice(i,i+10));
-   const combined=[],quotes={},coverages=[],failures=[];
-   for(const [batchIndex,symbols] of batches.entries()){
-     document.getElementById('updated').textContent='Analitzant lot '+(batchIndex+1)+'/'+batches.length;
-     const syms=symbols.join(',');
-     const [r,er]=await Promise.all([
-       fetch('/api/scan?symbols='+encodeURIComponent(syms),{cache:'no-store'}),
-       fetch('/api/extended?symbols='+encodeURIComponent(syms),{cache:'no-store'})
-     ]);
-     let jPart;
-     try{jPart=await r.json();if(!r.ok)throw new Error(jPart.error||'Error escàner')}
-     catch(err){failures.push('scan '+syms+': '+String(err.message||err));continue}
-     combined.push(...(jPart.results||[]));if(jPart.coverage)coverages.push(jPart.coverage);
-     if(er.ok){try{const qPart=await er.json();Object.assign(quotes,qPart.results||{})}catch(_){failures.push('quotes')}}
-     else failures.push('quotes');
-   }
-   const j={results:combined,generatedAt:new Date().toISOString(),coverage:{
-     requested:allSymbols.length,analyzed:combined.filter(r=>r.status!=='SENSE DADES').length,
-     missing:combined.filter(r=>r.status==='SENSE DADES').length,
-     retryRequests:coverages.reduce((n,x)=>n+(x.retryRequests||0),0),
-     historicalFeed:[...new Set(coverages.map(x=>x.historicalFeed))].join('/'),
-     feedReason:coverages.some(x=>x.feedReason)
-   }};
-   const ej={results:quotes};
-   const er={ok:failures.length===0};
-   const map=Object.fromEntries((j.results||[]).map(x=>[x.symbol,x]));
-   const cov=j.coverage;
-   if(cov)document.getElementById('updated').title='Cobertura: '+cov.analyzed+'/'+cov.requested+' anàlisis completes · '+cov.missing+' sense dades · '+cov.retryRequests+' reintents';
-   document.getElementById('feedHealth').textContent=(j.coverage?'Històric '+(j.coverage.historicalFeed||'iex').toUpperCase()+' '+j.coverage.analyzed+'/'+j.coverage.requested+' · '+j.coverage.missing+' sense dades'+(j.coverage.feedReason?' (SIP no disponible)':'')+' · ':'')+(er.ok?'IEX '+Object.values(ej.results||{}).filter(x=>Number.isFinite(x.extendedPrice)).length+'/'+META.length+' cotitzacions recents (≈ indicatiu)':'Preus live no disponibles');
-   rows=META.map(m=>{
-     const old=rows.find(x=>x.ticker===m.ticker)||{};
-     const fresh=map[m.ticker];
-     const base={...m,...(!fresh&&Number.isFinite(old.radarScore)?old:{}),...(fresh||{})};
-     if(!fresh&&Number.isFinite(old.radarScore))base.dataState='ÚLTIMA ANÀLISI DESADA · actualització pendent';
-     const ex=(ej.results||{})[m.ticker]||{};
-     const ep=ex.extendedPrice;
-     const edt=(Number.isFinite(ep)&&Number.isFinite(base.trigger)&&base.trigger!==0)
-       ? ((base.trigger/ep)-1)*100 : null;
-     return {
-       ...base,
-       technicalPrice: base.technicalPrice ?? base.price,
-       price: Number.isFinite(ep) ? ep : base.price,
-       livePriceAvailable:Number.isFinite(ep),
-       session:ex.session,
-       extendedPrice:ep,
-       extendedChangePct:ex.extendedChangePct,
-       extendedActivity:ex.activity,
-       extendedFeed:ex.feed,
-       extendedPriceKind:ex.priceKind,
-       extendedIndicative:ex.indicative,
-       extendedAgeMinutes:ex.extendedAgeMinutes,
-       extendedStale:ex.priceStale,
-       lastKnownPrice:ex.lastKnownPrice,
-       extendedTimestamp:ex.extendedTimestamp,
-       extendedDistToTrigger:edt
-     };
-   });
-   document.getElementById('updated').textContent='Actualitzat '+new Date(j.generatedAt).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
-   localStorage.setItem('trading2026_v2_scan',JSON.stringify({t:Date.now(),rows}));
+  const batches=[];for(let i=0;i<selected.length;i+=5)batches.push(selected.slice(i,i+5));
+  for(const symbols of batches){
+   const syms=symbols.join(',');
+   try{
+    const [res,quoteRes]=await Promise.allSettled([
+      fetch('/api/scan?symbols='+encodeURIComponent(syms),{cache:'no-store'}),
+      fetch('/api/extended?symbols='+encodeURIComponent(syms),{cache:'no-store'})
+    ]);
+    if(res.status!=='fulfilled'||!res.value.ok)throw Error('L’anàlisi del lot no ha respost');
+    const data=await res.value.json();
+    const fresh=Object.fromEntries((data.results||[]).map(r=>[r.symbol,r]));
+    let quotes={};
+    if(quoteRes.status==='fulfilled'&&quoteRes.value.ok){try{quotes=(await quoteRes.value.json()).results||{}}catch(_){}}
+    const current=new Map(rows.map(r=>[r.ticker,r]));
+    for(const symbol of symbols){
+      const meta=META.find(m=>m.ticker===symbol),old=current.get(symbol)||meta;
+      const next=fresh[symbol],ex=quotes[symbol],ep=ex?.extendedPrice;
+      // An incomplete update must not erase a previously valid technical setup.
+      const keepOld=next?.status==='SENSE DADES'&&Number.isFinite(old?.radarScore)&&old?.status!=='SENSE DADES';
+      const base={...old,...(keepOld?{}:next||{})};
+      if(keepOld)base.dataState='ÚLTIMA ANÀLISI VÀLIDA · històric nou insuficient';
+      if(next?.status==='SENSE DADES'&&!keepOld)base.dataState=next.dataState||next.error||'Històric insuficient';
+      if(ex)Object.assign(base,{
+        price:Number.isFinite(ep)?ep:base.price,livePriceAvailable:Number.isFinite(ep),
+        session:ex.session,extendedPrice:ep,extendedChangePct:ex.extendedChangePct,
+        extendedActivity:ex.activity,extendedFeed:ex.feed,extendedPriceKind:ex.priceKind,
+        extendedIndicative:ex.indicative,extendedAgeMinutes:ex.extendedAgeMinutes,
+        extendedStale:ex.priceStale,lastKnownPrice:ex.lastKnownPrice,
+        extendedTimestamp:ex.extendedTimestamp,
+        extendedDistToTrigger:Number.isFinite(ep)&&Number.isFinite(base.trigger)&&ep>0?(base.trigger/ep-1)*100:null
+      });
+      base.technicalPrice=base.technicalPrice??base.price;
+      current.set(symbol,base);
+    }
+    rows=META.map(m=>current.get(m.ticker)||{...m,status:'SENSE DADES'});
+   }catch(e){errors+=symbols.length}
+   completed+=symbols.length;
+   const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
+   document.getElementById('updated').textContent=(onlyPending?'Pendents':'Escàner')+' '+completed+'/'+selected.length+' · queden '+left;
+   document.getElementById('feedHealth').textContent=(allSymbols.length-left)+'/'+allSymbols.length+' accions amb anàlisi · '+left+' pendents'+(errors?' · '+errors+' consultes fallides':'');
+   try{localStorage.setItem('trading2026_v2_scan',JSON.stringify({t:Date.now(),rows}))}catch(_){}
    render();
- }catch(e){alert('Error escàner: '+e.message);}
- finally{scanInProgress=false;btn.disabled=false;btn.textContent='↻ Escaneja ara';}
+  }
+ }finally{
+  scanInProgress=false;btn.disabled=false;quick.disabled=false;
+  const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
+  document.getElementById('updated').textContent='Analitzades '+(allSymbols.length-left)+'/'+allSymbols.length+' · '+left+' pendents';
+ }
 }
+
 let discoveredCrypto=[],cryptoSignals={},cryptoFailures={};let cryptoScanning=false;
 const cryptoLive={},cryptoSocket={ws:null,signature:'',retry:null};
 function connectCryptoPrices(){
@@ -612,7 +605,7 @@ function activateTab(tab,scroll=true){
 }
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
 document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
-document.getElementById('stockScanQuick').onclick=()=>scan();
+document.getElementById('stockScanQuick').onclick=()=>scan(true);
 const showStockManager=()=>{
  const el=document.getElementById('stockManualManager');
  const active=META.map(x=>x.ticker).sort();
@@ -660,5 +653,5 @@ let activeStockCard='all';
 discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
-render(); scan(); setInterval(scan,15*60*1000);
+render(); scan(true); setInterval(()=>scan(true),15*60*1000);
 </script></body></html>
