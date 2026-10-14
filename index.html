@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.21.1</title>
+<title>Trading 2026 · Radar v4.21.2</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -153,7 +153,7 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.21.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.21.2</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -357,17 +357,37 @@ async function scan(mode='all'){
   for(const symbols of batches){
    const syms=symbols.join(',');
    try{
-    const [res,quoteRes]=await Promise.allSettled([
-      fetch('/api/scan?symbols='+encodeURIComponent(syms),{cache:'no-store'}),
-      fetch('/api/extended?symbols='+encodeURIComponent(syms),{cache:'no-store'})
-    ]);
-    if(res.status!=='fulfilled')throw Error('Connexió: '+String(res.reason?.message||res.reason||'fallida'));
-    if(!res.value.ok){let reason='';try{const payload=await res.value.json();reason=payload.error||JSON.stringify(payload).slice(0,120)}catch(_){}throw Error('HTTP '+res.value.status+(reason?' · '+reason:''))}
-    const data=await res.value.json();
+    const scanUrl='/api/scan?symbols='+encodeURIComponent(syms);
+    let data=null,lastError='';
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        const response=await fetch(scanUrl,{cache:'no-store'});
+        if(!response.ok){
+          let reason='';try{const payload=await response.json();reason=payload.error||JSON.stringify(payload).slice(0,120)}catch(_){}
+          const message='HTTP '+response.status+(reason?' · '+reason:'');
+          // Do not retry missing credentials, invalid requests or provider authorization errors.
+          if([400,401,403,404].includes(response.status))throw Error('PERMANENT: '+message);
+          throw Error(message);
+        }
+        data=await response.json();
+        if(!Array.isArray(data.results))throw Error('Resposta sense resultats');
+        break;
+      }catch(error){
+        lastError=String(error.message||error);
+        if(lastError.startsWith('PERMANENT:')||attempt===2)break;
+        document.getElementById('updated').textContent='Reintent '+(attempt+1)+'/2 · '+syms;
+        await new Promise(resolve=>setTimeout(resolve,1500*(attempt+1)));
+      }
+    }
+    if(!data)throw Error(lastError);
     successful+=symbols.length;
-    const fresh=Object.fromEntries((data.results||[]).map(r=>[r.symbol,r]));
     let quotes={};
-    if(quoteRes.status==='fulfilled'&&quoteRes.value.ok){try{quotes=(await quoteRes.value.json()).results||{}}catch(_){}}
+    try{
+      const quoteResponse=await fetch('/api/extended?symbols='+encodeURIComponent(syms),{cache:'no-store'});
+      if(quoteResponse.ok)quotes=(await quoteResponse.json()).results||{};
+    }catch(_){}
+    const fresh=Object.fromEntries((data.results||[]).map(r=>[r.symbol,r]));
+
     const current=new Map(rows.map(r=>[r.ticker,r]));
     for(const symbol of symbols){
       const meta=META.find(m=>m.ticker===symbol),old=current.get(symbol)||meta;
