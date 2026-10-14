@@ -640,7 +640,7 @@ function filterDiscoveredStocks(){const q=document.getElementById('stockDiscover
 function activateTab(tab,scroll=true){
  const isCrypto=tab==='discover';
  const stockTab=!isCrypto;
- document.getElementById('stockControls').hidden=!stockTab||tab==='discoverStocks';
+ document.getElementById('stockControls').hidden=!stockTab||tab==='discoverStocks'||tab==='history';
  document.getElementById('stockViewBar').hidden=!stockTab;
  if(stockTab)document.getElementById('stockViewSelect').value=tab;
  document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===(isCrypto?'discover':'radar');x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
@@ -654,7 +654,7 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset
 document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
 document.getElementById('stockScanQuick').onclick=()=>scan('pending');
 document.getElementById('historyStatusFilter').onchange=renderStockHistory;
-document.getElementById('historyExport').onclick=()=>{const headers=['data','ticker','anterior','estat','preu_1h','radar','qualitat','trigger','stop','rendiment_3_sess','rendiment_5_sess','rendiment_10_sess'];const lines=[headers.join(',')];for(const h of stockSignalHistory)lines.push([h.day,h.ticker,h.previous,h.state,h.price,h.radar,h.quality,h.trigger,h.stop,h.d3,h.d5,h.d10].map(v=>v??'').join(','));const blob=new Blob([lines.join('\\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='trading2026_senyals.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
+document.getElementById('historyExport').onclick=()=>{const headers=['data','ticker','anterior','estat','preu_1h','radar','qualitat','trigger','stop','rendiment_3_sess','rendiment_5_sess','rendiment_10_sess'];const lines=[headers.join(',')];for(const h of stockSignalHistory)lines.push([h.day,h.ticker,h.previous,h.state,h.price,h.radar,h.quality,h.trigger,h.stop,h.d3,h.d5,h.d10].map(v=>v??'').join(','));const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='trading2026_senyals.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
 const showStockManager=()=>{
  const el=document.getElementById('stockManualManager');
  const active=META.map(x=>x.ticker).sort();
