@@ -806,8 +806,8 @@ async function discover(){
   if(cryptoPageView==='opportunity')cryptoMode='opportunity';
   paintCrypto();renderTop10();filterDiscoveredStocks();connectCryptoPrices();
   if(!coins.length)showCryptoCandidateFallback('No hi ha candidates fresques dels proveïdors');
-  // A la descoberta, no bloquejar la consulta amb un escaneig tècnic llarg.\n  // L'usuari pot afegir candidats i analitzar-los des de la seva llista.
-  info.textContent=coins.length+' altcoins descobertes · prem ☆ Seguir per incorporar-les · '+(data.errors?.length||0)+' avisos del proveïdor';
+  // No bloquejar la descoberta amb una anàlisi tècnica llarga.
+  if(coins.length)info.textContent=coins.length+' altcoins descobertes · prem ☆ Seguir per incorporar-les · '+(data.errors?.length||0)+' avisos del proveïdor';
  }catch(e){info.textContent='No s’han pogut recuperar candidates: '+e.message+' · Torna a provar la descoberta';}
  finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Actualitzar candidats'}
 }
