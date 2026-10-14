@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.22.1</title>
+<title>Trading 2026 · Radar v4.23</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -186,10 +186,10 @@ body.crypto-market #stockControls,body.crypto-market #stockManualManager{display
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.22.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.23</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
-<div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
+<section id="macroGuard" class="macro-guard" aria-live="polite"></section><div id="scanProgress" class="scan-progress" hidden role="status" aria-live="polite"><div class="scan-progress-heading"><strong id="scanProgressTitle">Analitzant…</strong><span id="scanProgressCount">0/0</span></div><div class="scan-track"><div id="scanProgressFill" class="scan-fill"></div></div><div id="scanProgressTickers" class="scan-tickers"></div></div><div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
 <div class="toolbar" id="stockViewBar" style="margin:12px 0"><label for="stockViewSelect" style="font-weight:600">Vista d'accions</label><select id="stockViewSelect" aria-label="Escollir vista d'accions"><option value="top">★ Top 10 accions</option><option value="radar">La meva anàlisi</option><option value="near">Entrades properes</option><option value="sectors">Sectors</option><option value="discoverStocks">Descobrir accions</option><option value="history">Historial de senyals</option><option value="early">Detecció anticipada</option></select><input id="stockAddInput" aria-label="Afegir ticker d'acció" placeholder="Ticker: SNDK, EME…" maxlength="10" style="max-width:172px;text-transform:uppercase"><button id="stockAddBtn" type="button" class="btn">+ Afegir</button><button id="stockManageBtn" type="button" class="btn">Gestionar llista</button><button id="stockScanQuick" type="button" class="btn primary">↻ Analitzar accions</button><span id="stockAddMessage" class="muted" role="status"></span></div><div id="stockManualManager" hidden class="notice"></div>
 <div id="stockControls"><div id="dataHealthPanel" class="data-health-panel" aria-live="polite"></div><div class="cards" id="cards"></div><div class="toolbar">
 <input id="search" placeholder="Ticker, sector o tema…">
@@ -228,6 +228,34 @@ for(const ticker of manualStocks){if(!META.some(x=>x.ticker===ticker))META.push(
 META.splice(0,META.length,...META.filter(m=>!hiddenStocks.has(m.ticker)));
 function saveManualStocks(){localStorage.setItem(MANUAL_STOCK_KEY,JSON.stringify(manualStocks));}
 let rows=META.map(m=>({...m,status:'—'}));
+const MACRO_EVENTS=[
+ {at:'2026-10-14T12:30:00Z',label:'CPI EUA · inflació',source:'https://www.bls.gov/schedule/news_release/cpi.htm'},
+ {at:'2026-10-28T18:00:00Z',label:'FOMC · decisió tipus',source:'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm'},
+ {at:'2026-12-09T19:00:00Z',label:'FOMC · decisió tipus',source:'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm'}
+];
+function paintMacroGuard(){
+ const el=document.getElementById('macroGuard');if(!el)return;
+ const now=Date.now();
+ const events=MACRO_EVENTS.filter(e=>Date.parse(e.at)>now-6*3600000).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+ const imminent=events.find(e=>Math.abs(Date.parse(e.at)-now)<6*3600000);
+ const upcoming=events.find(e=>Date.parse(e.at)>now&&Date.parse(e.at)-now<72*3600000);
+ const event=imminent||upcoming||events[0];
+ const level=imminent?'high':upcoming?'medium':'unknown';
+ const name=level==='high'?'ESPERAR · finestra macro':level==='medium'?'PRECAUCIÓ · dada pròxima':'Calendari macro parcial';
+ const info=event?'<a href="'+event.source+'" target="_blank" rel="noopener noreferrer">'+safe(event.label)+'</a> · '+new Date(event.at).toLocaleString('ca-ES',{timeZone:'Europe/Madrid',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Sense esdeveniments verificats carregats';
+ el.className='macro-guard macro-'+level;
+ el.innerHTML='<div><strong>▣ '+name+'</strong><div class="muted">'+info+'</div></div><span class="macro-small">Calendari parcial · no substitueix consulta en temps real</span>';
+}
+function updateScanProgress(market,done,total,active,finished=false){
+ const panel=document.getElementById('scanProgress');if(!panel)return;
+ panel.hidden=finished;
+ if(finished)return;
+ document.getElementById('scanProgressTitle').textContent=market==='crypto'?'Escanejant altcoins':'Escanejant accions';
+ document.getElementById('scanProgressCount').textContent=done+'/'+total;
+ document.getElementById('scanProgressFill').style.width=(total?Math.round(done/total*100):0)+'%';
+ document.getElementById('scanProgressTickers').textContent=active?'Ara: '+active:'Preparant consultes…';
+}
+
 const SIGNAL_HISTORY_KEY='trading2026_stock_signal_history_v1';
 let stockSignalHistory=[];
 try{const saved=JSON.parse(localStorage.getItem(SIGNAL_HISTORY_KEY)||'[]');if(Array.isArray(saved))stockSignalHistory=saved.filter(x=>x&&typeof x.ticker==='string').slice(-1500)}catch(_){}
@@ -384,11 +412,13 @@ async function scan(mode='all'){
  const selected=mode==='pending'?pending:mode==='stale'?stale:allSymbols;
  if(!selected.length){document.getElementById('updated').textContent=mode==='stale'?'No hi ha anàlisis antigues':'No hi ha accions pendents';scanInProgress=false;btn.disabled=false;quick.disabled=false;return}
  let completed=0,errors=0;const errorDetails=[];let successful=0;
+ updateScanProgress('stocks',0,selected.length,'Iniciant');
  document.getElementById('updated').textContent=(mode==='pending'?'Recuperant pendents':mode==='stale'?'Actualitzant antigues':'Analitzant')+' 0/'+selected.length;
  try{
   const batches=[];for(let i=0;i<selected.length;i+=5)batches.push(selected.slice(i,i+5));
   for(const symbols of batches){
    const syms=symbols.join(',');
+   updateScanProgress('stocks',completed,selected.length,syms);
    try{
     const scanUrl='/api/scan?symbols='+encodeURIComponent(syms);
     let data=null,lastError='';
@@ -447,6 +477,7 @@ async function scan(mode='all'){
     saveStockSignalHistory();
    }catch(e){errors+=symbols.length;errorDetails.push(syms+': '+String(e.message||e).slice(0,170));}
    completed+=symbols.length;
+   updateScanProgress('stocks',completed,selected.length,syms);
    const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
    document.getElementById('updated').textContent=(mode==='pending'?'Pendents':mode==='stale'?'Antigues':'Escàner')+' '+completed+'/'+selected.length+' · queden '+left;
    document.getElementById('feedHealth').textContent=(allSymbols.length-left)+'/'+allSymbols.length+' accions amb anàlisi · '+left+' pendents'+(errors?' · '+errors+' errors API ('+errorDetails[0]+')':'')+' · '+successful+' consultades OK';
@@ -454,6 +485,7 @@ async function scan(mode='all'){
    render();renderStockHistory();
   }
  }finally{
+  updateScanProgress('stocks',selected.length,selected.length,'',true);
   scanInProgress=false;btn.disabled=false;quick.disabled=false;
   const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
   document.getElementById('updated').textContent='Analitzades '+(allSymbols.length-left)+'/'+allSymbols.length+' · '+left+' pendents';
@@ -667,12 +699,14 @@ async function cryptoScan(){
  try{
   let processed=0;
   const total=symbols.length;
+  updateScanProgress('crypto',0,total,'Iniciant');
   const pending=[...symbols];
   // Four concurrent single-symbol requests avoid the serverless 10-symbol timeout.
   // Every request is independent; one failed provider must not block the rest.
   const workers=Array.from({length:Math.min(4,total)},async()=>{
    while(pending.length){
     const symbol=pending.shift();
+    updateScanProgress('crypto',processed,total,symbol);
     try{
      const controller=new AbortController();
      const timeout=setTimeout(()=>controller.abort(),30000);
@@ -687,6 +721,7 @@ async function cryptoScan(){
      else cryptoFailures[symbol]=err?.message||'El proveïdor no ha retornat cap resultat';
     }catch(err){cryptoFailures[symbol]=err.name==='AbortError'?'Temps de resposta esgotat':String(err.message||err)}
     processed++;
+    updateScanProgress('crypto',processed,total,symbol);
     paintCrypto();renderTop10();
     info.textContent='Escàner cripto '+processed+'/'+total+' · '+Object.keys(cryptoSignals).length+' analitzades · '+Object.keys(cryptoFailures).length+' sense dades';
    }
@@ -694,7 +729,7 @@ async function cryptoScan(){
   await Promise.all(workers);
   info.textContent='Finalitzat: '+Object.keys(cryptoSignals).length+' analitzades · '+Object.keys(cryptoFailures).length+' sense dades · consulta els motius en cada fila';
  }catch(e){info.textContent='Error de l’anàlisi: '+e.message}
- finally{cryptoScanning=false;b.disabled=false;b.textContent='↻ Reanalitzar totes les altcoins'}
+ finally{updateScanProgress('crypto',symbols.length,symbols.length,'',true);cryptoScanning=false;b.disabled=false;b.textContent='↻ Reanalitzar totes les altcoins'}
 }
 document.getElementById('cryptoScanBtn').onclick=cryptoScan;
 document.getElementById('cryptoViewSelect').onchange=e=>setCryptoView(e.target.value);
@@ -819,12 +854,12 @@ let activeStockCard='all';
 discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
-render();
+render();paintMacroGuard();
 async function refreshStocksInPhases(){
  if(scanInProgress)return;
  await scan('pending');
  await scan('stale');
 }
 refreshStocksInPhases();
-setInterval(()=>{refreshStocksInPhases()},15*60*1000);
+setInterval(()=>{refreshStocksInPhases()},15*60*1000);setInterval(paintMacroGuard,5*60*1000);
 </script></body></html>
