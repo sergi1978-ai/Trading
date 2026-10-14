@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.21</title>
+<title>Trading 2026 · Radar v4.21.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -153,7 +153,7 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.21</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.21.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -350,7 +350,7 @@ async function scan(mode='all'){
  const stale=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return r&&Number.isFinite(r.radarScore)&&(!Number.isFinite(Date.parse(r.updatedAt))||Date.now()-Date.parse(r.updatedAt)>24*60*60*1000)});
  const selected=mode==='pending'?pending:mode==='stale'?stale:allSymbols;
  if(!selected.length){document.getElementById('updated').textContent=mode==='stale'?'No hi ha anàlisis antigues':'No hi ha accions pendents';scanInProgress=false;btn.disabled=false;quick.disabled=false;return}
- let completed=0,errors=0;
+ let completed=0,errors=0;const errorDetails=[];let successful=0;
  document.getElementById('updated').textContent=(mode==='pending'?'Recuperant pendents':mode==='stale'?'Actualitzant antigues':'Analitzant')+' 0/'+selected.length;
  try{
   const batches=[];for(let i=0;i<selected.length;i+=5)batches.push(selected.slice(i,i+5));
@@ -361,8 +361,10 @@ async function scan(mode='all'){
       fetch('/api/scan?symbols='+encodeURIComponent(syms),{cache:'no-store'}),
       fetch('/api/extended?symbols='+encodeURIComponent(syms),{cache:'no-store'})
     ]);
-    if(res.status!=='fulfilled'||!res.value.ok)throw Error('L’anàlisi del lot no ha respost');
+    if(res.status!=='fulfilled')throw Error('Connexió: '+String(res.reason?.message||res.reason||'fallida'));
+    if(!res.value.ok){let reason='';try{const payload=await res.value.json();reason=payload.error||JSON.stringify(payload).slice(0,120)}catch(_){}throw Error('HTTP '+res.value.status+(reason?' · '+reason:''))}
     const data=await res.value.json();
+    successful+=symbols.length;
     const fresh=Object.fromEntries((data.results||[]).map(r=>[r.symbol,r]));
     let quotes={};
     if(quoteRes.status==='fulfilled'&&quoteRes.value.ok){try{quotes=(await quoteRes.value.json()).results||{}}catch(_){}}
@@ -390,11 +392,11 @@ async function scan(mode='all'){
     }
     rows=META.map(m=>current.get(m.ticker)||{...m,status:'SENSE DADES'});
     saveStockSignalHistory();
-   }catch(e){errors+=symbols.length}
+   }catch(e){errors+=symbols.length;errorDetails.push(syms+': '+String(e.message||e).slice(0,170));}
    completed+=symbols.length;
    const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
    document.getElementById('updated').textContent=(mode==='pending'?'Pendents':mode==='stale'?'Antigues':'Escàner')+' '+completed+'/'+selected.length+' · queden '+left;
-   document.getElementById('feedHealth').textContent=(allSymbols.length-left)+'/'+allSymbols.length+' accions amb anàlisi · '+left+' pendents'+(errors?' · '+errors+' consultes fallides':'');
+   document.getElementById('feedHealth').textContent=(allSymbols.length-left)+'/'+allSymbols.length+' accions amb anàlisi · '+left+' pendents'+(errors?' · '+errors+' errors API ('+errorDetails[0]+')':'')+' · '+successful+' consultades OK';
    try{localStorage.setItem('trading2026_v2_scan',JSON.stringify({t:Date.now(),rows}))}catch(_){}
    render();renderStockHistory();
   }
@@ -402,6 +404,7 @@ async function scan(mode='all'){
   scanInProgress=false;btn.disabled=false;quick.disabled=false;
   const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
   document.getElementById('updated').textContent='Analitzades '+(allSymbols.length-left)+'/'+allSymbols.length+' · '+left+' pendents';
+  document.getElementById('feedHealth').title=errorDetails.length?errorDetails.join(' | '):'Sense errors API en aquest escaneig';
  }
 }
 
