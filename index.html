@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.18</title>
+<title>Trading 2026 · Radar v4.19</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -152,11 +152,11 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.18</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.19</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
-<div class="toolbar" id="stockViewBar" style="margin:12px 0"><label for="stockViewSelect" style="font-weight:600">Vista d'accions</label><select id="stockViewSelect" aria-label="Escollir vista d'accions"><option value="top">★ Top 10 accions</option><option value="radar">La meva anàlisi</option><option value="near">Entrades properes</option><option value="sectors">Sectors</option><option value="discoverStocks">Descobrir accions</option></select><input id="stockAddInput" aria-label="Afegir ticker d'acció" placeholder="Ticker: SNDK, EME…" maxlength="10" style="max-width:172px;text-transform:uppercase"><button id="stockAddBtn" type="button" class="btn">+ Afegir</button><button id="stockManageBtn" type="button" class="btn">Gestionar llista</button><button id="stockScanQuick" type="button" class="btn primary">↻ Analitzar accions</button><span id="stockAddMessage" class="muted" role="status"></span></div><div id="stockManualManager" hidden class="notice"></div>
+<div class="toolbar" id="stockViewBar" style="margin:12px 0"><label for="stockViewSelect" style="font-weight:600">Vista d'accions</label><select id="stockViewSelect" aria-label="Escollir vista d'accions"><option value="top">★ Top 10 accions</option><option value="radar">La meva anàlisi</option><option value="near">Entrades properes</option><option value="sectors">Sectors</option><option value="discoverStocks">Descobrir accions</option><option value="history">Historial de senyals</option></select><input id="stockAddInput" aria-label="Afegir ticker d'acció" placeholder="Ticker: SNDK, EME…" maxlength="10" style="max-width:172px;text-transform:uppercase"><button id="stockAddBtn" type="button" class="btn">+ Afegir</button><button id="stockManageBtn" type="button" class="btn">Gestionar llista</button><button id="stockScanQuick" type="button" class="btn primary">↻ Analitzar accions</button><span id="stockAddMessage" class="muted" role="status"></span></div><div id="stockManualManager" hidden class="notice"></div>
 <div id="stockControls"><div id="dataHealthPanel" class="data-health-panel" aria-live="polite"></div><div class="cards" id="cards"></div><div class="toolbar">
 <input id="search" placeholder="Ticker, sector o tema…">
 <select id="sectorFilter"><option value="">Tots els sectors</option></select>
@@ -165,7 +165,7 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 <select id="divFilter"><option value="">Dividend: tots</option><option value="0.5">≥0,5%</option><option value="1">≥1%</option><option value="2">≥2%</option></select>
 <span class="pill" id="updated">Sense escanejar</span><span class="pill" id="feedHealth">Cotitzacions: pendent</span><select id="quoteOnly"><option value="">Totes les cotitzacions</option><option value="fresh">Preus recents</option><option value="stale">Sense preu recent</option></select><select id="radarSort"><option value="score">Millor radar</option><option value="trigger">Més proper al trigger</option><option value="ticker">Ticker A–Z</option></select>
 </div></div>
-<section id="topTab" hidden><div class="discover-header"><h2>Top 10 · Accions</h2><button class="btn" id="topRefresh">↻ Actualitzar</button></div><p class="muted">Classificació orientativa del motor web, NO senyal original de TradingView. Les A/READY requereixen pla i filtres; comprova el Pine v6.6.18 abans d'operar.</p><div class="discover-grid"><article class="discover-panel"><h3>Top 10 accions</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Radar</th><th>Qualitat</th><th>Volum 4H</th><th>Preu tècnic</th><th>Preu recent</th><th>Trigger</th><th>Stop</th><th>Acció</th></tr></thead><tbody id="topStockBody"></tbody></table></div></article><article class="discover-panel"><h3>Top 10 altcoins analitzades</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Altcoin</th><th>Estat</th><th>Score</th><th>Preu 1H</th><th>Trigger</th><th>Stop</th><th>Motiu</th></tr></thead><tbody id="topCryptoBody"></tbody></table></div></article></div></section><section id="radarTab"><div class="toolbar"><span class="muted">Llegeix primer què cal esperar; obre una fitxa per veure els nivells.</span><button type="button" class="btn mode" id="modeBtn" aria-pressed="false">Veure dades avançades</button></div><div class="simplebox" id="simpleBox"><table><thead><tr><th>Acció</th><th>Estat</th><th>Radar</th><th>Preu</th><th>Trigger</th><th>Distància</th><th>Volum</th><th>R:R</th></tr></thead><tbody id="simpleBody"></tbody></table></div><div class="tablebox" id="advancedBox" hidden><table><thead><tr>
+<section id="topTab" hidden><div class="discover-header"><h2>Top 10 · Accions</h2><button class="btn" id="topRefresh">↻ Actualitzar</button></div><p class="muted">Classificació orientativa del motor web, NO senyal original de TradingView. Les A/READY requereixen pla i filtres; comprova el Pine v6.6.18 abans d'operar.</p><div class="discover-grid"><article class="discover-panel"><h3>Top 10 accions</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Estat</th><th>Radar</th><th>Qualitat</th><th>Volum 4H</th><th>Preu tècnic</th><th>Preu recent</th><th>Trigger</th><th>Stop</th><th>Acció</th></tr></thead><tbody id="topStockBody"></tbody></table></div></article><article class="discover-panel"><h3>Top 10 altcoins analitzades</h3><div class="tablebox"><table><thead><tr><th>#</th><th>Altcoin</th><th>Estat</th><th>Score</th><th>Preu 1H</th><th>Trigger</th><th>Stop</th><th>Motiu</th></tr></thead><tbody id="topCryptoBody"></tbody></table></div></article></div></section><section id="historyTab" hidden><div class="discover-header"><div><h2>Historial de senyals · Accions</h2><div class="discover-note">Observacions locals des de la v4.19; no és un backtest ni valida l'execució real.</div></div><button type="button" class="btn" id="historyExport">↓ Exportar CSV</button></div><div class="toolbar"><select id="historyStatusFilter"><option value="">Tots els estats</option><option>WATCH</option><option>PRE</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option></select><span class="pill" id="historyCount">0 registres</span></div><div class="tablebox"><table style="min-width:1050px"><thead><tr><th>Data</th><th>Acció</th><th>Canvi d'estat</th><th>Radar</th><th>Qualitat</th><th>Preu 1H</th><th>Trigger</th><th>Stop</th><th>+3 sessions</th><th>+5 sessions</th><th>+10 sessions</th></tr></thead><tbody id="historyBody"></tbody></table></div><p class="muted">Les variacions futures provenen de noves observacions 1H, no de l'històric intradia complet. No permeten afirmar si s'ha tocat abans l'stop o el TP.</p></section><section id="radarTab"><div class="toolbar"><span class="muted">Llegeix primer què cal esperar; obre una fitxa per veure els nivells.</span><button type="button" class="btn mode" id="modeBtn" aria-pressed="false">Veure dades avançades</button></div><div class="simplebox" id="simpleBox"><table><thead><tr><th>Acció</th><th>Estat</th><th>Radar</th><th>Preu</th><th>Trigger</th><th>Distància</th><th>Volum</th><th>R:R</th></tr></thead><tbody id="simpleBody"></tbody></table></div><div class="tablebox" id="advancedBox" hidden><table><thead><tr>
 <th>Ticker</th><th>Últim preu recent</th><th>% dia</th><th>Acció ara</th><th>Radar</th><th>RS vs bench</th><th>RVOL 1H</th><th>Volum 4H</th><th>Sessió</th><th>Preu tècnic 1H</th><th>Ext. %</th><th>Activitat</th><th>Sector</th><th>Subtema</th><th>Div %</th><th>Risc</th><th>Estat</th><th>Entry Q</th><th>Trend</th><th>Zona d'interès</th><th>Trigger</th><th>Falta</th><th>Edat</th><th>Stop</th><th>Risc stop</th><th>R:R</th><th>Suport</th>
 </tr></thead><tbody id="tbody"></tbody></table></div></section>
 <section id="nearTab" hidden><div class="tablebox"><table><thead><tr><th>#</th><th>Ticker</th><th>Acció</th><th>Radar</th><th>Estat</th><th>Preu</th><th>Sessió</th><th>Últim preu recent</th><th>PM/AH vs trigger</th><th>Falta trigger</th><th>Entry Q</th><th>Trend</th><th>Edat</th><th>Trigger</th><th>Stop</th><th>Sector</th></tr></thead><tbody id="nearBody"></tbody></table></div></section>
@@ -194,6 +194,37 @@ for(const ticker of manualStocks){if(!META.some(x=>x.ticker===ticker))META.push(
 META.splice(0,META.length,...META.filter(m=>!hiddenStocks.has(m.ticker)));
 function saveManualStocks(){localStorage.setItem(MANUAL_STOCK_KEY,JSON.stringify(manualStocks));}
 let rows=META.map(m=>({...m,status:'—'}));
+const SIGNAL_HISTORY_KEY='trading2026_stock_signal_history_v1';
+let stockSignalHistory=[];
+try{const saved=JSON.parse(localStorage.getItem(SIGNAL_HISTORY_KEY)||'[]');if(Array.isArray(saved))stockSignalHistory=saved.filter(x=>x&&typeof x.ticker==='string').slice(-1500)}catch(_){}
+function saveStockSignalHistory(){try{localStorage.setItem(SIGNAL_HISTORY_KEY,JSON.stringify(stockSignalHistory.slice(-1500)))}catch(_){}}
+function tradingSessionsBetween(start,end){
+ let d=new Date(start+'T12:00:00Z'),finish=new Date(end+'T12:00:00Z'),count=0;
+ if(!Number.isFinite(d.getTime())||!Number.isFinite(finish.getTime()))return 0;
+ for(let i=0;i<400&&d<finish;i++){d.setUTCDate(d.getUTCDate()+1);if(d.getUTCDay()!==0&&d.getUTCDay()!==6)count++}
+ return count;
+}
+function captureStockSignal(r){
+ if(!r||!r.ticker||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)||!Number.isFinite(r.technicalPrice)||!r.updatedAt)return;
+ const day=String(r.updatedAt).slice(0,10),price=r.technicalPrice;
+ for(const h of stockSignalHistory){
+  if(h.ticker!==r.ticker||!h.day||!(h.price>0))continue;
+  const elapsed=tradingSessionsBetween(h.day,day);
+  for(const n of [3,5,10])if(elapsed>=n&&h['d'+n]==null)h['d'+n]=Math.round((price/h.price-1)*10000)/100;
+ }
+ const last=[...stockSignalHistory].reverse().find(x=>x.ticker===r.ticker);
+ if(last&&last.state===r.status)return;
+ stockSignalHistory.push({ticker:r.ticker,day,state:r.status,previous:last?.state||'INICI',price,trigger:Number.isFinite(r.trigger)?r.trigger:null,stop:Number.isFinite(r.stop)?r.stop:null,radar:r.radarScore,quality:r.entryQuality??null,d3:null,d5:null,d10:null});
+ stockSignalHistory=stockSignalHistory.slice(-1500);
+ saveStockSignalHistory();
+}
+function renderStockHistory(){
+ const body=document.getElementById('historyBody');if(!body)return;
+ const state=document.getElementById('historyStatusFilter').value;
+ const events=stockSignalHistory.filter(h=>!state||h.state===state).slice().reverse();
+ document.getElementById('historyCount').textContent=events.length+' canvis enregistrats';
+ body.innerHTML=events.map(h=>'<tr><td>'+safe(h.day)+'</td><td><strong>'+safe(h.ticker)+'</strong></td><td>'+safe(h.previous)+' → <span class="status '+statusClass(h.state)+'">'+safe(h.state)+'</span></td><td>'+scoreBadge(h.radar)+'</td><td>'+scoreBadge(h.quality)+'</td><td>'+fmt(h.price)+'</td><td>'+fmt(h.trigger)+'</td><td>'+fmt(h.stop)+'</td>'+[3,5,10].map(n=>'<td class="'+(h['d'+n]>0?'pos':h['d'+n]<0?'neg':'muted')+'">'+(h['d'+n]==null?'Pendent':(h['d'+n]>0?'+':'')+fmt(h['d'+n],2)+'%')+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="11">Encara no hi ha canvis d’estat registrats. Cal una anàlisi amb dades completes.</td></tr>';
+}
 const fmt=(x,d=2)=>Number.isFinite(x)?Number(x).toFixed(d):'—';
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statusClass=s=>s==='A+'?'Aplus':(s||'SENSE DADES').replaceAll(' ','_');
@@ -317,6 +348,7 @@ async function scan(mode='all'){
     for(const symbol of symbols){
       const meta=META.find(m=>m.ticker===symbol),old=current.get(symbol)||meta;
       const next=fresh[symbol],ex=quotes[symbol],ep=ex?.extendedPrice;
+      if(next&&next.status!=='SENSE DADES')captureStockSignal(next);
       // An incomplete update must not erase a previously valid technical setup.
       const keepOld=next?.status==='SENSE DADES'&&Number.isFinite(old?.radarScore)&&old?.status!=='SENSE DADES';
       const base={...old,...(keepOld?{}:next||{})};
@@ -335,13 +367,14 @@ async function scan(mode='all'){
       current.set(symbol,base);
     }
     rows=META.map(m=>current.get(m.ticker)||{...m,status:'SENSE DADES'});
+    saveStockSignalHistory();
    }catch(e){errors+=symbols.length}
    completed+=symbols.length;
    const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
    document.getElementById('updated').textContent=(mode==='pending'?'Pendents':mode==='stale'?'Antigues':'Escàner')+' '+completed+'/'+selected.length+' · queden '+left;
    document.getElementById('feedHealth').textContent=(allSymbols.length-left)+'/'+allSymbols.length+' accions amb anàlisi · '+left+' pendents'+(errors?' · '+errors+' consultes fallides':'');
    try{localStorage.setItem('trading2026_v2_scan',JSON.stringify({t:Date.now(),rows}))}catch(_){}
-   render();
+   render();renderStockHistory();
   }
  }finally{
   scanInProgress=false;btn.disabled=false;quick.disabled=false;
@@ -611,14 +644,17 @@ function activateTab(tab,scroll=true){
  document.getElementById('stockViewBar').hidden=!stockTab;
  if(stockTab)document.getElementById('stockViewSelect').value=tab;
  document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===(isCrypto?'discover':'radar');x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
- ['radar','top','near','sectors','discover','discoverStocks'].forEach(t=>{document.getElementById(t+'Tab').hidden=t!==tab});
+ ['radar','top','near','sectors','discover','discoverStocks','history'].forEach(t=>{document.getElementById(t+'Tab').hidden=t!==tab});
  if(tab==='discoverStocks'&&!discoveredCrypto.length)discover();
+ if(tab==='history')renderStockHistory();
  if(tab==='discover'){setCryptoView(cryptoPageView);connectCryptoPrices()}else connectCryptoPrices();
  if(scroll)window.scrollTo({top:0,behavior:'smooth'});
 }
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
 document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
 document.getElementById('stockScanQuick').onclick=()=>scan('pending');
+document.getElementById('historyStatusFilter').onchange=renderStockHistory;
+document.getElementById('historyExport').onclick=()=>{const headers=['data','ticker','anterior','estat','preu_1h','radar','qualitat','trigger','stop','rendiment_3_sess','rendiment_5_sess','rendiment_10_sess'];const lines=[headers.join(',')];for(const h of stockSignalHistory)lines.push([h.day,h.ticker,h.previous,h.state,h.price,h.radar,h.quality,h.trigger,h.stop,h.d3,h.d5,h.d10].map(v=>v??'').join(','));const blob=new Blob([lines.join('\\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='trading2026_senyals.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
 const showStockManager=()=>{
  const el=document.getElementById('stockManualManager');
  const active=META.map(x=>x.ticker).sort();
