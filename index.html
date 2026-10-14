@@ -183,6 +183,23 @@ body.crypto-market #stockControls,body.crypto-market #stockManualManager{display
 #cryptoListContent .discover-controls #cryptoVol,#cryptoListContent .discover-controls #cryptoProvider,
 #cryptoListContent .discover-controls #cryptoDirection,#cryptoListContent .discover-controls #cryptoReset{display:none!important}
 @media(max-width:820px){#cryptoWatchPanel .simplebox{overflow-x:auto}#cryptoWatchPanel table{min-width:790px}}
+
+/* v4.23 · Focalització en les taules i seguiment de l'escaneig */
+#cards,#cryptoStats{display:none!important}
+#stockControls #radarSort,#stockControls #statusFilter,#cryptoListContent #cryptoState{display:none!important}
+.macro-guard{display:flex;justify-content:space-between;gap:12px;align-items:center;background:#15243a;border:1px solid #38516f;border-radius:12px;padding:11px 15px;margin:12px 0;color:#e5efff}
+.macro-guard a{color:#b9d8ff}.macro-guard .macro-small{font-size:11px;color:#b8c8df;max-width:210px}
+.macro-guard.macro-high{border-color:#ef9191;background:#432730}.macro-guard.macro-medium{border-color:#e4bb70;background:#383124}
+.scan-progress{position:sticky;top:0;z-index:10;margin:12px 0;padding:13px 15px;border:1px solid #5480ad;border-radius:13px;background:#172b45;box-shadow:0 8px 24px #050e1b99}
+.scan-progress-heading{display:flex;justify-content:space-between;gap:8px;font-size:14px;color:#f1f7ff}
+.scan-track{height:10px;border-radius:999px;background:#344761;overflow:hidden;margin:10px 0}
+.scan-fill{height:100%;background:#67c3f5;transition:width .2s ease;width:0}
+.scan-tickers{font-size:12px;color:#d1e5ff;overflow-wrap:anywhere}
+th.sortable-col{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable-col:hover{background:#274365;color:white}
+th.sortable-col:focus-visible{outline:3px solid #94c9ff;outline-offset:-3px}
+#cryptoWatchPanel th,#simpleBox th{color:#d8e6fb}
+@media(max-width:700px){.macro-guard{align-items:flex-start;flex-direction:column}.scan-progress{top:0}}
 </style>
 </head>
 <body><div class="wrap">
@@ -307,6 +324,7 @@ function renderStockHistory(){
  document.getElementById('historyCount').textContent=events.length+' canvis enregistrats';
  body.innerHTML=events.map(h=>'<tr><td>'+safe(h.day)+'</td><td><strong>'+safe(h.ticker)+'</strong></td><td>'+safe(h.previous)+' → <span class="status '+statusClass(h.state)+'">'+safe(h.state)+'</span></td><td>'+scoreBadge(h.radar)+'</td><td>'+scoreBadge(h.quality)+'</td><td>'+fmt(h.price)+'</td><td>'+fmt(h.trigger)+'</td><td>'+fmt(h.stop)+'</td>'+[3,5,10].map(n=>'<td class="'+(h['d'+n]>0?'pos':h['d'+n]<0?'neg':'muted')+'">'+(h['d'+n]==null?'Pendent':(h['d'+n]>0?'+':'')+fmt(h['d'+n],2)+'%')+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="11">Encara no hi ha canvis d’estat registrats. Cal una anàlisi amb dades completes.</td></tr>';
 }
+let stockColumnSort='radar',stockColumnAscending=false,cryptoColumnSort='score',cryptoColumnAscending=false;
 const fmt=(x,d=2)=>Number.isFinite(x)?Number(x).toFixed(d):'—';
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statusClass=s=>s==='A+'?'Aplus':(s||'SENSE DADES').replaceAll(' ','_');
@@ -378,6 +396,10 @@ function render(){
  const sortMode=document.getElementById('radarSort').value,quoteOnly=document.getElementById('quoteOnly').value;
  const q=document.getElementById('search').value.toLowerCase(), sf=document.getElementById('sectorFilter').value, st=document.getElementById('statusFilter').value, rf=document.getElementById('riskFilter').value, df=Number(document.getElementById('divFilter').value||0);
  let f=rows.filter(r=>(!q||[r.ticker,r.sector,r.theme].join(' ').toLowerCase().includes(q))&&(!sf||r.sector===sf)&&(!st||r.status===st)&&(!rf||r.risk===rf)&&(activeStockCard!=='near'||(Number.isFinite(r.distToTrigger)&&r.distToTrigger>=0&&r.distToTrigger<=2))&&(activeStockCard!=='score'||(r.radarScore||0)>=70)&&(r.dividend>=df)&&(!quoteOnly||(quoteOnly==='fresh'?r.livePriceAvailable===true:r.livePriceAvailable!==true))).sort((a,b)=>sortMode==='ticker'?a.ticker.localeCompare(b.ticker):sortMode==='trigger'?(Math.abs(a.distToTrigger??Infinity)-Math.abs(b.distToTrigger??Infinity)):(b.radarScore||0)-(a.radarScore||0));
+ if(stockColumnSort!=='radar'){
+  const val=(r)=>stockColumnSort==='ticker'?r.ticker:stockColumnSort==='state'?r.status:stockColumnSort==='price'?r.price:stockColumnSort==='trigger'?r.trigger:stockColumnSort==='distance'?r.distToTrigger:stockColumnSort==='volume'?r.rvol4h:r.radarScore;
+  f.sort((a,b)=>typeof val(a)==='string'?String(val(a)).localeCompare(String(val(b)))*(stockColumnAscending?1:-1):((Number(val(a))||0)-(Number(val(b))||0))*(stockColumnAscending?1:-1));
+ }else if(stockColumnAscending)f.reverse();
  document.getElementById('simpleBody').innerHTML=f.map(r=>{
   const status=safe(r.status==='PRE'?'PRE-READY':r.status||'SENSE DADES');
   const noData=r.status==='SENSE DADES'||!Number.isFinite(r.technicalPrice);
@@ -631,6 +653,11 @@ function paintCrypto(){
  document.getElementById('cryptoDiscoveryGrid').hidden=watchMode;
  document.getElementById('cryptoWatchCount').textContent=cryptoWatch.length+' seguides';
  if(watchMode){
+  coins.sort((x,y)=>{
+   const val=v=>{const a=cryptoSignals[v.symbol]||{};switch(cryptoColumnSort){case 'symbol':return v.symbol;case 'state':return cryptoStateData(v).state;case 'price':return a.price??v.price;case 'trigger':return a.trigger;case 'distance':return a.trigger&&a.price?(a.trigger/a.price-1)*100:null;case 'volume':return a.rvol;case 'stop':return a.stop;default:return cryptoStateData(v).score}};
+   const a=val(x),b=val(y),d=typeof a==='string'?String(a).localeCompare(String(b)):(Number(a??-Infinity)-Number(b??-Infinity));
+   return d*(cryptoColumnAscending?1:-1);
+  });
   const lines=coins.map(x=>{
    const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol);
    const price=Number.isFinite(a?.price)?a.price:Number(x.price);
@@ -676,6 +703,24 @@ function addCryptoWatch(raw){
 }
 document.getElementById('cryptoWatchAdd').onclick=()=>{const input=document.getElementById('cryptoWatchInput');addCryptoWatch(input.value);input.value=''};
 document.getElementById('cryptoWatchInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('cryptoWatchAdd').click()});
+function installColumnSort(tableSelector,keys,callback){
+ const table=document.querySelector(tableSelector);if(!table)return;
+ table.querySelectorAll('thead th').forEach((th,i)=>{
+  if(!keys[i])return;
+  th.classList.add('sortable-col');th.tabIndex=0;th.setAttribute('role','button');th.setAttribute('aria-label','Ordenar per '+th.textContent);
+  const run=()=>callback(keys[i]);
+  th.addEventListener('click',run);
+  th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run()}});
+ });
+}
+installColumnSort('#simpleBox',['ticker','state','radar','price','trigger','distance','volume',null],key=>{
+ stockColumnAscending=stockColumnSort===key?!stockColumnAscending:false;
+ stockColumnSort=key;render();
+});
+installColumnSort('#cryptoWatchPanel',['symbol','state','score','price','trigger','distance','volume','stop',null],key=>{
+ cryptoColumnAscending=cryptoColumnSort===key?!cryptoColumnAscending:false;
+ cryptoColumnSort=key;paintCrypto();
+});
 document.getElementById('cryptoWatchBody').addEventListener('click',e=>{
  const button=e.target.closest('.crypto-watch-remove');if(!button)return;
  const sym=button.dataset.symbol;
