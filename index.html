@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.15</title>
+<title>Trading 2026 · Radar v4.18</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -148,15 +148,16 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 .vol-indicator{display:inline-flex;align-items:center;gap:5px;font-weight:800;white-space:nowrap}.vol-indicator strong{font-size:17px;line-height:1}.vol-bull{color:#69edb9}.vol-bear{color:#ff9cad}.vol-neutral{color:#bac9dc}
 #stockManualManager[hidden]{display:none!important}#stockManualManager .stock-remove{margin:3px 4px;background:#273951!important}#stockAddInput{color:#f5f8ff!important}
 #stockManualManager .stock-manager-grid{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0 15px}
+.data-health-panel{margin:12px 0;border:1px solid #36506e;border-radius:14px;background:#15253a;padding:12px;color:#eaf3ff}.data-health-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.data-health-stats>div{border-radius:10px;background:#20344d;padding:10px}.data-health-stats small{color:#bacce2;display:block}.data-health-stats strong{font-size:21px;color:#f6fbff}.data-health-panel details{margin-top:10px;font-size:12px}.data-health-panel summary{cursor:pointer;color:#b9d7ff}.data-health-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}@media(max-width:700px){.data-health-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.9</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.18</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
 <div class="toolbar" id="stockViewBar" style="margin:12px 0"><label for="stockViewSelect" style="font-weight:600">Vista d'accions</label><select id="stockViewSelect" aria-label="Escollir vista d'accions"><option value="top">★ Top 10 accions</option><option value="radar">La meva anàlisi</option><option value="near">Entrades properes</option><option value="sectors">Sectors</option><option value="discoverStocks">Descobrir accions</option></select><input id="stockAddInput" aria-label="Afegir ticker d'acció" placeholder="Ticker: SNDK, EME…" maxlength="10" style="max-width:172px;text-transform:uppercase"><button id="stockAddBtn" type="button" class="btn">+ Afegir</button><button id="stockManageBtn" type="button" class="btn">Gestionar llista</button><button id="stockScanQuick" type="button" class="btn primary">↻ Analitzar accions</button><span id="stockAddMessage" class="muted" role="status"></span></div><div id="stockManualManager" hidden class="notice"></div>
-<div id="stockControls"><div class="cards" id="cards"></div><div class="toolbar">
+<div id="stockControls"><div id="dataHealthPanel" class="data-health-panel" aria-live="polite"></div><div class="cards" id="cards"></div><div class="toolbar">
 <input id="search" placeholder="Ticker, sector o tema…">
 <select id="sectorFilter"><option value="">Tots els sectors</option></select>
 <select id="statusFilter"><option value="">Tots els estats</option><option>NO SETUP</option><option>WATCH</option><option value="PRE">PRE-READY</option><option>READY</option><option>A</option><option>A+</option><option>INVALIDAT</option><option>SENSE DADES</option></select>
@@ -249,6 +250,16 @@ async function loadCompany(ticker){
  }catch(e){if(box.isConnected)box.innerHTML=`<h3>Empresa i notícies</h3><p><strong>Dades no disponibles</strong></p><p class="small">${safe(e.message)}. No hi ha valoració empresarial verificable en aquesta fitxa.</p>`;}
 }
 function volumeArrow(r){const dir=r.volumeDirection||'NEUTRAL',v=Number.isFinite(r.rvol4h)?fmt(r.rvol4h,1)+'×':'—';const cls=dir==='ALCISTA'?'vol-bull':dir==='BAIXISTA'?'vol-bear':'vol-neutral';const arrow=dir==='ALCISTA'?'↑':dir==='BAIXISTA'?'↓':'=';return '<span class="vol-indicator '+cls+'" title="Direcció aproximada segons espelma 4H tancada i RVOL"><strong>'+arrow+'</strong> '+v+'</span>'}
+function renderDataHealth(){
+ const el=document.getElementById('dataHealthPanel');if(!el)return;
+ const now=Date.now(),good=rows.filter(r=>r.status!=='SENSE DADES'&&Number.isFinite(r.radarScore));
+ const missing=rows.filter(r=>r.status==='SENSE DADES'||!Number.isFinite(r.radarScore));
+ const stale=good.filter(r=>!Number.isFinite(Date.parse(r.updatedAt))||now-Date.parse(r.updatedAt)>24*60*60*1000);
+ const fresh=good.length-stale.length;
+ el.innerHTML='<div class="data-health-stats"><div><small>Amb anàlisi</small><strong>'+good.length+'/'+rows.length+'</strong></div><div><small>Actualitzades (24 h)</small><strong>'+fresh+'</strong></div><div><small>Antigues / revisar</small><strong>'+stale.length+'</strong></div><div><small>Sense dades</small><strong>'+missing.length+'</strong></div></div><details><summary>Veure símbols pendents i dades antigues</summary><p class="small">Pendents: '+(missing.length?missing.map(r=>safe(r.ticker)).join(' · '):'cap')+'</p><p class="small">Antigues: '+(stale.length?stale.map(r=>safe(r.ticker)).join(' · '):'cap')+'</p><p class="small">Les cotitzacions recents i l’anàlisi tècnica poden tenir horaris diferents. Una anàlisi antiga no equival a un senyal actual.</p></details><div class="data-health-actions"><button type="button" class="btn" id="healthPendingBtn">↻ Recuperar pendents</button><button type="button" class="btn" id="healthStaleBtn">↻ Actualitzar antigues</button></div>';
+ document.getElementById('healthPendingBtn').onclick=()=>scan('pending');
+ document.getElementById('healthStaleBtn').onclick=()=>scan('stale');
+}
 function scoreBadge(v){const cls=!Number.isFinite(v)?'score-na':v>=85?'score-excellent':v>=70?'score-good':v>=55?'score-wait':v>=40?'score-low':'score-poor';return '<span class="score-badge '+cls+'" title="Puntuació orientativa; no és una probabilitat de guany">'+(Number.isFinite(v)?Math.round(v):'—')+'</span>'}
 function render(){
  const sortMode=document.getElementById('radarSort').value,quoteOnly=document.getElementById('quoteOnly').value;
@@ -272,20 +283,22 @@ function render(){
  ['A+',counts['A+']||0,'A+'],['A',counts.A||0,'A'],['READY',counts.READY||0,'READY'],['PRE-READY',counts.PRE||0,'PRE'],['WATCH',counts.WATCH||0,'WATCH'],['≤2% trigger',close,'near'],['Radar ≥70',rows.filter(r=>(r.radarScore||0)>=70).length,'score'],['Totes',rows.length,'all']
  ].map(([label,n,filter])=>'<button type="button" class="card stock-filter-card" data-stock-filter="'+filter+'" title="Mostra les accions '+label+'" style="text-align:left;cursor:pointer"><span class="k">'+label+'</span><span class="v" style="display:block">'+n+'</span></button>').join('');
  renderTop10();
+ renderDataHealth();
  const sec={}; rows.forEach(r=>{sec[r.sector]??=[];sec[r.sector].push(r)});
  document.getElementById('sectorGrid').innerHTML=Object.entries(sec).map(([s,a])=>{const c={};a.forEach(r=>c[r.status]=(c[r.status]||0)+1);return `<div class=sectorcard><b>${s}</b><div class=muted style="margin-top:8px">${a.length} actius · A+ ${c['A+']||0} · A ${c.A||0} · READY ${c.READY||0} · PRE ${c.PRE||0}</div><div style="margin-top:8px;font-size:12px">${a.slice().sort((x,y)=>(y.entryQuality||0)-(x.entryQuality||0)).slice(0,5).map(x=>x.ticker+' '+(x.status||'')).join(' · ')}</div></div>`}).join('');
 }
-async function scan(onlyPending=false){
+async function scan(mode='all'){
  if(scanInProgress)return;
  scanInProgress=true;
  const btn=document.getElementById('scanBtn'),quick=document.getElementById('stockScanQuick');
  btn.disabled=true;quick.disabled=true;
  const allSymbols=[...new Set(META.map(x=>x.ticker))];
  const pending=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)});
- const selected=onlyPending?pending:allSymbols;
- if(!selected.length){document.getElementById('updated').textContent='Totes les accions tenen anàlisi';scanInProgress=false;btn.disabled=false;quick.disabled=false;return}
+ const stale=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return r&&Number.isFinite(r.radarScore)&&(!Number.isFinite(Date.parse(r.updatedAt))||Date.now()-Date.parse(r.updatedAt)>24*60*60*1000)});
+ const selected=mode==='pending'?pending:mode==='stale'?stale:allSymbols;
+ if(!selected.length){document.getElementById('updated').textContent=mode==='stale'?'No hi ha anàlisis antigues':'No hi ha accions pendents';scanInProgress=false;btn.disabled=false;quick.disabled=false;return}
  let completed=0,errors=0;
- document.getElementById('updated').textContent=(onlyPending?'Recuperant pendents':'Analitzant')+' 0/'+selected.length;
+ document.getElementById('updated').textContent=(mode==='pending'?'Recuperant pendents':mode==='stale'?'Actualitzant antigues':'Analitzant')+' 0/'+selected.length;
  try{
   const batches=[];for(let i=0;i<selected.length;i+=5)batches.push(selected.slice(i,i+5));
   for(const symbols of batches){
@@ -325,7 +338,7 @@ async function scan(onlyPending=false){
    }catch(e){errors+=symbols.length}
    completed+=symbols.length;
    const left=allSymbols.filter(t=>{const r=rows.find(x=>x.ticker===t);return !r||r.status==='SENSE DADES'||!Number.isFinite(r.radarScore)}).length;
-   document.getElementById('updated').textContent=(onlyPending?'Pendents':'Escàner')+' '+completed+'/'+selected.length+' · queden '+left;
+   document.getElementById('updated').textContent=(mode==='pending'?'Pendents':mode==='stale'?'Antigues':'Escàner')+' '+completed+'/'+selected.length+' · queden '+left;
    document.getElementById('feedHealth').textContent=(allSymbols.length-left)+'/'+allSymbols.length+' accions amb anàlisi · '+left+' pendents'+(errors?' · '+errors+' consultes fallides':'');
    try{localStorage.setItem('trading2026_v2_scan',JSON.stringify({t:Date.now(),rows}))}catch(_){}
    render();
@@ -605,7 +618,7 @@ function activateTab(tab,scroll=true){
 }
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
 document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
-document.getElementById('stockScanQuick').onclick=()=>scan(true);
+document.getElementById('stockScanQuick').onclick=()=>scan('pending');
 const showStockManager=()=>{
  const el=document.getElementById('stockManualManager');
  const active=META.map(x=>x.ticker).sort();
@@ -653,5 +666,5 @@ let activeStockCard='all';
 discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
 const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
 try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
-render(); scan(true); setInterval(()=>scan(true),15*60*1000);
+render(); scan('pending'); setInterval(()=>{scan('pending')},15*60*1000);setInterval(()=>{scan('stale')},60*60*1000);
 </script></body></html>
