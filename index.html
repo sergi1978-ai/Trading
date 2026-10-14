@@ -805,12 +805,20 @@ async function discover(){
   discoveredCrypto=mergeWatchCandidates(coins);
   if(cryptoPageView==='opportunity')cryptoMode='opportunity';
   paintCrypto();renderTop10();filterDiscoveredStocks();connectCryptoPrices();
+  if(!coins.length)showCryptoCandidateFallback('No hi ha candidates fresques dels proveïdors');
   // A la descoberta, no bloquejar la consulta amb un escaneig tècnic llarg.\n  // L'usuari pot afegir candidats i analitzar-los des de la seva llista.
   info.textContent=coins.length+' altcoins descobertes · prem ☆ Seguir per incorporar-les · '+(data.errors?.length||0)+' avisos del proveïdor';
  }catch(e){info.textContent='No s’han pogut recuperar candidates: '+e.message+' · Torna a provar la descoberta';}
  finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Actualitzar candidats'}
 }
-document.getElementById('discoverBtn').onclick=discover;
+function showCryptoCandidateFallback(message){
+ const examples=['SOL','LINK','ONDO','SUI','RENDER','AAVE','NEAR','INJ','TIA','HYPE','AVAX','TAO'];
+ const el=document.getElementById('discoverCrypto');
+ const candidates=examples.filter(sym=>!cryptoWatch.includes(sym));
+ el.innerHTML=candidates.map(sym=>'<tr><td><strong>'+sym+'</strong></td><td colspan="8" class="muted">Candidat de referència · cotització i senyal no verificats</td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">☆ Seguir</button></td></tr>').join('');
+ document.getElementById('discoverInfo').textContent=message+' · llista de referència (sense dades en directe)';
+}
+document.getElementById('discoverBtn').onclick=()=>{if(cryptoPageView!=='opportunity')setCryptoView('opportunity');else discover()};
 document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered');if(!b)return;const ticker=b.dataset.symbol;
  if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(ticker)||META.some(x=>x.ticker===ticker))return;
  if(extraStocks.length>=25){alert('Màxim de 25 accions addicionals.');return}
