@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.23</title>
+<title>Trading 2026 · Radar v4.25</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -179,6 +179,8 @@ body.crypto-market #stockControls,body.crypto-market #stockManualManager{display
 #cryptoWatchPanel .crypto-watch-remove{padding:7px 10px;font-weight:650;min-height:40px}
 #cryptoWatchPanel .open-detail{display:inline-block}
 #discoverTab .discover-grid>article:first-child{display:none!important}
+#discoverTab #cryptoDiscoveryGrid:not([hidden]){display:block!important}
+#discoverTab #cryptoDiscoveryGrid .discover-panel{display:block;width:100%}
 #cryptoListContent .discover-controls #cryptoScore,#cryptoListContent .discover-controls #cryptoDistance,
 #cryptoListContent .discover-controls #cryptoVol,#cryptoListContent .discover-controls #cryptoProvider,
 #cryptoListContent .discover-controls #cryptoDirection,#cryptoListContent .discover-controls #cryptoReset{display:none!important}
@@ -203,7 +205,7 @@ th.sortable-col:focus-visible{outline:3px solid #94c9ff;outline-offset:-3px}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.23</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.25</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <section id="macroGuard" class="macro-guard" aria-live="polite"></section><div id="scanProgress" class="scan-progress" hidden role="status" aria-live="polite"><div class="scan-progress-heading"><strong id="scanProgressTitle">Analitzant…</strong><span id="scanProgressCount">0/0</span></div><div class="scan-track"><div id="scanProgressFill" class="scan-fill"></div></div><div id="scanProgressTickers" class="scan-tickers"></div></div><div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -617,6 +619,7 @@ function setCryptoView(view){
  cryptoPageView=view;
  document.getElementById('cryptoViewSelect').value=view;
  const top=document.getElementById('cryptoTopSlot');
+ if(view==='opportunity'&&!discoverInProgress)discover();
  top.hidden=view!=='top';
  document.getElementById('cryptoListContent').hidden=view==='top';
  if(view!=='top'){
@@ -669,7 +672,7 @@ function paintCrypto(){
    const market=(a?.source||x.source||'').includes('Kraken')?'KRAKEN:':'COINBASE:';
    const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(market+pair.replace('-',''));
    const score=t.score===null?'—':scoreBadge(t.score);
-   return '<tr><td><a class="open-detail" href="'+link+'" target="_blank" rel="noopener noreferrer">'+sym+' ↗</a></td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td>'+score+'</td><td>'+fmt(price,digits)+'</td><td>'+fmt(trigger,digits)+'</td><td class="'+(distance!==null&&distance<=2?'near':'')+'">'+(distance===null?'—':distance<=0?'Superat':fmt(distance,1)+'%')+'</td><td>'+(volume===null?'—':fmt(volume,1)+'×')+'</td><td>'+fmt(a?.stop,digits)+'</td><td><button type="button" class="btn crypto-watch-remove" data-symbol="'+sym+'" aria-label="Treure '+sym+' de la llista">× Treure</button></td></tr>';
+   return '<tr><td><a class="open-detail" href="'+link+'" target="_blank" rel="noopener noreferrer">'+sym+' ↗</a></td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td title="Qualitat tècnica (no probabilitat de guany)">'+score+'</td><td>'+fmt(price,digits)+'</td><td title="Vigilància '+fmt(a?.watchLevel,digits)+'; no executable">'+(Number.isFinite(trigger)?fmt(trigger,digits):'Vig. '+fmt(a?.watchLevel,digits))+'</td><td class="'+(distance!==null&&distance<=2?'near':'')+'">'+(distance===null?'—':distance<=0?'Superat':fmt(distance,1)+'%')+'</td><td>'+(volume===null?'—':fmt(volume,1)+'×')+'</td><td>'+fmt(a?.stop,digits)+'</td><td><button type="button" class="btn crypto-watch-remove" data-symbol="'+sym+'" aria-label="Treure '+sym+' de la llista">× Treure</button></td></tr>';
   });
   document.getElementById('cryptoWatchBody').innerHTML=lines.join('')||'<tr><td colspan="9">La llista és buida. Afegeix una altcoin a la part superior.</td></tr>';
  }
@@ -798,7 +801,9 @@ async function discover(){
    const sym=safe(x.symbol),added=META.some(m=>m.ticker===x.symbol);
    return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),2)+' $</td><td class="'+(x.changePct>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn add-discovered" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Al radar':'+ Analitzar')+'</button></td></tr>';
   }).join(''):'<tr><td colspan="4">Sense resultats d’accions</td></tr>';
-  discoveredCrypto=mergeWatchCandidates(coins);paintCrypto();renderTop10();filterDiscoveredStocks();connectCryptoPrices();
+  discoveredCrypto=mergeWatchCandidates(coins);
+  if(cryptoPageView==='opportunity')cryptoMode='opportunity';
+  paintCrypto();renderTop10();filterDiscoveredStocks();connectCryptoPrices();
   if(coins.length&&!cryptoScanning&&cryptoMode!=='watch')cryptoScan();
   info.textContent=stocks.length+' accions · '+coins.length+' criptomonedes amb cotització · '+(data.errors?.length||0)+' incidències de proveïdor';
  }catch(e){info.textContent='La cerca ha fallat: '+e.message+' · Reintenta més tard; comprova /api/discover'}
