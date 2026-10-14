@@ -418,12 +418,31 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
       status='PRE';auth='NO';actionNow='FALTA CONFIRMACIÓ 1H · ESPERAR';radarScore=clamp(radarScore-16,0,100);
     }
   }
+  // Early-watch only: volatility contraction and near-breakout location.
+  // No execution authorization or guarantee of future price movement.
+  const window4=h4Bars.slice(-24),recent4=h4Bars.slice(-6);
+  const rangePct=b=>b.length&&last(b).c>0?(Math.max(...b.map(x=>x.h))-Math.min(...b.map(x=>x.l)))/last(b).c*100:null;
+  const recentRange=rangePct(recent4),baselineRange=rangePct(window4);
+  const compressionRatio=Number.isFinite(recentRange)&&Number.isFinite(baselineRange)&&baselineRange>0?recentRange/baselineRange:null;
+  const compression=Number.isFinite(compressionRatio)&&compressionRatio<0.48;
+  const preBreakoutLevel=Math.max(...h4Bars.slice(-13,-1).map(b=>b.h));
+  const preBreakoutDistance=preBreakoutLevel>0?(preBreakoutLevel/h4.c-1)*100:null;
+  const nearBreakout=Number.isFinite(preBreakoutDistance)&&preBreakoutDistance>=0&&preBreakoutDistance<=3;
+  const priorVol=h4Bars.slice(-21,-6).map(b=>b.v||0);
+  const lastVol=recent4.map(b=>b.v||0);
+  const avgPrior=priorVol.length?priorVol.reduce((a,b)=>a+b,0)/priorVol.length:0;
+  const avgRecent=lastVol.length?lastVol.reduce((a,b)=>a+b,0)/lastVol.length:0;
+  const volumeBuild=avgPrior>0?avgRecent/avgPrior:null;
+  const positiveVolume=Number.isFinite(volumeBuild)&&volumeBuild>=1.15;
+  const earlyScore=Math.round((trend>=65?25:trend>=45?12:0)+(compression?30:0)+(nearBreakout?25:0)+(positiveVolume?20:0));
+  const earlyState=trend<45?'SENSE TENDÈNCIA':compression&&nearBreakout&&positiveVolume?'PRE-RUPTURA':compression&&nearBreakout?'COMPRESSIÓ PROP RUPTURA':compression?'COMPRESSIÓ':nearBreakout?'VIGILAR RESISTÈNCIA':'SENSE PATRÓ';
   const dayChange=pct(d.c, dBars[dBars.length-2].c);
 
   return {
     symbol,
     pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
+    earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
     fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
     technicalPrice:h1.c,
     price:h1.c,
