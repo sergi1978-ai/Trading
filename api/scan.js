@@ -532,6 +532,9 @@ export default async function handler(req,res){
       const preferred = BENCHMARK[s] || 'QQQ';
       const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
       const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars,m30[s]||[]);
+      r.dataCounts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
+      r.historicalFeed=feedInfo.feed;
+      r.dataCompleteness=[r.dataCounts.d,r.dataCounts.h4,r.dataCounts.h1].every(n=>n>=25)?'COBERTURA BÀSICA':'COBERTURA PARCIAL';
       if(r.status==='SENSE DADES'){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
         r.dataCounts=counts;
