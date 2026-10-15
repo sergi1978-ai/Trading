@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.25.2</title>
+<title>Trading 2026 · Radar v4.25.3</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -205,7 +205,7 @@ th.sortable-col:focus-visible{outline:3px solid #94c9ff;outline-offset:-3px}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.25.2</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.25.3</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <section id="macroGuard" class="macro-guard" aria-live="polite"></section><div id="scanProgress" class="scan-progress" hidden role="status" aria-live="polite"><div class="scan-progress-heading"><strong id="scanProgressTitle">Analitzant…</strong><span id="scanProgressCount">0/0</span></div><div class="scan-track"><div id="scanProgressFill" class="scan-fill"></div></div><div id="scanProgressTickers" class="scan-tickers"></div></div><div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -741,13 +741,13 @@ document.getElementById('discoverCrypto').addEventListener('click',e=>{
 
 async function cryptoScan(){
  if(cryptoScanning)return;
- const b=document.getElementById('cryptoScanBtn'),info=document.getElementById('discoverInfo');
- const scanUniverse=cryptoMode==='watch'?cryptoWatch:discoveredCrypto.map(x=>x.symbol);
+ const b=document.getElementById('cryptoScanQuick'),info=document.getElementById('discoverInfo');
+ const scanUniverse=cryptoPageView==='watch'?cryptoWatch:discoveredCrypto.map(x=>x.symbol);
  const symbols=[...new Set(scanUniverse.filter(x=>/^[A-Z0-9]{2,12}$/.test(x)))];
- if(!symbols.length){info.textContent=cryptoMode==='watch'?'Afegeix una altcoin a la teva llista':'Primer cal descobrir candidats';return}
+ if(!symbols.length){info.textContent=cryptoPageView==='watch'?'Afegeix una altcoin a la teva llista':'Primer cal descobrir candidats';return}
  cryptoScanning=true;b.disabled=true;b.textContent='Analitzant '+symbols.length+' altcoins…';
  try{
-  let processed=0;
+  let processed=0,scanSucceeded=0,scanFailed=0;
   const total=symbols.length;
   updateScanProgress('crypto',0,total,'Iniciant');
   const pending=[...symbols];
@@ -767,17 +767,17 @@ async function cryptoScan(){
      if(!response.ok)throw Error(data.error||'HTTP '+response.status);
      const found=(data.results||[]).find(x=>x.symbol===symbol);
      const err=(data.errors||[]).find(x=>x.symbol===symbol);
-     if(found){cryptoSignals[symbol]=found;delete cryptoFailures[symbol];saveCryptoObservation(found)}
-     else cryptoFailures[symbol]=err?.message||'El proveïdor no ha retornat cap resultat';
-    }catch(err){cryptoFailures[symbol]=err.name==='AbortError'?'Temps de resposta esgotat':String(err.message||err)}
+     if(found){cryptoSignals[symbol]=found;delete cryptoFailures[symbol];saveCryptoObservation(found);scanSucceeded++}
+     else {cryptoFailures[symbol]=err?.message||'El proveïdor no ha retornat cap resultat';scanFailed++}
+    }catch(err){cryptoFailures[symbol]=err.name==='AbortError'?'Temps de resposta esgotat':String(err.message||err);scanFailed++}
     processed++;
     updateScanProgress('crypto',processed,total,symbol);
     paintCrypto();renderTop10();
-    info.textContent='Escàner cripto '+processed+'/'+total+' · '+Object.keys(cryptoSignals).length+' analitzades · '+Object.keys(cryptoFailures).length+' sense dades';
+    info.textContent='Escàner cripto '+processed+'/'+total+' · '+scanSucceeded+' correctes · '+scanFailed+' fallides';
    }
   });
   await Promise.all(workers);
-  info.textContent='Finalitzat: '+Object.keys(cryptoSignals).length+' analitzades · '+Object.keys(cryptoFailures).length+' sense dades · consulta els motius en cada fila';
+  info.textContent='Escaneig completat: '+scanSucceeded+'/'+total+' amb dades vàlides · '+scanFailed+' errors. Els resultats anteriors es conserven; els errors poden indicar dades antigues o insuficients.';
  }catch(e){info.textContent='Error de l’anàlisi: '+e.message}
  finally{updateScanProgress('crypto',symbols.length,symbols.length,'',true);cryptoScanning=false;b.disabled=false;b.textContent='↻ Reanalitzar totes les altcoins'}
 }
