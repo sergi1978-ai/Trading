@@ -60,6 +60,21 @@ function calc(a){const c=a.at(-1),cl=a.map(x=>x.c),vol=a.slice(-21,-1),avgVol=vo
 function scanOne(symbol,pack){
  const {daily:D,four:H,hour:F,half:M}=pack;const d=D.rows,h=H.rows,f=F.rows,m=M.rows;
  if([d,h,f,m].some(x=>x.length<55))throw Error('Històric insuficient 1D/4H/1H/30m');
+ const tfDetails=[['1D',d,86400000],['4H',h,14400000],['1H',f,3600000],['30m',m,1800000]];
+ const tfQuality={};
+ const now=Date.now();
+ for(const [name,bars,period] of tfDetails){
+  const lastBar=bars.at(-1),age=now-lastBar.t;
+  const previous=bars.slice(-30);
+  let gaps=0;
+  for(let i=1;i<previous.length;i++){
+   if(previous[i].t-previous[i-1].t>period*1.6)gaps++;
+  }
+  const maxAge=name==='1D'?72*3600000:period*4;
+  tfQuality[name]={count:bars.length,lastClose:new Date(lastBar.t+period).toISOString(),ageHours:Math.round(age/3600000*10)/10,gaps30:gaps,stale:age>maxAge};
+ }
+ const staleFrames=Object.entries(tfQuality).filter(([,q])=>q.stale).map(([k])=>k);
+ if(staleFrames.length)throw Error('Dades antigues: '+staleFrames.join(', ')+'; revisa el proveïdor');
  const a=calc(d),b=calc(h),c=calc(f),z=calc(m),last=f.at(-1),prior=f.slice(-13,-1),hi=Math.max(...prior.map(x=>x.h)),lo=Math.min(...prior.map(x=>x.l));
  const dailyTrend=a.c>a.ema20&&a.ema20>a.ema50,fourTrend=b.c>b.ema20&&b.ema20>b.ema50;
  const breakUp=last.c>hi&&last.c>last.o,retest=last.l<=c.ema20*1.008&&last.c>c.ema20&&last.c>last.o;
@@ -181,7 +196,7 @@ function scanOne(symbol,pack){
  const setupLabel=planAvailable?'PLA TÈCNIC PREPARAT':earlyEligible?'VIGILÀNCIA EXP · SENSE PLA':'SENSE PLA EXECUTABLE';
  const executionState=pineSignalCandidate?'REVISAR CONFIRMACIÓ AL PINE':'SENSE PLA EXECUTABLE';
  const estimatedSuccessProbability=null; // requires out-of-sample event-based backtesting, not an invented likelihood
- return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,setupQuality,anticipationScore,watchLevel,watchSupport,watchDistance,planAvailable,setupLabel,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineState,executionState,explosiveDirection,explosiveWatchScore,bearishWatchScore,bullishWatchScore,earlyScore,earlyStage,earlyCompression,earlyNear,earlyVolume,earlyTrend,pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
+ return {symbol,type:'cripto',status,reason,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,setupQuality,anticipationScore,watchLevel,watchSupport,watchDistance,planAvailable,setupLabel,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},dataQuality:tfQuality,confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineState,executionState,explosiveDirection,explosiveWatchScore,bearishWatchScore,bullishWatchScore,earlyScore,earlyStage,earlyCompression,earlyNear,earlyVolume,earlyTrend,pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Senyal web orientatiu; no equivalent al Pine. TP són projeccions R/R, no resistències validades.'}
 }
 async function single(s){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half})}
 export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];for(let i=0;i<syms.length;i++){const symbol=syms[i];try{result.push(await single(symbol))}catch(e){errors.push({symbol,message:String(e.message||e)})}if(i<syms.length-1)await wait(250)}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
