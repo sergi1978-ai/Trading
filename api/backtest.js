@@ -32,6 +32,15 @@ function run(bars,mode,costBps=12){
   const entry=next.o,stop=Math.min(b.l,entry-1.5*a),risk=entry-stop;
   if(!(entry>0&&risk>0&&risk/entry<=.08&&risk/entry>=.005))continue;
   pos={entry,stop,target:entry+2*risk,date:next.t,signalIndex:i};
+  // Evaluate the actual entry-day bar as well, conservatively assigning stop
+  // if both boundaries are touched during the same OHLC candle.
+  const sameDayExit=next.l<=pos.stop?pos.stop:next.h>=pos.target?pos.target:null;
+  if(sameDayExit!==null){
+   const ret=(sameDayExit/pos.entry-1)-2*costBps/10000;
+   equity*=Math.max(0,1+ret);peak=Math.max(peak,equity);maxDD=Math.max(maxDD,(peak-equity)/peak);
+   trades.push({date:next.t,entryDate:pos.date,entry:pos.entry,stop:pos.stop,target:pos.target,exit:sameDayExit,reason:next.l<=pos.stop?'Stop dia entrada':'Objectiu dia entrada',returnPct:Math.round(ret*10000)/100});
+   pos=null;
+  }
  }
  const wins=trades.filter(t=>t.returnPct>0).length;
  return {trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Proxy 1D EMA20/50 + ruptura màxim 20 dies o retest EMA20; entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
