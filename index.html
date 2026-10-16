@@ -334,6 +334,7 @@ const statusClass=s=>s==='A+'?'Aplus':(s||'SENSE DADES').replaceAll(' ','_');
 function showDetail(ticker){
  const r=rows.find(x=>x.ticker===ticker);if(!r)return;
  const hasPlan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
+ const decision=stockDecision(r);
  const signal=['A','A+'].includes(r.status)?'Senyal formal del radar':r.status==='INVALIDAT'?'Suport o stop perdut':r.status==='SENSE DADES'?'Falten dades':'Encara no hi ha entrada formal';
  const trend=Number.isFinite(r.trendScore)?r.trendScore>=70?'Forta':r.trendScore>=45?'Millorant':'Feble':'Sense dades';
  const volume=Number.isFinite(r.volumeScore)?`${safe(r.volumeLabel)} · ${fmt(r.volumeScore,0)}/100`:'Sense dades suficients';
@@ -383,7 +384,7 @@ async function loadCompany(ticker){
    <p class="small"><a href="${safe(c.source)}" target="_blank" rel="noopener noreferrer">Font: SEC · dades oficials XBRL ↗</a></p>`;
  }catch(e){if(box.isConnected)box.innerHTML=`<h3>Empresa i notícies</h3><p><strong>Dades no disponibles</strong></p><p class="small">${safe(e.message)}. No hi ha valoració empresarial verificable en aquesta fitxa.</p>`;}
 }
-function volumeArrow(r){const dir=r.volumeDirection||'NEUTRAL',v=Number.isFinite(r.rvol4h)?fmt(r.rvol4h,1)+'×':'—';const cls=dir==='ALCISTA'?'vol-bull':dir==='BAIXISTA'?'vol-bear':'vol-neutral';const arrow=dir==='ALCISTA'?'↑':dir==='BAIXISTA'?'↓':'=';return '<span class="vol-indicator '+cls+'" title="Direcció aproximada segons espelma 4H tancada i RVOL"><strong>'+arrow+'</strong> '+v+'</span>'}
+function volumeArrow(r){const dir=r.volumeDirection||'NEUTRAL',v=Number.isFinite(r.rvol4h)&&r.rvol4h>=0.05?fmt(r.rvol4h,1)+'×':'Sense dades';const cls=dir==='ALCISTA'?'vol-bull':dir==='BAIXISTA'?'vol-bear':'vol-neutral';const arrow=dir==='ALCISTA'?'↑':dir==='BAIXISTA'?'↓':'=';return '<span class="vol-indicator '+cls+'" title="Direcció aproximada segons espelma 4H tancada i RVOL"><strong>'+arrow+'</strong> '+v+'</span>'}
 function renderDataHealth(){
  const el=document.getElementById('dataHealthPanel');if(!el)return;
  const now=Date.now(),good=rows.filter(r=>r.status!=='SENSE DADES'&&Number.isFinite(r.radarScore));
@@ -605,6 +606,22 @@ function renderEarlyWatch(){
  document.getElementById('earlyCount').textContent=result.length+' candidats · només vigilància';
  el.innerHTML=result.map(r=>'<tr><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+' ↗</button></td><td>'+safe(r.earlyState||'—')+'</td><td>'+scoreBadge(r.earlyScore)+'</td><td>'+fmt(r.preBreakoutLevel)+'</td><td>'+fmt(r.preBreakoutDistance,1)+'%</td><td>'+fmt(r.compressionRatio,2)+'×</td><td>'+fmt(r.volumeBuild,2)+'×</td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status)+'</span></td></tr>').join('')||'<tr><td colspan="8">No hi ha candidats amb aquestes condicions. Prova de desmarcar el filtre.</td></tr>';
 }
+function stockDecision(r){
+ const hasPlan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
+ const confirmed=!!(r.pineEntryConfirmed&&r.pinePlanValid&&hasPlan);
+ const needsVolume=(!Number.isFinite(r.rvol4h)||r.rvol4h<0.05);
+ if(!hasPlan)return 'VIGILAR · sense pla tècnic';
+ if(needsVolume)return 'ESPERAR · volum 4H no fiable';
+ if(confirmed&&['READY','A','A+'].includes(r.status))return 'REVISAR ENTRADA · validar Pine';
+ if(['PRE','READY','A','A+'].includes(r.status))return 'ESPERAR · confirmació pendent';
+ return 'VIGILAR · setup incomplet';
+}
+function cryptoDecision(a){
+ const hasPlan=!!(a.planAvailable&&Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop));
+ if(!hasPlan)return a.earlyStage&&a.earlyStage!=='SENSE EXP'?'VIGILAR · potencial sense pla':'VIGILAR · sense pla';
+ if(a.pineState==='CANDIDAT CONFIRMAT · WEB')return 'REVISAR ENTRADA · validar Pine';
+ return 'ESPERAR · trigger / confirmació';
+}
 function renderTop10(){
  const rank={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
  const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.technicalPrice))
@@ -612,7 +629,7 @@ function renderTop10(){
  document.getElementById('topStockBody').innerHTML=stocks.map((r,i)=>{
   const dist=Number.isFinite(r.trigger)&&r.technicalPrice>0?(r.trigger/r.technicalPrice-1)*100:null;
   const plan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
-  const needs=!plan?'Sense pla tècnic':r.pineBlockedReason||r.actionNow||'Validar a TradingView';
+  const needs=stockDecision(r);
   return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button></td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+scoreBadge(r.entryQuality)+'</td><td>'+scoreBadge(r.earlyScore)+'</td><td>'+fmt(r.technicalPrice)+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
  }).join('')||'<tr><td colspan="10">Esperant anàlisi tècnica vàlida</td></tr>';
  const cryptoPriority={'CANDIDAT CONFIRMAT · WEB':8,'PRE-READY':7,'EXP · PRIMER IMPULS':6,'EXP · PROP RUPTURA':5,'EXP · PREPARACIÓ':4,'EXPLOSIVE WATCH':3,'WATCH':2,'SENSE SETUP':1};
@@ -620,7 +637,7 @@ function renderTop10(){
   .sort((a,b)=>(cryptoPriority[b.a.pineState]??0)-(cryptoPriority[a.a.pineState]??0)||(b.a.setupQuality??b.a.score)-(a.a.setupQuality??a.a.score)||(b.a.anticipationScore??0)-(a.a.anticipationScore??0)).slice(0,10);
  document.getElementById('topCryptoBody').innerHTML=coins.map(({x,a},i)=>{
   const plan=Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop)&&a.planAvailable;
-  const needs=plan?(a.executionState||'Validar a TradingView'):(a.earlyStage&&a.earlyStage!=='SENSE EXP'?'Vigilància EXP · falta confirmació':'Sense pla executable');
+  const needs=cryptoDecision(a);
   return '<tr><td>'+(i+1)+'</td><td>'+safe(x.symbol)+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span></td><td>'+scoreBadge(a.setupQuality??a.score)+'</td><td>'+scoreBadge(a.anticipationScore)+'</td><td>'+fmt(a.price,5)+'</td><td>'+fmt(a.watchLevel,5)+'</td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
  }).join('')||'<tr><td colspan="9">Escaneja altcoins per mostrar les millors configuracions</td></tr>';
 }
