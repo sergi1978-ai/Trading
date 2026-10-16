@@ -439,11 +439,25 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const positiveVolume=Number.isFinite(volumeBuild)&&volumeBuild>=1.15;
   const earlyScore=Math.round((trend>=65?25:trend>=45?12:0)+(compression?30:0)+(nearBreakout?25:0)+(positiveVolume?20:0));
   const earlyState=trend<45?'SENSE TENDÈNCIA':compression&&nearBreakout&&positiveVolume?'PRE-RUPTURA':compression&&nearBreakout?'COMPRESSIÓ PROP RUPTURA':compression?'COMPRESSIÓ':nearBreakout?'VIGILAR RESISTÈNCIA':'SENSE PATRÓ';
+  // Decision-grade diagnostic: a setup score alone is not an entry authorization.
+  const incompleteChecks=pineChecks.filter(c=>!c.pass).map(c=>c.name);
+  const barTimestamp=Date.parse(h1.t);
+  const h1AgeHours=Number.isFinite(barTimestamp)?Math.max(0,(Date.now()-barTimestamp)/3600000):null;
+  const vol1hReliable=Number.isFinite(rvol)&&rvol>=0.05&&rvol<=30;
+  const fourHourVolumeReliable=Number.isFinite(volume.rvol4h)&&volume.rvol4h>=0.05&&volume.rvol4h<=30;
+  const outlier1h=Number.isFinite(rvol)&&rvol>30;
+  const entryCautions=[
+   ...(!vol1hReliable?['Volum 1H no fiable']:[]),
+   ...(!fourHourVolumeReliable?['Volum 4H no fiable']:[]),
+   ...(outlier1h?['Volum 1H extrem, revisar feed']:[]),
+   ...(reconstructed4H?['4H reconstruït, comparar amb TradingView']:[])
+  ];
+  const entryDataReliable=vol1hReliable&&fourHourVolumeReliable&&!outlier1h;
   const dayChange=pct(d.c, dBars[dBars.length-2].c);
 
   return {
     symbol,
-    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,
+    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,h1AgeHours,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
     earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
     fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
