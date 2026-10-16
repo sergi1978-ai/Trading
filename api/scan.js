@@ -124,7 +124,7 @@ async function fetchBars(symbols,timeframe,start,limit=10000,historyFeed='iex',h
   const batch=symbols.slice(i,i+CHUNK);
   let pageToken=null,page=0;
   do{
-   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'raw',feed:historyFeed,sort:'asc'});
+   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'split',feed:historyFeed,sort:'asc'});
    if(historyFeed==='sip'&&historyCutoff)params.set('end',historyCutoff);
    if(pageToken)params.set('page_token',pageToken);
    const r=await fetch(`${ALPACA}?${params}`,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
