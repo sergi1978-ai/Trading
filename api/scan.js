@@ -479,6 +479,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
     rsi1h:rsi1,rsi4h:rsi4,
     thirtyConfirm,thirtyRvol,thirtyResistance,volumeSupport4H,technicalConfidence,thirtyCoverage:m30.length,rvol,rsMarket,radarScore,actionNow,tooExtended,extensionAtr,confidenceGrade,confidenceChecks:qualityChecks,estimatedSuccessProbability,riskBlocked,rrToResistance,stopDistancePct,dollarVolume20,liquidityKnown,...volume,
     benchmark:BENCHMARK[symbol]||'QQQ',
+    priceBasis:'SPLIT_ADJUSTED',technicalBarTime:h1.t,dailyBarTime:d.t,dailyClose:d.c,technicalFeed:'ALPACA_'+(reconstructed4H?'1H_DERIVED':'4H_NATIVE'),
     updatedAt:h1.t
   };
 }
