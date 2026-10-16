@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.27.1</title>
+<title>Trading 2026 · Radar v4.28</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -207,7 +207,7 @@ th.sortable-col:focus-visible{outline:3px solid #94c9ff;outline-offset:-3px}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.27.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.28</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <section id="macroGuard" class="macro-guard" aria-live="polite"></section><div id="scanProgress" class="scan-progress" hidden role="status" aria-live="polite"><div class="scan-progress-heading"><strong id="scanProgressTitle">Analitzant…</strong><span id="scanProgressCount">0/0</span></div><div class="scan-track"><div id="scanProgressFill" class="scan-fill"></div></div><div id="scanProgressTickers" class="scan-tickers"></div></div><div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -369,13 +369,14 @@ function showDetail(ticker){
  const hasPlan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
  const pv=stockPriceView(r);
  const decision=pv.mismatch?'PREUS DISCORDANTS · REVISAR':stockDecision(r);
+ const diagnostic=Array.isArray(r.entryCautions)&&r.entryCautions.length?r.entryCautions.join(' · '):'Cap incidència de dades detectada';
  const signal=['A','A+'].includes(r.status)?'Senyal formal del radar':r.status==='INVALIDAT'?'Suport o stop perdut':r.status==='SENSE DADES'?'Falten dades':'Encara no hi ha entrada formal';
  const trend=Number.isFinite(r.trendScore)?r.trendScore>=70?'Forta':r.trendScore>=45?'Millorant':'Feble':'Sense dades';
  const volume=Number.isFinite(r.volumeScore)?`${safe(r.volumeLabel)} · ${fmt(r.volumeScore,0)}/100`:'Sense dades suficients';
  const technicalTime=r.updatedAt?new Date(r.updatedAt).toLocaleString('ca-ES'):'—';
  const extendedTime=r.extendedTimestamp?new Date(r.extendedTimestamp).toLocaleString('ca-ES'):'—';
  document.getElementById('detailContent').innerHTML=`<div class="detail-head"><div><h2 id="detailTitle">${safe(r.ticker)} <span class="muted">· ${safe(r.theme)}</span></h2><div class="muted">${safe(r.sector)} · ${safe(r.risk)} risc orientatiu</div></div><button type="button" class="btn" id="closeDetail" aria-label="Tanca la fitxa">Tanca ×</button></div>
- <div class="detail-grid"><section class="detail-box detail-wide"><h3>Què faria ara?</h3><p><strong>${safe(decision)}</strong> · ${signal}</p><p class="small">Tendència: ${trend}. ${r.tooExtended?'El preu és massa lluny de la zona d’interès.':'Comprova el nivell i el risc abans de decidir.'}</p></section>
+ <div class="detail-grid"><section class="detail-box detail-wide"><h3>Què faria ara?</h3><p><strong>${safe(decision)}</strong> · ${signal}</p><p class="small">Dades de l’entrada: ${safe(diagnostic)}</p><p class="small">Tendència: ${trend}. ${r.tooExtended?'El preu és massa lluny de la zona d’interès.':'Comprova el nivell i el risc abans de decidir.'}</p></section>
  <section class="detail-box"><h3>Volum</h3><p><strong>${volume}</strong></p><p>${safe(r.volumeReason||'Encara no hi ha lectura de volum.')}</p><p class="small">RVOL 4H: ${Number.isFinite(r.rvol4h)&&r.rvol4h>=0.05?fmt(r.rvol4h,2)+'×':'Sense dades fiables'} respecte a 20 espelmes completes. El feed IEX només cobreix una part del mercat; el volum no identifica qui compra.</p></section>
  <section class="detail-box"><h3>Context de mercat</h3><p>Força relativa vs ${safe(r.benchmark||'mercat')}: <strong>${Number.isFinite(r.rsMarket)?fmt(r.rsMarket,1)+' punts percentuals':'sense dades'}</strong></p><p class="small">Compara el rendiment recent de l’acció amb el seu índex de referència. Positiu vol dir que ha rendit millor en aquest període; no garanteix una pujada.</p></section>
  <section class="detail-box"><h3>Pla tècnic</h3>${hasPlan?`<p>Nivell d’activació: <strong>${fmt(r.trigger)} $</strong></p><p>Zona d’interès: ${fmt(r.zoneLow)}–${fmt(r.zoneHigh)} $</p><p>Stop calculat: ${fmt(r.stop)} $ · objectius teòrics: ${fmt(r.target1)} / ${fmt(r.target2)} $</p><p class="small">Els objectius són 2R i 3R derivats de la distància al stop; el radar encara no comprova si hi ha resistències abans d’arribar-hi.</p>`:'<p>Sense pla tècnic vàlid amb les dades disponibles.</p>'}</section>
@@ -645,9 +646,10 @@ function stockDecision(r){
  const confirmed=!!(r.pineEntryConfirmed&&r.pinePlanValid&&hasPlan);
  const needsVolume=(!Number.isFinite(r.rvol4h)||r.rvol4h<0.05);
  if(!hasPlan)return 'VIGILAR · sense pla tècnic';
+ if(r.entryDataReliable===false)return 'ESPERAR · qualitat dades insuficient';
  if(needsVolume)return 'ESPERAR · volum 4H no fiable';
  if(confirmed&&['READY','A','A+'].includes(r.status))return 'REVISAR ENTRADA · validar Pine';
- if(['PRE','READY','A','A+'].includes(r.status))return 'ESPERAR · confirmació pendent';
+ if(['PRE','READY','A','A+'].includes(r.status))return 'ESPERAR · '+(Array.isArray(r.incompleteChecks)&&r.incompleteChecks.length?r.incompleteChecks[0]:'confirmació pendent');
  return 'VIGILAR · setup incomplet';
 }
 function cryptoDecision(a){
