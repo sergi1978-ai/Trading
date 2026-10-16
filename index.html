@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.27</title>
+<title>Trading 2026 · Radar v4.27.1</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -207,7 +207,7 @@ th.sortable-col:focus-visible{outline:3px solid #94c9ff;outline-offset:-3px}
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · Radar v4.27</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · Radar v4.27.1</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <section id="macroGuard" class="macro-guard" aria-live="polite"></section><div id="scanProgress" class="scan-progress" hidden role="status" aria-live="polite"><div class="scan-progress-heading"><strong id="scanProgressTitle">Analitzant…</strong><span id="scanProgressCount">0/0</span></div><div class="scan-track"><div id="scanProgressFill" class="scan-fill"></div></div><div id="scanProgressTickers" class="scan-tickers"></div></div><div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -367,7 +367,8 @@ const statusClass=s=>s==='A+'?'Aplus':(s||'SENSE DADES').replaceAll(' ','_');
 function showDetail(ticker){
  const r=rows.find(x=>x.ticker===ticker);if(!r)return;
  const hasPlan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
- const decision=stockDecision(r);
+ const pv=stockPriceView(r);
+ const decision=pv.mismatch?'PREUS DISCORDANTS · REVISAR':stockDecision(r);
  const signal=['A','A+'].includes(r.status)?'Senyal formal del radar':r.status==='INVALIDAT'?'Suport o stop perdut':r.status==='SENSE DADES'?'Falten dades':'Encara no hi ha entrada formal';
  const trend=Number.isFinite(r.trendScore)?r.trendScore>=70?'Forta':r.trendScore>=45?'Millorant':'Feble':'Sense dades';
  const volume=Number.isFinite(r.volumeScore)?`${safe(r.volumeLabel)} · ${fmt(r.volumeScore,0)}/100`:'Sense dades suficients';
@@ -655,15 +656,38 @@ function cryptoDecision(a){
  if(a.pineState==='CANDIDAT CONFIRMAT · WEB')return 'REVISAR ENTRADA · validar Pine';
  return 'ESPERAR · trigger / confirmació';
 }
+function stockPriceView(r){
+ const age=Number(r.extendedAgeMinutes);
+ const live=Number.isFinite(r.extendedPrice)&&r.extendedPrice>0&&r.extendedStale===false&&Number.isFinite(age)&&age>=-2&&age<=15;
+ const technical=Number.isFinite(r.technicalPrice)&&r.technicalPrice>0?r.technicalPrice:null;
+ const price=live?r.extendedPrice:technical;
+ const delta=live&&technical?Math.abs(r.extendedPrice/technical-1)*100:null;
+ const mismatch=Number.isFinite(delta)&&delta>=8;
+ return {price,live,mismatch,delta,label:live?(r.extendedIndicative?'Indicatiu IEX':'IEX · '+Math.round(age)+' min'):'Tècnic 1H · no en directe'};
+}
+async function refreshStockQuotes(){
+ if(!rows.length)return;
+ const symbols=[...new Set(rows.filter(x=>Number.isFinite(x.radarScore)).sort((a,b)=>(b.entryQuality||0)-(a.entryQuality||0)).slice(0,20).map(x=>x.ticker))];
+ try{
+  const res=await fetch('/api/extended?symbols='+encodeURIComponent(symbols.join(',')),{cache:'no-store'});
+  if(!res.ok)return;
+  const data=await res.json(),quotes=data.results||{};
+  for(const r of rows){const q=quotes[r.ticker];if(!q)continue;
+   Object.assign(r,{extendedPrice:q.extendedPrice,extendedAgeMinutes:q.extendedAgeMinutes,extendedTimestamp:q.extendedTimestamp,extendedIndicative:q.indicative,extendedStale:q.priceStale,extendedFeed:q.feed,extendedPriceKind:q.priceKind});
+  }
+  renderTop10();
+ }catch(_){}
+}
 function renderTop10(){
  const rank={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
  const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.technicalPrice))
   .sort((a,b)=>(rank[b.status]??0)-(rank[a.status]??0)||(b.entryQuality??0)-(a.entryQuality??0)||(b.earlyScore??0)-(a.earlyScore??0)).slice(0,10);
  document.getElementById('topStockBody').innerHTML=stocks.map((r,i)=>{
-  const dist=Number.isFinite(r.trigger)&&r.technicalPrice>0?(r.trigger/r.technicalPrice-1)*100:null;
+  const pv=stockPriceView(r);
+  const dist=!pv.mismatch&&pv.live&&Number.isFinite(r.trigger)?(r.trigger/pv.price-1)*100:null;
   const plan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
-  const needs=stockDecision(r);
-  return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button></td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+scoreBadge(r.entryQuality)+'</td><td>'+scoreBadge(r.earlyScore)+'</td><td>'+fmt(r.technicalPrice)+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
+  const needs=pv.mismatch?'PREUS DISCORDANTS · no operar':stockDecision(r);
+  return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button></td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+scoreBadge(r.entryQuality)+'</td><td>'+scoreBadge(r.earlyScore)+'</td><td title="'+safe(pv.label)+'">'+fmt(pv.price)+(pv.live?' · IEX':' · 1H')+(pv.mismatch?' ⚠':'')+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
  }).join('')||'<tr><td colspan="10">Esperant anàlisi tècnica vàlida</td></tr>';
  const cryptoPriority={'CANDIDAT CONFIRMAT · WEB':8,'PRE-READY':7,'EXP · PRIMER IMPULS':6,'EXP · PROP RUPTURA':5,'EXP · PREPARACIÓ':4,'EXPLOSIVE WATCH':3,'WATCH':2,'SENSE SETUP':1};
  const coins=discoveredCrypto.map(x=>({x,a:cryptoSignals[x.symbol]})).filter(v=>v.a&&Number.isFinite(v.a.score))
@@ -993,5 +1017,6 @@ async function refreshStocksInPhases(){
  await scan('stale');
 }
 refreshStocksInPhases();
+setInterval(refreshStockQuotes,60000);
 setInterval(()=>{refreshStocksInPhases()},15*60*1000);setInterval(paintMacroGuard,5*60*1000);
 </script></body></html>
