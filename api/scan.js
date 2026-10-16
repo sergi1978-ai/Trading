@@ -76,6 +76,9 @@ function volumeReading(bars, support, atr4){
   const current=last(bars), avg=sma(bars.slice(-21,-1).map(b=>b.v||0),20);
   if(!avg || !Number.isFinite(current.v)) return {volumeScore:null,volumeLabel:'Sense volum fiable',volumeReason:'El feed no ofereix volum suficient',rvol4h:null};
   const ratio=current.v/avg;
+  // IEX partial-feed may report almost empty bars. Treat these as unavailable
+  // instead of meaningful 0.0x volume or bearish/bullish confirmation.
+  if(current.v<=0||ratio<0.05)return {volumeScore:null,volumeLabel:'Volum no fiable',volumeReason:'Espelma 4H amb volum nul o massa baix respecte de les anteriors (feed parcial)',rvol4h:null,volumeDirection:'SENSE DADES'};
   const near=Number.isFinite(support) && Number.isFinite(atr4) && Math.abs(current.l-support)<=atr4*0.65;
   const up=current.c>current.o, down=current.c<current.o;
   const bounce=near && up && current.c>support && ratio>=1.25;
