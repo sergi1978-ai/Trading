@@ -701,9 +701,9 @@ function renderTop10(){
   .sort((a,b)=>(cryptoPriority[b.a.pineState]??0)-(cryptoPriority[a.a.pineState]??0)||(b.a.setupQuality??b.a.score)-(a.a.setupQuality??a.a.score)||(b.a.anticipationScore??0)-(a.a.anticipationScore??0)).slice(0,10);
  document.getElementById('topCryptoBody').innerHTML=coins.map(({x,a},i)=>{
   const plan=Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop)&&a.planAvailable;
-  const needs=cryptoDecision(a);
-  return '<tr><td>'+(i+1)+'</td><td>'+safe(x.symbol)+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span></td><td>'+scoreBadge(a.setupQuality??a.score)+'</td><td>'+scoreBadge(a.anticipationScore)+'</td><td>'+fmt(a.price,5)+'</td><td>'+fmt(a.watchLevel,5)+'</td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
- }).join('')||'<tr><td colspan="9">Escaneja altcoins per mostrar les millors configuracions</td></tr>';
+  const needs=a.primaryBlocker||cryptoDecision(a);
+  return '<tr><td>'+(i+1)+'</td><td>'+safe(x.symbol)+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span></td><td>'+scoreBadge(a.setupQuality??a.score)+'</td><td>'+scoreBadge(a.anticipationScore)+'</td><td>'+fmt(a.price,5)+'</td><td>'+fmt(a.watchLevel,5)+'</td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td title="RVOL 1H tancada">'+(Number.isFinite(a.volumeText)?fmt(a.volumeText,2)+'×':'Sense dades')+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
+ }).join('')||'<tr><td colspan="10">Escaneja altcoins per mostrar les millors configuracions</td></tr>';
 }
 document.getElementById('topRefresh').onclick=()=>{renderTop10();scan()};
 let cryptoMode='watch';
