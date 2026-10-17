@@ -9,10 +9,10 @@ function cryptoCandidate(r){
  return {market:'crypto',symbol:r.symbol,price,entry,stop,ready:valid,stamp:r.quoteTime,reason:r.primaryBlocker||r.operationalDecision};
 }
 function stockCandidate(r,q){
- const price=n(q?.extendedPrice),entry=n(r.pineReferenceEntry),stop=n(r.pineReferenceStop),age=n(q?.extendedAgeMinutes);
+ const price=n(q?.extendedPrice),entry=n(r.trigger),stop=n(r.stop),age=n(q?.extendedAgeMinutes);
  const coherent=price>0&&n(r.technicalPrice)>0&&Math.abs(price/r.technicalPrice-1)<=.05&&r.priceBasis==='SPLIT_ADJUSTED';
- const valid=!!(r.pineEntryConfirmed&&r.pinePlanValid&&r.entryDataReliable&&coherent&&q?.priceStale===false&&age!==null&&age>=-2&&age<=15);
- return {market:'stocks',symbol:r.symbol,price,entry,stop,ready:valid,stamp:q?.extendedTimestamp,reason:r.pineBlockedReason||'Pine not confirmed'};
+ const valid=!!(r.pineEntryConfirmed&&r.pinePlanValid&&r.entryDataReliable!==false&&coherent&&q?.extendedStale===false&&age!==null&&age>=-2&&age<=15);
+ return {market:'stocks',symbol:r.ticker||r.symbol,price,entry,stop,ready:valid,stamp:q?.extendedTimestamp,reason:r.pineBlockedReason||'Pine not confirmed'};
 }
 function update(state,candidates){
  const now=Date.now(),history=state.trades||[];
