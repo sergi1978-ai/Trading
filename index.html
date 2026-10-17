@@ -685,18 +685,22 @@ function cryptoDecision(a){
  return 'ESPERAR · trigger / confirmació';
 }
 function stockPriceView(r){
- const age=Number(r.extendedAgeMinutes),technical=Number.isFinite(r.technicalPrice)&&r.technicalPrice>0?r.technicalPrice:null;
- const live=Number.isFinite(r.extendedPrice)&&r.extendedPrice>0&&r.extendedStale===false&&Number.isFinite(age)&&age>=-2&&age<=15;
- const price=live?r.extendedPrice:technical;
+ const technical=Number.isFinite(r.technicalPrice)&&r.technicalPrice>0?r.technicalPrice:null;
+ const age=Number.isFinite(r.extendedAgeMinutes)?r.extendedAgeMinutes:null;
+ const live=Number.isFinite(r.extendedPrice)&&r.extendedPrice>0&&r.extendedStale===false&&age!==null&&age>=-2&&age<=15;
+ const lastKnown=Number.isFinite(r.lastKnownPrice)&&r.lastKnownPrice>0?r.lastKnownPrice:null;
+ const reference=live?r.extendedPrice:lastKnown;
+ const delta=reference&&technical?Math.abs(reference/technical-1)*100:null;
+ const mismatch=Number.isFinite(delta)&&delta>=5;
+ const price=reference&&!mismatch?reference:technical;
  const barTime=Date.parse(r.technicalBarTime||r.updatedAt||'');
  const oldBar=!Number.isFinite(barTime)||Date.now()-barTime>72*3600000;
- const delta=live&&technical?Math.abs(r.extendedPrice/technical-1)*100:null;
- const mismatch=Number.isFinite(delta)&&delta>=5;
  const unknownBasis=r.priceBasis!=='SPLIT_ADJUSTED';
  const dailyMismatch=live&&Number.isFinite(r.dailyClose)&&r.dailyClose>0&&Math.abs(r.extendedPrice/r.dailyClose-1)*100>=12;
  const valid=live&&!oldBar&&!mismatch&&!dailyMismatch&&!unknownBasis;
- const reason=unknownBasis?'Reescanejar històric ajustat per splits':!live?'No hi ha cotització IEX recent':oldBar?'Espelma tècnica antiga':mismatch?'Preus 1H/IEX discordants ('+fmt(delta,1)+'%)':dailyMismatch?'Preu diari/IEX discordant':'Coherència de preus comprovada';
- return {price,live,mismatch:mismatch||dailyMismatch,delta,valid,reason,label:live?(r.extendedIndicative?'Indicatiu IEX':'IEX · '+Math.round(age)+' min'):'Tècnic 1H · no en directe'};
+ const reason=unknownBasis?'Reescanejar històric ajustat per splits':mismatch?'Preus IEX/1H discordants ('+fmt(delta,1)+'%)':!live?'No hi ha cotització IEX recent':oldBar?'Espelma tècnica antiga':dailyMismatch?'Preu diari/IEX discordant':'Coherència de preus comprovada';
+ const label=live?(r.extendedIndicative?'Indicatiu IEX':'IEX · '+Math.round(age)+' min'):reference&&!mismatch?'Últim trade conegut · NO en directe':'Tècnic 1H · NO en directe';
+ return {price,live,mismatch:mismatch||dailyMismatch,delta,valid,reason,label};
 }
 async function refreshStockQuotes(){
  if(!rows.length)return;
@@ -706,7 +710,7 @@ async function refreshStockQuotes(){
   if(!res.ok)return;
   const data=await res.json(),quotes=data.results||{};
   for(const r of rows){const q=quotes[r.ticker];if(!q)continue;
-   Object.assign(r,{extendedPrice:q.extendedPrice,extendedAgeMinutes:q.extendedAgeMinutes,extendedTimestamp:q.extendedTimestamp,extendedIndicative:q.indicative,extendedStale:q.priceStale,extendedFeed:q.feed,extendedPriceKind:q.priceKind});
+   Object.assign(r,{extendedPrice:q.extendedPrice,lastKnownPrice:q.lastKnownPrice,extendedAgeMinutes:q.extendedAgeMinutes,extendedTimestamp:q.extendedTimestamp,extendedIndicative:q.indicative,extendedStale:q.priceStale,extendedFeed:q.feed,extendedPriceKind:q.priceKind});
   }
   renderTop10();
  }catch(_){}
@@ -721,7 +725,7 @@ function renderTop10(){
   const dist=pv.valid&&Number.isFinite(r.trigger)?(r.trigger/pv.price-1)*100:null;
   const plan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
   const needs=!pv.valid?'ESPERAR · '+pv.reason:stockDecision(r);
-  return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button><span class="asset-subtitle">Acció · 1D/4H/1H</span></td><td>'+contextualScore(r.entryQuality,'entry',needs.startsWith('REVISAR ENTRADA'))+'</td><td>'+contextualScore(r.earlyScore,'potential')+'</td><td title="'+safe(pv.label)+'">'+fmt(pv.price)+(pv.live?' · IEX':' · 1H')+(pv.mismatch?' ⚠':'')+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+decisionBadge(needs)+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
+  return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button><span class="asset-subtitle">Acció · 1D/4H/1H</span></td><td>'+contextualScore(r.entryQuality,'entry',needs.startsWith('REVISAR ENTRADA'))+'</td><td>'+contextualScore(r.earlyScore,'potential')+'</td><td title="'+safe(pv.label)+'">'+fmt(pv.price)+(pv.live?' · IEX':pv.label.startsWith('Últim')?' · últim':' · 1H')+(pv.mismatch?' ⚠':'')+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+decisionBadge(needs)+'</td><td class="top-why" title="'+safe(needs)+'">'+safe(needs)+'</td></tr>';
  }).join('')||'<tr><td colspan="11">Esperant anàlisi tècnica vàlida</td></tr>';
  const cryptoPriority={'CANDIDAT CONFIRMAT · WEB':8,'PRE-READY':7,'EXP · PRIMER IMPULS':6,'EXP · PROP RUPTURA':5,'EXP · PREPARACIÓ':4,'EXPLOSIVE WATCH':3,'WATCH':2,'SENSE SETUP':1};
  const coins=discoveredCrypto.map(x=>({x,a:cryptoSignals[x.symbol]})).filter(v=>v.a&&Number.isFinite(v.a.score))
