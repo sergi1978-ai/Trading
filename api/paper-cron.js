@@ -19,7 +19,8 @@ function update(state,candidates){
  for(const c of candidates){
   if(!(c.price>0))continue;
   const key=c.market+':'+c.symbol,stamp=Date.parse(c.stamp||'');
-  if(!Number.isFinite(stamp)||now-stamp>20*60000||stamp>now+120000)continue;
+  const allowedAge=c.market==='crypto'?100*60000:20*60000; // Crypto uses last closed 1H candle, not a live tradable quote.
+  if(!Number.isFinite(stamp)||now-stamp>allowedAge||stamp>now+120000)continue;
   const open=history.find(t=>t.key===key&&t.state==='OPEN');
   if(open&&stamp>open.sampleTime){
    open.lastPrice=c.price;open.sampleTime=stamp;
@@ -63,9 +64,16 @@ export default async function handler(req,res){
    const quotes=results[2].value.results||{};
    for(const r of results[1].value.results||[])candidates.push(stockCandidate(r,quotes[r.symbol]));
   }else issues.push('stock/quote feed unavailable');
+  // Keep a transparent audit sample even for candidates rejected by the safety gates.
+  const evaluatedAt=new Date().toISOString();
+  state.observations=[...(state.observations||[]),...candidates.map(c=>({
+   at:evaluatedAt,market:c.market,symbol:c.symbol,price:c.price,
+   signalApproved:c.ready,entry:c.entry,stop:c.stop,reason:c.reason,
+   dataAgeMin:Number.isFinite(Date.parse(c.stamp||''))?Math.round((Date.now()-Date.parse(c.stamp))/60000):null
+  }))].slice(-500);
   update(state,candidates);state.cursor=(idx+3)%132;state.lastRun=new Date().toISOString();state.checks=(state.checks||0)+1;state.issues=issues.slice(0,12);
   await savePaper(state);
-  return res.status(200).json({ok:true,checked:candidates.length,open:state.trades.filter(t=>t.state==='OPEN').length,closed:state.trades.filter(t=>t.state==='CLOSED').length,issues:state.issues});
+  return res.status(200).json({ok:true,checked:candidates.length,open:state.trades.filter(t=>t.state==='OPEN').length,closed:state.trades.filter(t=>t.state==='CLOSED').length,observations:state.observations.length,issues:state.issues});
  }catch(e){return res.status(500).json({error:String(e.message||e)})}
 
 }
