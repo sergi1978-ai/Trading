@@ -710,26 +710,6 @@ function renderTop10(){
 document.getElementById('topRefresh').onclick=()=>{renderTop10();scan()};
 let cryptoMode='watch';
 let cryptoPageView='top';
-const PARITY_KEY='trading2026_pine_observations_v1';
-let pineObservations=[];try{const a=JSON.parse(localStorage.getItem(PARITY_KEY)||'[]');if(Array.isArray(a))pineObservations=a.slice(-200)}catch(_){}
-function renderParity(){
- const el=document.getElementById('parityResult');if(!el)return;
- const symbol=document.getElementById('paritySymbol').value.trim().toUpperCase();
- const entries=pineObservations.filter(x=>x.symbol===symbol).slice(-12).reverse();
- el.innerHTML=entries.length?'<div class="tablebox"><table><thead><tr><th>Moment Pine (manual)</th><th>Pine</th><th>Radar web (instant captura)</th><th>Preu</th><th>Volum</th><th>Comparació</th></tr></thead><tbody>'+entries.map(x=>'<tr><td>'+safe(new Date(x.at).toLocaleString('ca-ES'))+' · '+safe(x.timeframe)+'</td><td>'+safe(x.state)+'</td><td>'+safe(x.webState)+' · '+safe(x.webDecision)+'</td><td>'+(x.price??'—')+' / '+(x.webPrice??'—')+'</td><td>'+(x.volume??'—')+'× '+safe(x.volumeKind)+' / '+(x.webVolume??'—')+'× 1H tancada</td><td>'+safe(x.comparison)+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted">Encara no hi ha observacions registrades de '+safe(symbol)+'. Escaneja la moneda i desa l’estat del Pine en un moment concret.</p>';
-}
-document.getElementById('paritySave').onclick=()=>{
- const symbol=document.getElementById('paritySymbol').value.trim().toUpperCase();if(!/^[A-Z0-9]{2,12}$/.test(symbol))return;
- const web=cryptoSignals[symbol],state=document.getElementById('parityState').value;
- const number=x=>{const v=Number(String(x).trim().replace(',','.'));return String(x).trim()&&Number.isFinite(v)&&v>0?v:null};
- const price=number(document.getElementById('parityPrice').value),volume=number(document.getElementById('parityVolume').value);
- const family=x=>x?.startsWith('EXP')?'EXP':x==='READY'||x==='PRE-READY'?'PLA':x==='NO PERSEGUIR'?'NO PERSEGUIR':'VIGILAR';
- const comparison=!web?'Sense anàlisi web':family(state)===family(web.pineState)?'Fase general similar':'Fase diferent; revisar criteris';
- pineObservations.push({symbol,at:new Date().toISOString(),timeframe:document.getElementById('parityTimeframe').value,state,price,volume,volumeKind:document.getElementById('parityVolumeKind').value,webState:web?.pineState||'Sense dades',webDecision:web?.tradeDecision||'Sense dades',webPrice:web?.price??null,webVolume:web?.volumeText??null,comparison});
- pineObservations=pineObservations.slice(-200);try{localStorage.setItem(PARITY_KEY,JSON.stringify(pineObservations))}catch(_){}
- renderParity();
-};
-document.getElementById('paritySymbol').onchange=renderParity;
 function renderCryptoDiagnostic(){
  const body=document.getElementById('cryptoDiagnosticRows'),summary=document.getElementById('cryptoDiagnosticSummary');
  if(!body||!summary)return;
