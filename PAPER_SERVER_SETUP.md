@@ -7,7 +7,7 @@
 1. Identifica el projecte Vercel de producció que desplega `sergi1978-ai/Trading`. El Vercel connectat en aquesta conversa no té visibilitat del projecte.
 2. A Vercel > Project Settings > Environment Variables configura:
    - `ALPACA_API_KEY` i `ALPACA_API_SECRET` (credencials ja utilitzades pel motor d'accions).
-   - `PAPER_REDIS_REST_URL` i `PAPER_REDIS_REST_TOKEN` d'una base Upstash Redis (REST API).
+   - `BLOB_READ_WRITE_TOKEN` del magatzem privat Vercel Blob connectat al projecte.
    - `PAPER_BASE_URL`: origen HTTPS públic del desplegament (sense barra final).
    - `CRON_SECRET`: secret aleatori fort; Vercel el passa a la tasca cron com a Bearer.
    - `PAPER_READ_TOKEN`: secret de lectura diferent, per consultar les operacions amb autorització.
@@ -19,7 +19,7 @@
 
 - Escaneja tandes petites i rotatòries (4 accions i 3 altcoins per execució).
 - Només obre operacions simulades quan el motor web indica una entrada confirmada, amb preu recent, stop vàlid i risc acceptable.
-- Conserva l'historial en Redis encara que tanquis l'iPad. Usa un bloqueig per evitar execucions simultànies.
+- Conserva l'historial en Vercel Blob privat encara que tanquis l'iPad. El cron diari està pensat per a una sola execució; Blob no ofereix un bloqueig transaccional.
 - Detecta stops i objectius amb mostres puntuals de preu, no amb un registre continu. Una freqüència diària pot passar per alt entrades i sortides; **no és un backtest vàlid del Pine ni una mesura completa del rendiment**.
 - Simula costos del 0,24% per operació tancada, amb lliscament real només aproximat pel preu mostrejat.
 - No accedeix a cap compte de broker ni compra o ven actius.
@@ -31,3 +31,7 @@ L'actual mòdul de paper trading a la interfície continua sent local i es disti
 ## Limitacions
 
 La càrrega de l'escàner d'Alpaca i Coinbase pot superar els límits temporals de funcions del pla. Cal comprovar la durada de les primeres execucions, errors de proveïdor i quantes operacions queden sense observar.
+
+## Activació 2026-10-17
+
+Vercel Blob privat connectat a `radar_trading`; variables `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`, `PAPER_READ_TOKEN` i `PAPER_BASE_URL` presents a producció. La primera execució cron encara s'ha de comprovar als logs. El panell del navegador continua independent i local. Les observacions rebutjades també es desen al servidor per comparar-ne el comportament.
