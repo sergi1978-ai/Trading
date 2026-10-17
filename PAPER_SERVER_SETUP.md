@@ -11,7 +11,7 @@
    - `PAPER_BASE_URL`: origen HTTPS públic del desplegament (sense barra final).
    - `CRON_SECRET`: secret aleatori fort; Vercel el passa a la tasca cron com a Bearer.
    - `PAPER_READ_TOKEN`: secret de lectura diferent, per consultar les operacions amb autorització.
-3. Torna a desplegar i comprova el cron configurat a `vercel.json`: 21:00 UTC cada dia, compatible amb restriccions dels plans amb freqüència diària. Per fer comprovacions horàries en un pla compatible, canvia a `0 * * * *` i torna a desplegar.
+3. Torna a desplegar i comprova el cron configurat a `vercel.json`: 19:00 UTC cada dia, compatible amb restriccions dels plans amb freqüència diària. Per fer comprovacions horàries en un pla compatible, canvia a `0 * * * *` i torna a desplegar.
 4. Revisa a Vercel > Cron Jobs i a Function Logs si `/api/paper-cron` s'executa correctament.
 5. Pots consultar resultats amb `GET /api/paper-status` i capçalera `Authorization: Bearer <PAPER_READ_TOKEN>`. No exposis el token ni l'incloguis a l'HTML.
 
