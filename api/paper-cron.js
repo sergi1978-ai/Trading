@@ -1,4 +1,4 @@
-import {loadPaper,savePaper,kv} from './_paper-store.js';
+import {loadPaper,savePaper} from './_paper-store.js';
 const STOCKS=['UBER','CRM','NOW','ABBV','MU','ANET','SNOW','FTNT','PANW','VLO','LLY','NFLX'];
 const COINS=['BTC','ETH','SOL','NEAR','LINK','ONDO','AAVE','RENDER','TAO','FIL','SUI','INJ'];
 const json=async(res)=>{const data=await res.json();if(!res.ok)throw Error(data.error||'Provider '+res.status);return data};
@@ -42,14 +42,12 @@ function update(state,candidates){
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(!process.env.CRON_SECRET||req.headers.authorization!=='Bearer '+process.env.CRON_SECRET)return res.status(401).json({error:'Unauthorized'});
- if(!process.env.PAPER_REDIS_REST_URL||!process.env.PAPER_REDIS_REST_TOKEN||!process.env.PAPER_BASE_URL)return res.status(503).json({error:'Paper server setup incomplete'});
- // Redis lock prevents concurrent scheduled requests from overwriting each other.
- let locked=false;
+ if(!process.env.BLOB_READ_WRITE_TOKEN||!process.env.PAPER_BASE_URL)return res.status(503).json({error:'Paper server setup incomplete'});
+ // Intended for one daily scheduled run; Blob updates are not transactionally locked.
  try{
-  const lock=await kv(['SET','trading2026:paper:lock','1','EX','850','NX']);
-  if(lock!=='OK')return res.status(409).json({error:'Run already active'});
-  locked=true;
-  const state=await loadPaper(),idx=state.cursor||0,coin=COINS.slice(idx%COINS.length,(idx%COINS.length)+3),stock=STOCKS.slice(idx%STOCKS.length,(idx%STOCKS.length)+4);
+  const state=await loadPaper();
+  if(state.lastRun&&Date.now()-Date.parse(state.lastRun)<40*60000)return res.status(200).json({ok:true,skipped:'recent run',lastRun:state.lastRun});
+  const idx=state.cursor||0,coin=COINS.slice(idx%COINS.length,(idx%COINS.length)+3),stock=STOCKS.slice(idx%STOCKS.length,(idx%STOCKS.length)+4);
   const origin=process.env.PAPER_BASE_URL.replace(/\/$/,'');
   const candidates=[],issues=[];
   const results=await Promise.allSettled([
@@ -69,5 +67,5 @@ export default async function handler(req,res){
   await savePaper(state);
   return res.status(200).json({ok:true,checked:candidates.length,open:state.trades.filter(t=>t.state==='OPEN').length,closed:state.trades.filter(t=>t.state==='CLOSED').length,issues:state.issues});
  }catch(e){return res.status(500).json({error:String(e.message||e)})}
- finally{if(locked)try{await kv(['DEL','trading2026:paper:lock'])}catch(_){}}
+
 }
