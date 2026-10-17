@@ -8,6 +8,6 @@
   },
   "description": "Trading 2026 radar with public Coinbase live quotes, Pine-inspired signals, watchlists and Alpaca stock data",
   "dependencies": {
-    "@vercel/blob": "^2.3.0"
+    "@vercel/blob": "^2.0.0"
   }
 }
