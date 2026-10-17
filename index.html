@@ -238,7 +238,7 @@ th.sortable-col:focus-visible{outline:3px solid #94c9ff;outline-offset:-3px}
 </div></div><section id="paperPanel" class="discover-panel" style="margin:16px 0;padding:16px">
  <div class="discover-header"><div><h3>Laboratori · Paper trading automàtic</h3><p class="muted">Només simulació local, sense ordres. Aquesta pantalla funciona amb la pàgina oberta. El mòdul de servidor utilitza Vercel Blob privat; és independent de les dades locals i cal verificar que la tasca programada s'executa. Les dades locals no es sincronitzen amb el servidor.</p></div><label><input type="checkbox" id="paperEnabled"> Activar simulació</label></div>
  <div class="toolbar"><label>Mercat <select id="paperMarket"><option value="stocks">Accions</option><option value="crypto">Altcoins</option><option value="all">Tots dos</option></select></label><button type="button" id="paperCheck" class="btn">Actualitzar seguiment</button><span id="paperMessage" class="muted"></span></div>
- <div class="paper-server-health" style="margin:10px 0;padding:12px;border:1px solid #47617c;border-radius:10px"><strong>Seguiment del servidor · amb l'iPad tancat</strong><p class="muted" id="paperServerStatus">Comprovant última execució del servidor…</p><div id="paperServerSummary" class="market-stats"></div><button type="button" class="btn" id="paperServerRefresh">Consultar estat del servidor</button><p class="muted">El servidor i la simulació local tenen historials separats. L'estat del servidor només és fiable si hi ha una execució registrada.</p></div><h4>Simulació local · pàgina oberta</h4><div id="paperStats" class="data-health-stats"></div><div class="tablebox"><table style="min-width:730px"><thead><tr><th>Mercat</th><th>Actiu</th><th>Estat</th><th>Entrada</th><th>Últim preu</th><th>Stop</th><th>Objectiu</th><th>Resultat</th></tr></thead><tbody id="paperRows"></tbody></table></div>
+ <div class="paper-server-health" style="margin:10px 0;padding:12px;border:1px solid #47617c;border-radius:10px"><strong>Seguiment del servidor · amb l'iPad tancat</strong><p class="muted" id="paperServerStatus">Comprovant última execució del servidor…</p><div id="paperServerSummary" class="market-stats"></div><button type="button" class="btn" id="paperServerRefresh">Consultar estat del servidor</button><p class="muted">El servidor i la simulació local tenen historials separats. L'estat del servidor només és fiable si hi ha una execució registrada.</p></div><h4>Simulació local · pàgina oberta</h4><div id="serverPaperHealth" class="market-session-note">Servidor: comprovant últim cicle…</div><div id="paperStats" class="data-health-stats"></div><div class="tablebox"><table style="min-width:730px"><thead><tr><th>Mercat</th><th>Actiu</th><th>Estat</th><th>Entrada</th><th>Últim preu</th><th>Stop</th><th>Objectiu</th><th>Resultat</th></tr></thead><tbody id="paperRows"></tbody></table></div>
  </section></section>
 </div>
 <dialog class="detail" id="detailDialog" aria-labelledby="detailTitle"><div id="detailContent"></div></dialog>
@@ -1159,6 +1159,14 @@ function paintPaper(){
  document.getElementById('paperRows').innerHTML=paperTrades.slice(-35).reverse().map(t=>'<tr><td>'+safe(t.market)+'</td><td>'+safe(t.symbol)+'</td><td>'+safe(t.state)+'</td><td>'+fmt(t.entry,5)+'</td><td>'+fmt(t.lastPrice,5)+'</td><td>'+fmt(t.stop,5)+'</td><td>'+fmt(t.target,5)+'</td><td>'+(t.state==='TANCADA'?fmt(t.resultPct,2)+'%':'En seguiment')+'</td></tr>').join('')||'<tr><td colspan="8">Encara no hi ha operacions simulades. No s’obrirà cap operació fins que existeixi un senyal confirmat i dades recents.</td></tr>';
  document.getElementById('paperMessage').textContent=paperEnabled.checked?'Simulació activa mentre aquesta pàgina sigui oberta':'Simulació pausada';
 }
+async function updateServerPaperHealth(){
+ const el=document.getElementById('serverPaperHealth');if(!el)return;
+ try{const r=await fetch('/api/paper-health',{cache:'no-store'});const x=await r.json();
+ const labels={OPERATIU:'Servidor · darrer cicle registrat',SENSE_EXECUCIONS:'Servidor · pendent de primera execució',DESACTUALITZAT:'Servidor · última execució antiga',ERROR_LECTURA:'Servidor · error de lectura',NO_CONFIGURAT:'Servidor · sense configuració'};
+ el.textContent=(labels[x.state]||'Servidor · estat desconegut')+(x.lastRun?' · '+new Date(x.lastRun).toLocaleString('ca-ES'):'')+' · mostres '+(x.sampled??0)+' · descartades '+(x.rejected??0)+' · simulades obertes '+(x.open??0)+' · tancades '+(x.closed??0);
+ }catch(_){el.textContent='Servidor · no es pot consultar l’estat (no vol dir que estigui actiu)'}
+}
+updateServerPaperHealth();setInterval(updateServerPaperHealth,5*60*1000);
 document.getElementById('paperCheck').onclick=()=>tickPaper();
 setInterval(tickPaper,60000);
 paintPaper();
