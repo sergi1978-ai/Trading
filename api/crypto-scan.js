@@ -1,4 +1,4 @@
-import {momentumDiagnostic,weeklyDiagnostic} from './_momentum.js';
+import {momentumDiagnostic,weeklyDiagnostic,momentumPhase,momentumContext,earlyMomentumTurn} from './_momentum.js';
 // Trading 2026 v2.8 - crypto technical screening; closed candles only.
 // Coinbase Exchange public candles (300 max/request), Kraken OHLC fallback.
 const TIMEOUT=9000;
@@ -77,6 +77,9 @@ function historicalAccumulationStudy(bars){
 function scanOne(symbol,pack){
  const {daily:D,four:H,hour:F,half:M}=pack;const d=D.rows,h=H.rows,f=F.rows,m=M.rows;
  const momentumIndicators={week:weeklyDiagnostic(d,'crypto'),day:momentumDiagnostic(d,'crypto'),four:momentumDiagnostic(h,'crypto'),hour:momentumDiagnostic(f,'crypto')};
+ for(const tf of ['week','day','four','hour'])momentumIndicators[tf].phase=momentumPhase(momentumIndicators[tf]);
+ momentumIndicators.context=momentumContext(momentumIndicators);
+ momentumIndicators.earlyTurn=earlyMomentumTurn(momentumIndicators,'crypto');
  if([d,h,f,m].some(x=>x.length<55))throw Error('Històric insuficient 1D/4H/1H/30m');
  const tfDetails=[['1D',d,86400000],['4H',h,14400000],['1H',f,3600000],['30m',m,1800000]];
  const tfQuality={};
