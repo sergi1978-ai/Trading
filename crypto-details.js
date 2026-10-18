@@ -42,7 +42,11 @@
       ['Volum sostingut',a.strongVolumeWatch?'Detectat':'No detectat',a.strongVolumeWatch?'positive':'neutral'],
       ['Senyal',signalValue,signalValue.includes('NO PERSEGUIR')?'negative':'neutral'],
       ['Proveïdors',a.providerConsistency||'Sense dades',a.providerConsistency==='MIXTA'?'neutral':'neutral'],
-      ['Pla executable',a.planAvailable?'Validar al Pine':'Sense pla',noPlan?'negative':'neutral']
+      ['Pla executable',a.planAvailable?'Validar al Pine':'Sense pla',noPlan?'negative':'neutral'],
+      ['EMA 200 · 1D',a.momentum?.day?.ema200Available?fmtValue(a.momentum.day.ema200,5):'Històric insuficient',a.momentum?.day?.emaAligned?'positive':'neutral'],
+      ['Creuament EMA 20/50 · 4H',a.momentum?.four?.emaCross5||'Sense dades',a.momentum?.four?.emaCross5==='ALCISTA'?'positive':a.momentum?.four?.emaCross5==='BAIXISTA'?'negative':'neutral'],
+      ['MACD · 1H',a.momentum?.hour?.macdCross||'Sense dades',a.momentum?.hour?.macdTone||'neutral'],
+      ['RSI · 1H',Number.isFinite(a.momentum?.hour?.rsi14)?fmtValue(a.momentum.hour.rsi14,1):'Sense dades',a.momentum?.hour?.rsiTone||'neutral']
     ];
     for(const [k,v,tone] of vals)grid.append(metric(k,v,tone));
     const content=document.getElementById('coinMetrics');content.replaceChildren();
