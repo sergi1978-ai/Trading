@@ -1012,7 +1012,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered'
  if(extraStocks.length>=25){alert('Màxim de 25 accions addicionals.');return}
  const x={ticker,sector:'Descobertes',theme:'Nova candidata · pendent Alpaca',dividend:0,risk:'Alt'};
  extraStocks.push(x);META.push(x);rows.push({...x,status:'SENSE DADES'});localStorage.setItem('trading2026_extras',JSON.stringify(extraStocks));
- b.disabled=true;b.textContent='✓ Al radar';const sel=document.getElementById('sectorFilter');if(![...sel.options].some(o=>o.value==='Descobertes'))sel.add(new Option('Descobertes','Descobertes'));render();scan();
+ b.disabled=true;b.textContent='✓ Al radar';const sel=document.getElementById('sectorFilter');if(![...sel.options].some(o=>o.value==='Descobertes'))sel.add(new Option('Descobertes','Descobertes'));render();document.getElementById('stockAddMessage').textContent='Prem «Analitzar accions» per actualitzar dades.';
 });
 
 document.getElementById('scanBtn').onclick=()=>scan('all');
@@ -1088,7 +1088,7 @@ function restoreTrackedStock(ticker){
  if(!stockCatalog.has(ticker)&&!manualStocks.includes(ticker)){manualStocks.push(ticker);saveManualStocks()}
  rows.push({...item,status:'SENSE DADES'});
  document.getElementById('stockAddMessage').textContent=ticker+' recuperada';
- showStockManager();render();scan();
+ showStockManager();render();
 }
 document.getElementById('stockAddBtn').onclick=()=>{
  const field=document.getElementById('stockAddInput'),ticker=field.value.trim().toUpperCase(),msg=document.getElementById('stockAddMessage');
@@ -1099,7 +1099,7 @@ document.getElementById('stockAddBtn').onclick=()=>{
  manualStocks.push(ticker);saveManualStocks();
  META.push({ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'});
  rows.push({...META.at(-1),status:'SENSE DADES'});
- field.value='';msg.textContent=ticker+' afegida; consultant dades…';
+ field.value='';msg.textContent=ticker+' afegida; pendent d’anàlisi manual';
  showStockManager();render();scan();
 };
 document.getElementById('stockAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('stockAddBtn').click()});
@@ -1203,9 +1203,8 @@ async function refreshStocksInPhases(){
  await scan('pending');
  await scan('stale');
 }
-refreshStocksInPhases();
-setInterval(refreshStockQuotes,60000);
-setInterval(()=>{refreshStocksInPhases()},15*60*1000);setInterval(paintMacroGuard,5*60*1000);
+// Stock scanning and stock quote refresh are manual. Cached analyses remain visible.
+setInterval(paintMacroGuard,5*60*1000);
 </script>
 <script src="/crypto-details.js" defer></script>
 <script src="/crypto-lab.js" defer></script></body></html>
