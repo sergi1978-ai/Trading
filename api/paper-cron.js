@@ -8,7 +8,7 @@ async function getResults(origin,path){const r=await fetch(origin+path,{cache:'n
 const n=x=>typeof x==='number'&&Number.isFinite(x)?x:null;
 function cryptoCandidate(r){
  const price=n(r.price),entry=n(r.pineReferenceEntry),stop=n(r.pineReferenceStop),valid=r.pineSignalCandidate===true&&r.operationalDecision==='REVISAR ENTRADA'&&r.planAvailable===true&&r.criticalBlocks?.length===0;
- return {market:'crypto',symbol:r.symbol,price,entry,stop,ready:valid,stamp:r.quoteTime,phase:r.pineState||r.status||'SENSE DADES',potential:n(r.anticipationScore),quality:n(r.operationalQuality),reason:r.primaryBlocker||r.operationalDecision};
+ return {market:'crypto',symbol:r.symbol,price,entry,stop,ready:valid,stamp:r.quoteTime,phase:r.pineState||r.status||'SENSE DADES',accumulationWatch:r.accumulationWatch===true,strongVolumeWatch:r.strongVolumeWatch===true,liquidityTier:r.liquidityTier||null,potential:n(r.anticipationScore),quality:n(r.operationalQuality),reason:r.primaryBlocker||r.operationalDecision};
 }
 function stockCandidate(r,q){
  const price=n(q?.extendedPrice),entry=n(r.trigger),stop=n(r.stop),age=n(q?.extendedAgeMinutes);
@@ -71,7 +71,7 @@ export default async function handler(req,res){
   const evaluatedAt=new Date().toISOString();
   state.observations=[...(state.observations||[]),...candidates.map(c=>({
    at:evaluatedAt,market:c.market,symbol:c.symbol,price:c.price,
-   signalApproved:c.ready,entry:c.entry,stop:c.stop,phase:c.phase,potential:c.potential,quality:c.quality,reason:c.reason,
+   signalApproved:c.ready,entry:c.entry,stop:c.stop,phase:c.phase,accumulationWatch:c.accumulationWatch===true,strongVolumeWatch:c.strongVolumeWatch===true,liquidityTier:c.liquidityTier||null,potential:c.potential,quality:c.quality,reason:c.reason,
    dataAgeMin:Number.isFinite(Date.parse(c.stamp||''))?Math.round((Date.now()-Date.parse(c.stamp))/60000):null
   }))].slice(-2000);
   update(state,candidates);
