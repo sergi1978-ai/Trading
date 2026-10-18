@@ -512,7 +512,9 @@ async function scan(mode='all'){
  document.getElementById('updated').textContent=(mode==='pending'?'Recuperant pendents':mode==='stale'?'Actualitzant antigues':'Analitzant')+' 0/'+selected.length;
  try{
   const batches=[];for(let i=0;i<selected.length;i+=5)batches.push(selected.slice(i,i+5));
+  let providerRateLimited=false;
   for(const symbols of batches){
+   if(providerRateLimited){errorDetails.push('Alpaca 429: escaneig aturat per protegir el límit de l’API; conserva les dades anteriors');break;}
    const syms=symbols.join(',');
    updateScanProgress('stocks',completed,selected.length,syms);
    try{
@@ -538,7 +540,7 @@ async function scan(mode='all'){
         await new Promise(resolve=>setTimeout(resolve,1500*(attempt+1)));
       }
     }
-    if(!data)throw Error(lastError);
+    if(!data){if(/429|too many requests/i.test(lastError))providerRateLimited=true;throw Error(lastError);}
     successful+=symbols.length;
     let quotes={};
     try{
