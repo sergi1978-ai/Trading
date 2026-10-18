@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · Radar v4.41 EARLY (proves)</title>
+<title>Trading 2026 · LONG AI v6.6.24</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -419,6 +419,14 @@ function showDetail(ticker){
  ${toneTag('Stop tècnic',hasPlan?'negative':'neutral',hasPlan?fmt(r.stop)+' $':'—')}
  ${toneTag('R:R teòric',Number.isFinite(rrValue)&&rrValue>=2?'positive':'neutral',Number.isFinite(rrValue)?fmt(rrValue)+'R':'—')}
  </div><p class="small">La decisió és orientativa. Sense preu recent fiable ni pla validat, no hi ha entrada executable.</p></section>
+ <section class="detail-box detail-wide"><h3>Tendència i momentum · resum</h3><div class="stock-decision-metrics">
+ ${(['week','day','four','hour']).map((tf,i)=>{const m=r.momentum?.[tf],phase=m?.phase||'SENSE DADES',v=m?.macdHistogram,valid=m?.available&&Number.isFinite(v);return toneTag(['1W','1D','4H','1H'][i],valid?(v>=0?'positive':'negative'):'neutral',safe(tf==='week'&&m?.weeklyTrend?m.weeklyTrend:phase))}).join('')}
+ </div><p class="small">${safe(r.momentum?.context||'Context pendent')} · ${r.momentum?.earlyTurn?'Possible gir incipient per vigilar.':'Sense gir incipient detectat.'}</p></section>
+ <section class="detail-box detail-wide"><h3>Què falta per entrar?</h3><p>${safe(!hasFreshPrice?'Actualitzar el preu i confirmar una sessió vàlida.':!r.pinePlanValid?'Validar un pla executable al Pine (trigger, stop i R:R).':!['A','A+'].includes(r.status)?'Esperar confirmació del senyal, volum i tancament.':'Confirmar preu executable i risc abans de decidir.')}</p><div class="stock-decision-metrics">
+ ${toneTag('Volum 4H',volumeGood?'positive':volumeBad?'negative':'neutral',Number.isFinite(r.rvol4h)?fmt(r.rvol4h)+'×':'Sense dades')}
+ ${toneTag('Tendència 1D / 4H',trendGood?'positive':trendBad?'negative':'neutral',safe(trend))}
+ </div></section>
+ <details class="detail-box detail-wide stock-expand"><summary>Veure tots els indicadors i diagnòstics</summary><div class="detail-grid">
  <section class="detail-box detail-wide"><h3>Semàfor de condicions</h3><div class="stock-decision-metrics">
  ${toneTag('Tendència 1D/4H',trendGood?'positive':trendBad?'negative':'neutral',safe(trend))}
  ${toneTag('Volum 4H',volumeGood?'positive':volumeBad?'negative':'neutral',Number.isFinite(r.rvol4h)?fmt(r.rvol4h)+'×':'Sense dades')}
@@ -443,6 +451,7 @@ function showDetail(ticker){
  ${toneTag('MACD · 1H',r.momentum?.hour?.macdTone||'neutral',safe(!r.momentum?.hour?.available?'Sense dades':(r.momentum.hour.macdHistogram>=0?'Positiu':'Negatiu')+' · '+(r.momentum.hour.macdCross==='CAP RECENT'?'Sense creuament recent':r.momentum.hour.macdCross)+' · Hist. '+fmt(r.momentum.hour.macdHistogram,4)))}
  ${toneTag('RSI · 1H',r.momentum?.hour?.rsiTone||'neutral',Number.isFinite(r.momentum?.hour?.rsi14)?fmt(r.momentum.hour.rsi14,1):'Sense dades')}
  </div><p class="small">Indicadors informatius, no alteren READY. EMA 200 exigeix 200 espelmes.</p></section>
+</div></details>
  <section class="detail-box detail-wide"><h3>Plans de seguiment</h3><div class="stock-decision-metrics">
  ${toneTag('Pla A · ruptura',hasPlan?'neutral':'negative',hasPlan?'Activació: '+fmt(r.trigger)+' $':'Sense nivell fiable')}
  ${toneTag('Pla B · retest',hasRetest?'neutral':'negative',hasRetest?'Zona: '+fmt(r.zoneLow)+'–'+fmt(r.zoneHigh)+' $':'Sense zona calculada')}
