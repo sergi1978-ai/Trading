@@ -69,6 +69,21 @@ function returnPct(values, bars=20){
   const a = values[values.length-bars-1], b = values[values.length-1];
   return a ? ((b/a)-1)*100 : null;
 }
+// Diagnostic only: compare completed hourly participation with the same NY clock-hour
+// across prior sessions; partial IEX feed is not consolidated US market volume.
+function hourlySlotRvol(bars){
+ if(!Array.isArray(bars)||bars.length<20)return {ratio:null,samples:0,source:'IEX parcial'};
+ const current=bars.at(-1),date=new Date(current.t);
+ if(!Number.isFinite(date.getTime())||!(current.v>0))return {ratio:null,samples:0,source:'IEX parcial'};
+ const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',hourCycle:'h23',minute:'2-digit'});
+ const slot=x=>fmt.format(new Date(x.t));
+ const key=slot(current);
+ const previous=bars.slice(0,-1).filter(b=>b.v>0&&slot(b)===key).slice(-15);
+ if(previous.length<5)return {ratio:null,samples:previous.length,source:'IEX parcial'};
+ const sorted=previous.map(b=>b.v).sort((a,b)=>a-b);
+ const median=sorted[Math.floor(sorted.length/2)];
+ return {ratio:median>0?Math.round(current.v/median*100)/100:null,samples:previous.length,source:'IEX parcial',nyHour:key};
+}
 function volumeReading(bars, support, atr4){
   // Compare completed 4H bars with previous completed 4H bars on the same feed.
   // IEX is a partial-market feed; this is relative participation, not total volume.
@@ -206,6 +221,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   candidates.sort((a,b)=>Math.abs(h4.c-a.v)-Math.abs(h4.c-b.v));
   const support=candidates[0];
   const volume=volumeReading(h4Bars,support.v,a4);
+  const hourlyVolume=hourlySlotRvol(h1Bars);
   let conf=0;
   for(const x of candidates) if(Math.abs(x.v-support.v)<=a4*0.45) conf++;
   const supportDist=Math.abs(h4.c-support.v)/a4;
@@ -461,6 +477,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
     earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
     fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
+    hourlySlotRvol:hourlyVolume.ratio,hourlySlotSamples:hourlyVolume.samples,hourlySlotSource:hourlyVolume.source,hourlySlotNY:hourlyVolume.nyHour||null,
     technicalPrice:h1.c,
     price:h1.c,
     dayChange,
