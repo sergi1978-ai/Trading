@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · LONG AI v6.6.27</title>
+<title>Trading 2026 · LONG AI v6.6.28</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -228,10 +228,10 @@ body.crypto-market #topCryptoBody .top-crypto-decision{margin-top:3px;font-size:
 body.crypto-market #topCryptoBody .asset-subtitle{font-size:10px;margin-top:2px}
 body.crypto-market #topCryptoBody .vol-indicator{white-space:nowrap}
 body.crypto-market #topCryptoBody td:nth-child(5){font-variant-numeric:tabular-nums}
-.stock-optional{display:block}.stock-optional>summary{color:#e7f0ff;font-size:14px;padding:5px 0;cursor:pointer}.stock-optional[open]>summary{margin-bottom:12px}.stock-optional .detail-box{width:100%}.stock-compact-plan{border-color:#47698a}.stock-compact-plan h3,.detail-grid h3,.stock-optional h3{color:#e7f0ff!important}.stock-optional .detail-grid{grid-template-columns:1fr;margin-top:8px}.stock-optional #riskCalculator{margin:10px 0 0}.stock-decision-item strong{line-height:1.3}.stock-blocker-list p{margin:5px 0;font-size:13px;line-height:1.4}.stock-decision-summary .stock-decision-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:480px){.stock-decision-summary .stock-decision-metrics{grid-template-columns:1fr}}</style>
+.stock-optional{display:block}.stock-optional>summary{color:#e7f0ff;font-size:14px;padding:5px 0;cursor:pointer}.stock-optional[open]>summary{margin-bottom:12px}.stock-optional .detail-box{width:100%}.stock-compact-plan{border-color:#47698a}.stock-compact-plan h3,.detail-grid h3,.stock-optional h3{color:#e7f0ff!important}.stock-optional .detail-grid{grid-template-columns:1fr;margin-top:8px}.stock-optional #riskCalculator{margin:10px 0 0}.stock-decision-item strong{line-height:1.3}.stock-blocker-list p{margin:5px 0;font-size:13px;line-height:1.4}.stock-decision-summary .stock-decision-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:480px){.stock-decision-summary .stock-decision-metrics{grid-template-columns:1fr}}.stock-decision-summary{padding:17px!important}.stock-decision-summary .stock-decision-metrics{margin-top:10px}.stock-blocker-list{margin:8px 0 12px;padding-left:5px}.stock-blocker-list p{border-left:2px solid #59779a;padding:5px 10px;margin:4px 0}.stock-compact-plan .stock-decision-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:700px){.stock-compact-plan .stock-decision-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>Trading 2026 · LONG AI v6.6.27</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
+<div class="top"><div><h1>Trading 2026 · LONG AI v6.6.28</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
 <section id="macroGuard" class="macro-guard" aria-live="polite"></section><div id="scanProgress" class="scan-progress" hidden role="status" aria-live="polite"><div class="scan-progress-heading"><strong id="scanProgressTitle">Analitzant…</strong><span id="scanProgressCount">0/0</span></div><div class="scan-track"><div id="scanProgressFill" class="scan-fill"></div></div><div id="scanProgressTickers" class="scan-tickers"></div></div><div class="tabs" role="tablist" aria-label="Mercats Trading 2026"><button class="tab active" data-tab="radar" role="tab" aria-selected="true">▦ Accions</button><button class="tab" data-tab="discover" role="tab" aria-selected="false">₿ Altcoins</button></div>
@@ -415,7 +415,7 @@ function showDetail(ticker){
  const priceState=hasFreshPrice?'Preu validat pel control de dades':'Preu no verificat / massa antic';
  const hasRetest=Number.isFinite(r.zoneLow)&&Number.isFinite(r.zoneHigh)&&r.zoneHigh>=r.zoneLow;
  const entryScore=Number.isFinite(r.entryQuality)?r.entryQuality:null;
- const potentialScore=Number.isFinite(r.earlyScore)?r.earlyScore*20:null;
+ const potentialScore=Number.isFinite(r.earlyScore)?Math.max(0,Math.min(100,r.earlyScore)):null;
  const scoreLabel=v=>v===null?'Sense dades':v>=90?'Molt alt':v>=75?'Alt':v>=60?'Interessant':v>=40?'Moderat':'Baix';
  const scoreColor=v=>v===null?'neutral':v>=75?'positive':v<40?'negative':'neutral';
  const blockers=[...new Set([...(Array.isArray(r.incompleteChecks)?r.incompleteChecks:[]),...(Array.isArray(r.entryCautions)?r.entryCautions:[])])];
@@ -423,24 +423,25 @@ function showDetail(ticker){
  if(!r.pinePlanValid)blockers.push('Pla executable Pine pendent (trigger, stop i R:R)');
  const topBlockers=blockers.length?blockers.slice(0,3):['Confirmar tancament, volum i preu executable'];
  document.getElementById('detailContent').innerHTML=`<div class="detail-head"><div><h2 id="detailTitle">${safe(r.ticker)} <span class="muted">· ${safe(r.theme)}</span></h2><div class="muted">${safe(r.sector)} · ${safe(r.risk)} risc orientatiu</div></div><button type="button" class="btn" id="closeDetail" aria-label="Tanca la fitxa">Tanca ×</button></div>
- <div class="detail-grid"><section class="detail-box detail-wide stock-decision-summary"><div class="stock-decision-top"><div><h3>Resum operatiu · v6.6.27</h3><strong class="stock-decision-banner ${decisionTone}">${safe(decision)}</strong></div><span class="stock-decision-tag ${hasFreshPrice?'positive':'negative'}">${safe(priceState)}</span></div>
+ <div class="detail-grid"><section class="detail-box detail-wide stock-decision-summary"><div class="stock-decision-top"><div><h3>Resum operatiu · v6.6.28</h3><strong class="stock-decision-banner ${decisionTone}">${safe(decision)}</strong></div><span class="stock-decision-tag ${hasFreshPrice?'positive':'negative'}">${safe(priceState)}</span></div>
  <p class="small"><strong>${safe(signal)}</strong> · ${safe(diagnostic)}</p>
  <div class="stock-decision-metrics">
  ${toneTag('Qualitat entrada',scoreColor(entryScore),entryScore===null?'Sense dades':fmt(entryScore,0)+'/100 · '+scoreLabel(entryScore))}
  ${toneTag('Potencial anticipat',scoreColor(potentialScore),potentialScore===null?'Sense dades':fmt(potentialScore,0)+'/100 · '+scoreLabel(potentialScore))}
- </div><p class="small">Puntuacions orientatives, no probabilitats ni autorització READY. Potencial escalat del radar anticipat (0–5).</p>
+ </div><p class="small">Puntuacions orientatives, no probabilitats ni autorització READY. Potencial del radar anticipat (0–100), independent de READY.</p>
  </section>
- <section class="detail-box detail-wide"><h3>Tendència i momentum · resum</h3><div class="stock-decision-metrics">
- ${(['week','day','four','hour']).map((tf,i)=>{const m=r.momentum?.[tf],phase=m?.phase||'SENSE DADES',v=m?.macdHistogram,valid=m?.available&&Number.isFinite(v);return toneTag(['1W','1D','4H','1H'][i],valid?(v>=0?'positive':'negative'):'neutral',safe(tf==='week'&&m?.weeklyTrend?m.weeklyTrend:phase))}).join('')}
- </div><p class="small">${safe(r.momentum?.context||'Context pendent')} · ${r.momentum?.earlyTurn?'Possible gir incipient per vigilar.':'Sense gir incipient detectat.'}</p></section>
  <section class="detail-box detail-wide"><h3>Què falta per entrar?</h3><div class="stock-blocker-list">${topBlockers.map(x=>'<p>• '+safe(x)+'</p>').join('')}</div><div class="stock-decision-metrics">
  ${toneTag('Volum 4H',volumeGood?'positive':volumeBad?'negative':'neutral',Number.isFinite(r.rvol4h)?fmt(r.rvol4h)+'×':'Sense dades')}
  ${toneTag('Tendència 1D / 4H',trendGood?'positive':trendBad?'negative':'neutral',safe(trend))}
  </div></section>
+ <section class="detail-box detail-wide"><h3>Tendència i momentum · resum</h3><div class="stock-decision-metrics">
+ ${(['week','day','four','hour']).map((tf,i)=>{const m=r.momentum?.[tf],phase=m?.phase||'SENSE DADES',v=m?.macdHistogram,valid=m?.available&&Number.isFinite(v);return toneTag(['1W','1D','4H','1H'][i],valid?(v>=0?'positive':'negative'):'neutral',safe(tf==='week'&&m?.weeklyTrend?m.weeklyTrend:phase))}).join('')}
+ </div><p class="small">${safe(r.momentum?.context||'Context pendent')} · ${r.momentum?.earlyTurn?'Possible gir incipient per vigilar.':'Sense gir incipient detectat.'}</p></section>
  <section class="detail-box detail-wide stock-compact-plan"><h3>Entrada i risc</h3><div class="stock-decision-metrics">
  ${toneTag('Activació',hasPlan?'neutral':'negative',hasPlan?fmt(r.trigger)+' $':'Sense pla')}
  ${toneTag('Stop',hasPlan?'negative':'neutral',hasPlan?fmt(r.stop)+' $':'—')}
- ${toneTag('Objectiu teòric 2R','neutral',hasPlan?fmt(r.target1)+' $':'—')}
+ ${toneTag('Objectiu teòric','neutral',hasPlan?fmt(r.target1)+' $':'—')}
+ ${toneTag('R:R orientatiu',Number.isFinite(rrValue)&&rrValue>=2?'positive':'neutral',Number.isFinite(rrValue)?fmt(rrValue,2)+'R':'Sense dades')}
  </div><p class="small">Nivells orientatius, no ordres. Resistències pendents de validar.</p></section>
  <details class="detail-box detail-wide stock-expand stock-optional"><summary>Calculadora de posició i risc</summary>
   <section class="detail-box detail-wide" id="riskCalculator"><h3>Calculadora de posició · stop tècnic</h3><p class="small">Simulació orientativa: introdueix el pressupost i la pèrdua màxima que vols assumir. El preu d'entrada i el stop provenen del pla tècnic, però els pots ajustar.</p><div class="risk-calc-inputs"><label>Capital disponible ($)<input id="riskCapital" type="number" min="0" step="100" value="1000"></label><label>Risc màxim ($)<input id="riskMaxLoss" type="number" min="0" step="5" value="20"></label><label>Entrada ($)<input id="riskEntry" type="number" min="0" step="any" value="${Number.isFinite(r.trigger)?r.trigger:''}"></label><label>Stop ($)<input id="riskStop" type="number" min="0" step="any" value="${Number.isFinite(r.stop)?r.stop:''}"></label></div><div id="riskCalcResult" class="risk-calc-result" aria-live="polite"></div><p class="small">No inclou comissions, lliscament, gaps ni risc de canvi de divisa. El stop no garanteix una pèrdua màxima. Si el pla Pine no és executable, aquest càlcul no autoritza cap entrada.</p></section>
