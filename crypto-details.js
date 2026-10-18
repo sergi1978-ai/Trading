@@ -55,6 +55,12 @@
     }
     const crossMarket=a.momentum?.week?.weeklyTrend==='ALCISTA'&&a.momentum?.day?.macdHistogram<0&&a.momentum?.four?.macdHistogram<0;
     if(crossMarket)grid.append(metric('Divergència temporal','1W alcista · 1D i 4H amb momentum negatiu','negative'));
+    for(const [tf,label] of [['day','1D'],['four','4H'],['hour','1H']]){
+      const phase=a.momentum?.[tf]?.phase||'SENSE DADES';
+      grid.append(metric('Fase '+label,phase,phase==='IMPULS ALCISTA'?'positive':phase==='DEBILITAT BAIXISTA'?'negative':'neutral'));
+    }
+    grid.append(metric('Gir incipient',a.momentum?.earlyTurn?'VIGILAR · NO READY':'No detectat',a.momentum?.earlyTurn?'positive':'neutral'));
+    grid.append(metric('Context temporal',a.momentum?.context||'Sense dades',a.momentum?.context==='SENSE CONFLICTE CLAR'?'neutral':'negative'));
     for(const [k,v,tone] of vals)grid.append(metric(k,v,tone));
     const content=document.getElementById('coinMetrics');content.replaceChildren();
     const summary=document.createElement('div');summary.className='coin-summary';
