@@ -43,6 +43,7 @@
       ['Senyal',signalValue,signalValue.includes('NO PERSEGUIR')?'negative':'neutral'],
       ['Proveïdors',a.providerConsistency||'Sense dades',a.providerConsistency==='MIXTA'?'neutral':'neutral'],
       ['Pla executable',a.planAvailable?'Validar al Pine':'Sense pla',noPlan?'negative':'neutral'],
+      ['Tendència 1W',a.momentum?.week?.available?a.momentum.week.weeklyTrend:'Històric insuficient',a.momentum?.week?.weeklyTrend==='ALCISTA'?'positive':a.momentum?.week?.weeklyTrend==='BAIXISTA'?'negative':'neutral'],
       ['EMA 200 · 1D',a.momentum?.day?.ema200Available?fmtValue(a.momentum.day.ema200,5):'Històric insuficient',a.momentum?.day?.emaAligned?'positive':'neutral'],
       ['Creuament EMA 20/50 · 4H',a.momentum?.four?.emaCross5||'Sense dades',a.momentum?.four?.emaCross5==='ALCISTA'?'positive':a.momentum?.four?.emaCross5==='BAIXISTA'?'negative':'neutral'],
       ['MACD · 1H',a.momentum?.hour?.macdCross||'Sense dades',a.momentum?.hour?.macdTone||'neutral'],
