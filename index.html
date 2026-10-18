@@ -430,6 +430,10 @@ function showDetail(ticker){
  ${toneTag('MACD 1W',r.momentum?.week?.macdTone||'neutral',safe(r.momentum?.week?.available?r.momentum.week.macdCross:'Sense dades'))}
  ${toneTag('RSI 1W',r.momentum?.week?.rsiTone||'neutral',Number.isFinite(r.momentum?.week?.rsi14)?fmt(r.momentum.week.rsi14,1):'—')}
  </div><p class="small">Només setmanes completades. Context informatiu: no bloqueja READY ni modifica la puntuació.</p></section>
+ <section class="detail-box detail-wide"><h3>Fases de momentum · diagnòstic</h3><div class="stock-decision-metrics">
+ ${(['day','four','hour']).map((tf,i)=>{const m=r.momentum?.[tf],p=m?.phase||'SENSE DADES',tone=p==='IMPULS ALCISTA'?'positive':p==='DEBILITAT BAIXISTA'?'negative':'neutral';return toneTag(['1D','4H','1H'][i],tone,safe(p))}).join('')}
+ ${toneTag('Possible gir',r.momentum?.earlyTurn?'positive':'neutral',r.momentum?.earlyTurn?'GIR INCIPIENT · VIGILAR':'Sense gir confirmat')}
+ </div><p class="small">${safe(r.momentum?.context||'Context no calculat')} · Fases informatives, no modifiquen READY.</p></section>
  <section class="detail-box detail-wide"><h3>MACD multitemporal · histograma</h3><div class="stock-decision-metrics">
  ${(['week','day','four','hour']).map((tf,i)=>{const m=r.momentum?.[tf],v=m?.macdHistogram,valid=m?.available&&Number.isFinite(v),name=['1W','1D','4H','1H'][i];return toneTag('MACD '+name,valid?(v>=0?'positive':'negative'):'neutral',valid?(v>=0?'+':'')+fmt(v,3)+' · '+(m.macdCross==='CAP RECENT'?'Sense creuament':m.macdCross):'Sense dades')}).join('')}
  </div>${(()=>{const m=r.momentum;if(m?.week?.weeklyTrend==='ALCISTA'&&Number.isFinite(m?.day?.macdHistogram)&&Number.isFinite(m?.four?.macdHistogram)&&m.day.macdHistogram<0&&m.four.macdHistogram<0)return '<p class="small"><strong>Atenció:</strong> 1W alcista però momentum 1D i 4H negatiu. Possible correcció; no confirma un gir.</p>';return '<p class="small">Histograma positiu/negatiu indica momentum, no una entrada. Creuaments només amb barra tancada.</p>'})()}</section>
