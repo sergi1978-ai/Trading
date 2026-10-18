@@ -12,7 +12,7 @@ export default async function handler(req,res){
   const recentTrades=(s.trades||[]).filter(t=>t.state==='CLOSED'&&Number.isFinite(t.netPct));
   const averageNetPct=recentTrades.length?Math.round(recentTrades.reduce((a,t)=>a+t.netPct,0)/recentTrades.length*100)/100:null;
   return res.status(200).json({state,lastRun,checks:s.checks||0,
-   sampled:observations.length,recent7d:recent.length,byMarket7d:byMarket,byPhase7d:byPhase,
+   sampled:observations.length,recent7d:recent.length,byMarket7d:byMarket,byPhase7d:byPhase,accumulationObservations7d:recent.filter(o=>o.accumulationWatch===true).length,sustainedVolumeObservations7d:recent.filter(o=>o.strongVolumeWatch===true).length,
    eligible:observations.filter(o=>o.signalApproved).length,
    rejected:observations.filter(o=>!o.signalApproved).length,
    open:(s.trades||[]).filter(t=>t.state==='OPEN').length,
