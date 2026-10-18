@@ -57,6 +57,22 @@ function ema(a,n){if(a.length<n)return null;let e=a.slice(0,n).reduce((s,x)=>s+x
 function rsi(a,n=14){if(a.length<n+1)return null;const dif=a.slice(-n-1).map((x,i)=>i?x-a[a.length-n-2+i]:null).slice(1);const gain=dif.reduce((s,x)=>s+Math.max(x,0),0)/n,loss=dif.reduce((s,x)=>s+Math.max(-x,0),0)/n;return loss===0?100:100-100/(1+gain/loss)}
 function atr(a,n=14){if(a.length<n+1)return null;const q=a.slice(-n-1),z=q.slice(1).map((x,i)=>Math.max(x.h-x.l,Math.abs(x.h-q[i].c),Math.abs(x.l-q[i].c)));return z.reduce((s,x)=>s+x,0)/n}
 function calc(a){const c=a.at(-1),cl=a.map(x=>x.c),vol=a.slice(-21,-1),avgVol=vol.length===20?vol.reduce((s,x)=>s+x.v,0)/20:null;return {c:c.c,ema20:ema(cl,20),ema50:ema(cl,50),rsi:rsi(cl),atr:atr(a),rvol:avgVol>0?c.v/avgVol:null}}
+function sessionVwap(bars){const recent=bars.slice(-24);const volume=recent.reduce((v,b)=>v+b.v,0);return volume>0?recent.reduce((v,b)=>v+((b.h+b.l+b.c)/3)*b.v,0)/volume:null}
+function pctChange(bars,n=24){return bars.length>n&&bars.at(-n-1).c>0?100*(bars.at(-1).c/bars.at(-n-1).c-1):null}
+function historicalAccumulationStudy(bars){
+ // Research-only: previous 1H candle is the signal; assess the following 6 COMPLETE candles.
+ // The live signal is never trained or authorized from this statistic.
+ const events=[];
+ for(let i=22;i+6<bars.length;i++){
+  const window=bars.slice(i-20,i),b=bars[i],avg=window.reduce((v,x)=>v+x.v,0)/20;
+  const earlier=bars.slice(i-10,i-5),recent=bars.slice(i-5,i+1);
+  const signed=x=>x.slice(1).reduce((v,z,j)=>v+(z.c>x[j].c?z.v:z.c<x[j].c?-z.v:0),0);
+  const signal=avg>0&&b.v/avg>=.35&&b.v/avg<1.8&&signed(recent)>0&&signed(recent)>signed(earlier);
+  if(signal)events.push({at:new Date(b.t).toISOString(),forward6hPct:Math.round(10000*(bars[i+6].c/b.c-1))/100});
+ }
+ const mean=events.length?events.reduce((a,x)=>a+x.forward6hPct,0)/events.length:null;
+ return {events:events.length,positive:events.filter(x=>x.forward6hPct>0).length,avgForward6hPct:mean===null?null:Math.round(mean*100)/100,lookaheadHours:6,method:'Estudi preliminar OHLCV amb espelmes tancades; no és backtest executiu ni prova fora de mostra'};
+}
 function scanOne(symbol,pack){
  const {daily:D,four:H,hour:F,half:M}=pack;const d=D.rows,h=H.rows,f=F.rows,m=M.rows;
  if([d,h,f,m].some(x=>x.length<55))throw Error('Històric insuficient 1D/4H/1H/30m');
@@ -76,6 +92,14 @@ function scanOne(symbol,pack){
  const staleFrames=Object.entries(tfQuality).filter(([,q])=>q.stale).map(([k])=>k);
  if(staleFrames.length)throw Error('Dades antigues: '+staleFrames.join(', ')+'; revisa el proveïdor');
  const a=calc(d),b=calc(h),c=calc(f),z=calc(m),last=f.at(-1),prior=f.slice(-13,-1),hi=Math.max(...prior.map(x=>x.h)),lo=Math.min(...prior.map(x=>x.l));
+ const vwap24h=sessionVwap(f);
+ const priceAboveVwap=Number.isFinite(vwap24h)?last.c>vwap24h:null;
+ const btcReturn24h=Array.isArray(pack.btcHour)?pctChange(pack.btcHour):null;
+ const assetReturn24h=pctChange(f);
+ const relativeStrengthBTC=Number.isFinite(btcReturn24h)&&Number.isFinite(assetReturn24h)?Math.round((assetReturn24h-btcReturn24h)*100)/100:null;
+ const historicalAccumulation=historicalAccumulationStudy(f);
+ const providerConsistency=F.source===H.source&&H.source===D.source&&D.source===M.source?'UNIFORME':'MIXTA';
+ const historicalStudyCaution='Estudi exploratori amb les dades OHLCV del proveïdor; no modifica READY';
  const dailyTrend=a.c>a.ema20&&a.ema20>a.ema50,fourTrend=b.c>b.ema20&&b.ema20>b.ema50;
  const breakUp=last.c>hi&&last.c>last.o,retest=last.l<=c.ema20*1.008&&last.c>c.ema20&&last.c>last.o;
  const near=hi>0&&last.c<=hi&&last.c>=hi*.988;
@@ -224,7 +248,7 @@ function scanOne(symbol,pack){
  const setupLabel=planAvailable?'PLA TÈCNIC PREPARAT':earlyEligible?'VIGILÀNCIA EXP · SENSE PLA':'SENSE PLA EXECUTABLE';
  const executionState=pineSignalCandidate?'REVISAR CONFIRMACIÓ AL PINE':'SENSE PLA EXECUTABLE';
  const estimatedSuccessProbability=null; // requires out-of-sample event-based backtesting, not an invented likelihood
- return {symbol,type:'cripto',status,reason,liquidityTier,dollarVolumeDay,rvol4h,watchRvolThreshold,accumulationWatch,strongVolumeWatch,obvRecent,obvPrevious,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,setupQuality,operationalQuality,operationalDecision,criticalBlocks,anticipationScore,primaryBlocker,volumeTimeframe,volumeText,volumeCandleDirection,candleMovePct,patternPhase,tradeDecision,watchLevel,watchSupport,watchDistance,planAvailable,setupLabel,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},dataQuality:tfQuality,confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineState,executionState,explosiveDirection,explosiveWatchScore,bearishWatchScore,bullishWatchScore,earlyScore,earlyStage,earlyCompression,earlyNear,earlyVolume,earlyTrend,pineReferenceVersion:'6.6.20',scannerReferenceVersion:'2.6',signalEngine:'WEB-INDEPENDENT',volumeBarClosedAt:new Date(last.t+3600000).toISOString(),pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Motor web independent, referències Pine Assistant 6.6.19 i Scanner 2.5; comparar mateixa espelma i exchange. Els TP no són resistències validades.'}
+ return {symbol,type:'cripto',status,reason,vwap24h,priceAboveVwap,btcReturn24h,assetReturn24h,relativeStrengthBTC,historicalAccumulation,providerConsistency,historicalStudyCaution,liquidityTier,dollarVolumeDay,rvol4h,watchRvolThreshold,accumulationWatch,strongVolumeWatch,obvRecent,obvPrevious,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,setupQuality,operationalQuality,operationalDecision,criticalBlocks,anticipationScore,primaryBlocker,volumeTimeframe,volumeText,volumeCandleDirection,candleMovePct,patternPhase,tradeDecision,watchLevel,watchSupport,watchDistance,planAvailable,setupLabel,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},dataQuality:tfQuality,confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineState,executionState,explosiveDirection,explosiveWatchScore,bearishWatchScore,bullishWatchScore,earlyScore,earlyStage,earlyCompression,earlyNear,earlyVolume,earlyTrend,pineReferenceVersion:'6.6.20',scannerReferenceVersion:'2.6',signalEngine:'WEB-INDEPENDENT',volumeBarClosedAt:new Date(last.t+3600000).toISOString(),pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Motor web independent, referències Pine Assistant 6.6.19 i Scanner 2.5; comparar mateixa espelma i exchange. Els TP no són resistències validades.'}
 }
-async function single(s){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half})}
-export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];for(let i=0;i<syms.length;i++){const symbol=syms[i];try{result.push(await single(symbol))}catch(e){errors.push({symbol,message:String(e.message||e)})}if(i<syms.length-1)await wait(250)}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
+async function single(s,btcHour){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half,btcHour:s==='BTC'?hour.rows:btcHour})}
+export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];let btcHour=null;try{btcHour=(await candles('BTC',3600)).rows}catch(_){}for(let i=0;i<syms.length;i++){const symbol=syms[i];try{result.push(await single(symbol,btcHour))}catch(e){errors.push({symbol,message:String(e.message||e)})}if(i<syms.length-1)await wait(250)}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
