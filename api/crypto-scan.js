@@ -202,10 +202,11 @@ function scanOne(symbol,pack){
  const tradeDecision=status==='NO PERSEGUIR'||extended?'NO PERSEGUIR':pineSignalCandidate&&pineReferencePlan?.valid&&pineContextOK?'REVISAR ENTRADA':pineReferenceState==='PLA PREPARAT'?'ESPERAR CONFIRMACIÓ':'VIGILAR / ESPERAR';
  const volumeText=Number.isFinite(c.rvol)?Math.round(c.rvol*100)/100:null;
  const candleMovePct=last.o>0?(last.c/last.o-1)*100:null;
- const volumeCandleDirection=last.c>last.o?'ALCISTA':last.c<last.o?'BAIXISTA':'NEUTRA';
+ const volumeCandleDirection=!Number.isFinite(candleMovePct)||Math.abs(candleMovePct)<0.10?'NEUTRA':candleMovePct>0?'ALCISTA':'BAIXISTA';
  const criticalBlocks=[
   ...(!dailyTrend||!fourTrend?['Tendència 1D/4H']:[]),
   ...(!Number.isFinite(c.rvol)||c.rvol<0.8?['Volum 1H baix']:[]),
+  ...(volumeCandleDirection==='BAIXISTA'&&c.rvol>=1.3?['Volum baixista fort 1H']:[]),
   ...(!pineReferencePlan?.valid?['Pla R:R mínim 2 no vàlid']:[]),
   ...(!liquid?['Liquiditat insuficient']:[])
  ];
