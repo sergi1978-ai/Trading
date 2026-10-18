@@ -1,4 +1,4 @@
-import {momentumDiagnostic} from './_momentum.js';
+import {momentumDiagnostic,weeklyDiagnostic} from './_momentum.js';
 
 const ALPACA = 'https://data.alpaca.markets/v2/stocks/bars';
 const providerCache=new Map();
@@ -197,7 +197,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   if(reconstructed4H)h4Bars=rebuilt;
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
   const m30=latestCompleted(m30Raw,'30Min');
-  const momentumIndicators={day:momentumDiagnostic(dBars,'stock'),four:momentumDiagnostic(h4Bars,'stock'),hour:momentumDiagnostic(h1Bars,'stock')};
+  const momentumIndicators={week:weeklyDiagnostic(dBars,'stock'),day:momentumDiagnostic(dBars,'stock'),four:momentumDiagnostic(h4Bars,'stock'),hour:momentumDiagnostic(h1Bars,'stock')};
   if(dBars.length<25 || h4Bars.length<25 || h1Bars.length<25) return {symbol,status:'SENSE DADES',error:`Històric insuficient (1D ${dBars.length} · 4H ${h4Bars.length} · 1H ${h1Bars.length})`};
 
   const dc=dBars.map(x=>x.c), c4=h4Bars.map(x=>x.c), c1=h1Bars.map(x=>x.c);
