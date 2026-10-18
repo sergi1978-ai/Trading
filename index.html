@@ -216,9 +216,9 @@ body.crypto-market #topCryptoBody td:nth-child(7){min-width:130px;white-space:no
 body.crypto-market #topCryptoBody .status-chip{font-size:10px;padding:4px 6px;white-space:nowrap}
 .top-crypto-decision{display:block;margin-top:5px;font-size:10px;line-height:1.2;color:#f4b1bc;font-weight:750;letter-spacing:.02em}
 @media(max-width:900px){body.crypto-market #topTab .discover-grid>article:nth-child(2) table{min-width:760px}body.crypto-market #topCryptoBody td{font-size:11px}}
-</style>
+.crypto-info{background:transparent;border:0;color:#b9dcff;font-weight:850;cursor:pointer;padding:4px;text-decoration:underline;text-underline-offset:3px}.coin-overlay[hidden]{display:none}.coin-overlay{position:fixed;inset:0;z-index:999;background:#030916cd;display:grid;place-items:center;padding:14px}.coin-panel{width:min(560px,100%);max-height:90vh;overflow:auto;background:#132038;border:1px solid #486080;color:#f3f7ff;border-radius:18px;padding:19px}.coin-panel-header{display:flex;justify-content:space-between;align-items:center;gap:12px}.coin-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:16px 0}.coin-metric{padding:11px;border-radius:11px;background:#1a2a45;overflow-wrap:anywhere}.coin-metric small{display:block;color:#b8c6db;font-size:11px;margin-bottom:5px}.coin-metric strong{font-size:15px}.coin-foot{font-size:12px;color:#bfcee1;line-height:1.5}</style>
 </head>
-<body><div class="wrap">
+<body><div id="coinOverlay" class="coin-overlay" hidden><section role="dialog" aria-modal="true" aria-labelledby="coinTitle" class="coin-panel"><div class="coin-panel-header"><h2 id="coinTitle">Anàlisi avançada</h2><button id="coinClose" class="btn" type="button">✕ Tancar</button></div><div id="coinDetails"></div></section></div><div class="wrap">
 <div class="top"><div><h1>Trading 2026 · Radar v4.41 · EARLY</h1><div class="sub">Motor propi 1D · 4H · 1H amb dades Alpaca + preu live/extended. Senyals amb 1H tancada; preu mostrat amb l'últim trade disponible.</div></div>
 <div><button class="btn primary" id="scanBtn">↻ Escaneja ara</button></div></div>
 <div class="notice" id="stockEngineNotice"><b>Important:</b> aquest motor replica la filosofia del LONG AI ASSISTANT, però no és una còpia bit-a-bit del Pine. A/ A+ són senyals del sistema, no probabilitats de guany.</div>
@@ -726,6 +726,1467 @@ async function refreshStockQuotes(){
   renderTop10();
  }catch(_){}
 }
+function showCoinDetails(symbol){
+ const a=cryptoSignals[symbol];if(!a)return;
+ const f=(v,n=2)=>Number.isFinite(v)?fmt(v,n):'Sense dades';
+ const tile=(name,value)=>'<div class="coin-metric"><small>'+safe(name)+'</small><strong>'+safe(String(value))+'</strong></div>';
+ const study=a.historicalAccumulation||{};
+ const tiles=[
+ ['Preu 1H tancada',f(a.price,5)+' 
+ const clock=document.getElementById('stockMarketClock');if(clock)clock.textContent=marketClockLabel();
+ const rank={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
+ const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.technicalPrice))
+  .sort((a,b)=>Number(stockPriceView(b).valid)-Number(stockPriceView(a).valid)||(rank[b.status]??0)-(rank[a.status]??0)||(b.entryQuality??0)-(a.entryQuality??0)||(b.earlyScore??0)-(a.earlyScore??0)).slice(0,10);
+ document.getElementById('topStockBody').innerHTML=stocks.map((r,i)=>{
+  const pv=stockPriceView(r);
+  const dist=pv.valid&&Number.isFinite(r.trigger)?(r.trigger/pv.price-1)*100:null;
+  const plan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
+  const needs=!pv.valid?'ESPERAR · '+pv.reason:stockDecision(r);
+  return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button><span class="asset-subtitle">Acció · 1D/4H/1H</span></td><td>'+contextualScore(r.entryQuality,'entry',needs.startsWith('REVISAR ENTRADA'))+'</td><td>'+contextualScore(r.earlyScore,'potential')+'</td><td title="'+safe(pv.label)+'">'+fmt(pv.price)+(pv.live?' · IEX':pv.label.startsWith('Últim')?' · últim':' · 1H')+(pv.mismatch?' ⚠':'')+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+decisionBadge(needs)+'</td></tr>';
+ }).join('')||'<tr><td colspan="10">Esperant anàlisi tècnica vàlida</td></tr>';
+ const cryptoPriority={'CANDIDAT CONFIRMAT · WEB':8,'PRE-READY':7,'EXP · PRIMER IMPULS':6,'EXP · PROP RUPTURA':5,'EXP · PREPARACIÓ':4,'EXPLOSIVE WATCH':3,'WATCH':2,'SENSE SETUP':1};
+ const coins=discoveredCrypto.map(x=>({x,a:cryptoSignals[x.symbol]})).filter(v=>v.a&&Number.isFinite(v.a.score))
+  .sort((a,b)=>Number(b.a.operationalDecision==='REVISAR ENTRADA')-Number(a.a.operationalDecision==='REVISAR ENTRADA')||(cryptoPriority[b.a.pineState]??0)-(cryptoPriority[a.a.pineState]??0)||(b.a.operationalQuality??b.a.setupQuality??b.a.score)-(a.a.operationalQuality??a.a.setupQuality??a.a.score)||(b.a.anticipationScore??0)-(a.a.anticipationScore??0)).slice(0,10);
+ document.getElementById('topCryptoBody').innerHTML=coins.map(({x,a},i)=>{
+  const plan=Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop)&&a.planAvailable;
+  const needsBase=(Array.isArray(a.criticalBlocks)&&a.criticalBlocks.length?a.criticalBlocks.join(' · '):a.primaryBlocker)||cryptoDecision(a);
+  const highVolumeAgainst=Number.isFinite(a.volumeText)&&a.volumeText>=1.3&&a.volumeCandleDirection==='BAIXISTA';
+  const needs=highVolumeAgainst?'Volum alt en espelma baixista · '+needsBase:needsBase;
+  const decision=highVolumeAgainst&&a.operationalDecision==='REVISAR ENTRADA'?'ESPERAR · volum baixista':(a.operationalDecision||(a.tradeDecision==='REVISAR ENTRADA'?'ESPERAR · requereix reescaneig':a.tradeDecision)||cryptoDecision(a));
+  const phase=a.patternPhase||a.earlyStage||'Vigilància';
+  const vol=Number.isFinite(a.volumeText)?a.volumeText:null;
+  const candleDirection=a.volumeCandleDirection||'SENSE DADES';
+  const volClass=vol===null||vol<0.8?'vol-neutral':candleDirection==='ALCISTA'?'vol-bull':candleDirection==='BAIXISTA'?'vol-bear':'vol-neutral';
+  const volArrow=vol===null?'?':candleDirection==='ALCISTA'?'↑':candleDirection==='BAIXISTA'?'↓':'=';
+  const volLabel=candleDirection==='ALCISTA'?'alcista':candleDirection==='BAIXISTA'?'baixista':'neutre';
+  const volumePair=(vol===null?'—':fmt(vol,1)+'×')+' / '+(Number.isFinite(a.rvol4h)?fmt(a.rvol4h,1)+'×':'—');
+  const watchContext=a.accumulationWatch?'ACUMULACIÓ · vigilar':a.strongVolumeWatch?'VOLUM SOSTINGUT':' ';
+  const tierLabel=a.liquidityTier||'SENSE CLASSIFICAR';
+  const contextNote='VWAP 24H: '+(Number.isFinite(a.vwap24h)?fmt(a.vwap24h,5):'sense dades')+' · RS vs BTC 24H: '+(Number.isFinite(a.relativeStrengthBTC)?fmt(a.relativeStrengthBTC,2)+' punts':'sense dades')+' · Proveïdors: '+(a.providerConsistency||'sense dades')+' · Estudi acumulació: '+(a.historicalAccumulation?.events??'—')+' casos històrics (no backtest executiu)';
+  return '<tr><td>'+(i+1)+'</td><td><button type="button" class="crypto-info" data-coin="'+safe(x.symbol)+'">'+safe(x.symbol)+' ⓘ</button></td><td>'+contextualScore(a.operationalQuality??a.setupQuality??a.score,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a.anticipationScore,'potential')+'</td><td>'+fmt(a.price,5)+'</td><td title="'+safe('Volum relatiu 1H TANCADA (no espelma en curs) · espelma '+candleDirection+' · canvi '+(Number.isFinite(a.candleMovePct)?fmt(a.candleMovePct,2)+'%':'—')+' · Grup de liquiditat: '+tierLabel+' · '+watchContext+' · '+contextNote+'; volum alt no valida entrada')+'"><span class="vol-indicator '+volClass+'"><strong>'+volArrow+'</strong> '+safe(volumePair)+' <small>'+safe(volLabel)+'</small></span>'+(a.accumulationWatch?'<small class="asset-subtitle">Acumulació · vigilar</small>':a.strongVolumeWatch?'<small class="asset-subtitle">Volum sostingut</small>':'')+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span><span class="top-crypto-decision" title="'+safe(decision)+'">'+safe(decision.startsWith('REVISAR ENTRADA')?'REVISAR ENTRADA':decision.includes('NO PERSEGUIR')?'NO ENTRAR':decision.startsWith('ESPERAR')?'ESPERAR':'VIGILAR')+'</span></td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td>'+(Number.isFinite(a.price)&&Number.isFinite(a.pineReferenceEntry)?(a.pineReferenceEntry<=a.price?'Superat':fmt((a.pineReferenceEntry/a.price-1)*100,1)+'%'):'—')+'</td></tr>';
+ }).join('')||'<tr><td colspan="9">Escaneja altcoins per mostrar les millors configuracions</td></tr>';
+}
+document.getElementById('topRefresh').onclick=()=>{renderTop10();scan()};
+let cryptoMode='watch';
+let cryptoPageView='top';
+function renderCryptoDiagnostic(){
+ const body=document.getElementById('cryptoDiagnosticRows'),summary=document.getElementById('cryptoDiagnosticSummary');
+ if(!body||!summary)return;
+ const symbols=[...new Set([...cryptoWatch,...discoveredCrypto.map(x=>x.symbol)])];
+ const records=symbols.map(symbol=>({symbol,a:cryptoSignals[symbol],err:cryptoFailures[symbol]}));
+ let valid=0,stale=0,missing=0,blocked=0;
+ body.innerHTML=records.map(({symbol,a,err})=>{
+  if(!a){missing++;return '<tr><td>'+safe(symbol)+'</td><td>Sense anàlisi</td><td>—</td><td>—</td><td>—</td><td>'+safe(err||'Pendent d’escaneig')+'</td></tr>'}
+  const q=a.dataQuality||{},bad=Object.entries(q).filter(([,v])=>v&&v.stale).map(([k])=>k);
+  const coverage=a.coverage||{},enough=coverage.day>=30&&coverage.four>=30&&coverage.hour>=30&&coverage.half>=30;
+  const age=Date.now()-Date.parse(a.quoteTime||'');
+  const old=bad.length>0||!Number.isFinite(age)||age>5*3600000;
+  const volume=Number.isFinite(a.volumeText)?a.volumeText:a.rvol;
+  const volOK=Number.isFinite(volume)&&volume>=0.8;
+  const hasPlan=!!(a.planAvailable&&Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop));
+  const reason=old?'Espelmes antigues: '+(bad.join(', ')||'1H'):!enough?'Cobertura parcial':!volOK?'Volum 1H insuficient':!hasPlan?'Sense pla executable':a.primaryBlocker||'Revisar amb Pine';
+  if(old)stale++;else if(enough)valid++;else blocked++;
+  return '<tr><td><strong>'+safe(symbol)+'</strong></td><td>'+(old?'Antigues':enough?'Completes':'Parcials')+'</td><td>'+(Number.isFinite(volume)?fmt(volume,2)+'× · 1H tancada':'Sense dades')+'</td><td>'+safe(a.patternPhase||a.earlyStage||'Vigilància')+'</td><td>'+(hasPlan?'Pla calculat':'Sense pla')+'</td><td>'+safe(reason)+'</td></tr>';
+ }).join('')||'<tr><td colspan="6">No hi ha altcoins en seguiment. Descobreix-ne o afegeix-ne a la llista.</td></tr>';
+ summary.innerHTML='<div><small>Analitzades amb dades recents</small><strong>'+valid+'</strong></div><div><small>Amb dades antigues</small><strong>'+stale+'</strong></div><div><small>Sense anàlisi</small><strong>'+missing+'</strong></div><div><small>Cobertura parcial</small><strong>'+blocked+'</strong></div>';
+}
+function setCryptoView(view){
+ cryptoPageView=view;
+ document.getElementById('cryptoViewSelect').value=view;
+ const top=document.getElementById('cryptoTopSlot');
+
+ top.hidden=view!=='top';
+ document.getElementById('cryptoListContent').hidden=view==='top'||view==='diagnostic';
+ document.getElementById('cryptoDiagnosticPanel').hidden=view!=='diagnostic';
+ document.getElementById('paperPanel').hidden=view!=='top';
+ if(view!=='top'&&view!=='diagnostic'){
+  const id=view==='watch'?'cryptoWatchMode':view==='momentum'?'cryptoMomentum':'cryptoOpportunity';
+  document.getElementById(id).click();
+ }
+ paintCrypto();
+ if(view==='diagnostic')renderCryptoDiagnostic();
+ if(view==='opportunity'&&!discoverInProgress)discover();
+}
+let scanInProgress=false, discoverInProgress=false;
+function cryptoStateData(x){
+ const a=cryptoSignals[x.symbol],failed=cryptoFailures[x.symbol];
+ const state=a?.pineState||(failed?'SENSE DADES':'PENDENT');
+ const cls=state==='READY'?'chip-ready':state==='PRE-READY'?'chip-pre':state.startsWith('EXP')?'chip-watch':state==='WATCH'?'chip-watch':state==='SENSE DADES'?'chip-error':'chip-pending';
+ const decision=failed?'Dades insuficients':!a?'Pendent d’anàlisi':a.executionState||'SENSE PLA EXECUTABLE';
+ return {a,failed,state,cls,decision,score:Number.isFinite(a?.score)?a.score:null};
+}
+function paintCrypto(){
+ const query=document.getElementById('cryptoQuery').value.trim().toUpperCase(),stateFilter=document.getElementById('cryptoState').value,minScore=Number(document.getElementById('cryptoScore').value),provider=document.getElementById('cryptoProvider').value,maxDistance=Number(document.getElementById('cryptoDistance').value),minVol=Number(document.getElementById('cryptoVol').value),direction=document.getElementById('cryptoDirection').value;
+ const coins=discoveredCrypto.filter(x=>{
+  const t=cryptoStateData(x);
+  return (cryptoMode!=='watch'||cryptoWatch.includes(x.symbol))&&(!query||x.symbol.includes(query)||String(x.name||'').toUpperCase().includes(query))&&(!stateFilter||(stateFilter==='EXP'?t.state.startsWith('EXP'):stateFilter==='READY'?t.state==='READY':stateFilter==='WATCH'?['WATCH','EXPLOSIVE WATCH'].includes(t.state):t.state===stateFilter))&&(!minScore||(t.score??-1)>=minScore)&&(!provider||String(x.source||'').includes(provider)||String(t.a?.source||'').includes(provider))&&(!maxDistance||(Number.isFinite(t.a?.trigger)&&Number.isFinite(t.a?.price)&&t.a.price>0&&Math.abs((t.a.trigger/t.a.price-1)*100)<=maxDistance))&&(!minVol||(Number.isFinite(t.a?.rvol)&&t.a.rvol>=minVol))&&(!direction||t.a?.explosiveDirection===direction);
+ }).sort((x,y)=>{
+  if(cryptoMode==='momentum')return (Number(y.changePct)||0)-(Number(x.changePct)||0);
+  const priority={'READY':7,'PRE-READY':6,'EXP · PRIMER IMPULS':5,'EXP · PROP RUPTURA':4,'EXP · PREPARACIÓ':3,'EXPLOSIVE WATCH':2,'WATCH':2,'PENDENT':1,'SENSE SETUP':0,'SENSE DADES':-1};
+  const a=cryptoStateData(x),b=cryptoStateData(y);
+  return (priority[b.state]??1)-(priority[a.state]??1)||(b.score??0)-(a.score??0);
+ });
+ const stats=document.getElementById('cryptoStats'),total=discoveredCrypto.length,analyzed=Object.keys(cryptoSignals).length,failed=Object.keys(cryptoFailures).length;
+ const near=discoveredCrypto.filter(x=>['READY','PRE-READY'].includes(cryptoStateData(x).state)||cryptoStateData(x).state.startsWith('EXP')).length;
+ stats.innerHTML=[['Candidats',total],['Analitzades',analyzed],['Preparant entrada',near],['Sense dades',failed],['Pendents',Math.max(0,total-analyzed-failed)]].map(([label,value])=>'<div class="stat"><strong>'+value+'</strong><small>'+label+'</small></div>').join('');
+ document.getElementById('cryptoCandidatesPanel').hidden=cryptoPageView!=='opportunity';
+ const watchPanel=document.getElementById('cryptoWatchPanel');
+ const watchMode=cryptoPageView==='watch';
+ watchPanel.hidden=!watchMode;
+ document.getElementById('cryptoDiscoveryGrid').hidden=watchMode;
+ document.getElementById('cryptoWatchCount').textContent=cryptoWatch.length+' seguides';
+ if(watchMode){
+  coins.sort((x,y)=>{
+   const val=v=>{const a=cryptoSignals[v.symbol]||{};switch(cryptoColumnSort){case 'symbol':return v.symbol;case 'state':return cryptoStateData(v).state;case 'price':return a.price??v.price;case 'trigger':return a.trigger;case 'distance':return a.trigger&&a.price?(a.trigger/a.price-1)*100:null;case 'volume':return a.rvol;case 'stop':return a.stop;default:return cryptoStateData(v).score}};
+   const a=val(x),b=val(y),d=typeof a==='string'?String(a).localeCompare(String(b)):(Number(a??-Infinity)-Number(b??-Infinity));
+   return d*(cryptoColumnAscending?1:-1);
+  });
+  const lines=coins.map(x=>{
+   const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol);
+   const price=Number.isFinite(a?.price)?a.price:Number(x.price);
+   const trigger=a?.trigger;
+   const distance=Number.isFinite(trigger)&&trigger>0&&Number.isFinite(price)&&price>0?(trigger/price-1)*100:null;
+   const volume=Number.isFinite(a?.rvol)?a.rvol:null;
+   const digits=Number.isFinite(price)&&price<1?5:2;
+   const pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
+   const market=(a?.source||x.source||'').includes('Kraken')?'KRAKEN:':'COINBASE:';
+   const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(market+pair.replace('-',''));
+   const score=t.score===null?'—':scoreBadge(t.score);
+   return '<tr><td><a class="open-detail" href="'+link+'" target="_blank" rel="noopener noreferrer">'+sym+' ↗</a></td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td title="Qualitat tècnica (no probabilitat de guany)">'+score+'</td><td>'+fmt(price,digits)+'</td><td title="Vigilància '+fmt(a?.watchLevel,digits)+'; no executable">'+(Number.isFinite(trigger)?fmt(trigger,digits):'Vig. '+fmt(a?.watchLevel,digits))+'</td><td class="'+(distance!==null&&distance<=2?'near':'')+'">'+(distance===null?'—':distance<=0?'Superat':fmt(distance,1)+'%')+'</td><td>'+(volume===null?'—':fmt(volume,1)+'×')+'</td><td>'+fmt(a?.stop,digits)+'</td><td><button type="button" class="btn crypto-watch-remove" data-symbol="'+sym+'" aria-label="Treure '+sym+' de la llista">× Treure</button></td></tr>';
+  });
+  document.getElementById('cryptoWatchBody').innerHTML=lines.join('')||'<tr><td colspan="9">La llista és buida. Afegeix una altcoin a la part superior.</td></tr>';
+ }
+ const tb=document.getElementById('discoverCrypto');
+ tb.innerHTML=coins.length?coins.map(x=>{
+  const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol),pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
+  const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent((a?.source||x.source||'').includes('Kraken')?'KRAKEN:'+pair.replace('-',''):'COINBASE:'+pair.replace('-',''));
+  const reason=safe((t.failed||a?.reason||(!a?'Encara no analitzada':'Senyal orientatiu, validar al gràfic'))+(a?.pineState?' · Estat ref. 6.6.18: '+a.pineState:'')+(Number.isFinite(a?.explosiveWatchScore)?' · EXP '+a.explosiveDirection+' '+a.explosiveWatchScore+'/5':'')+(a?.executionState?' · '+a.executionState:'')+(a?.thirtyConfirm?' · Confirmació 30m':'')+(a?.volumeSupport4H?' · Suport 4H amb volum':'')+(Number.isFinite(a?.confidenceGrade)?' · Filtres '+a.confidenceGrade+'/7':'')+(Number.isFinite(a?.riskRewardToResistance)?' · R:R resistència '+a.riskRewardToResistance.toFixed(1):''));
+  const displayPrice=Number.isFinite(Number(x.price))&&Number(x.price)>0?Number(x.price):Number(a?.price);
+  const digits=displayPrice<1?5:2;
+  return '<tr><td><b>'+sym+'</b></td><td>'+fmt(displayPrice,digits)+' $<small style="display:block;color:#64748b">Anàlisi / descoberta</small><span data-crypto-quote="'+sym+'" style="display:block;color:#087e65;font-size:12px">— · sense preu directe</span></td><td class="'+(Number(x.changePct)>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td class="score-number">'+(t.score===null?'—':t.score+'/100')+'</td><td><strong>'+safe(t.decision)+'</strong><div class="detail-reason" title="'+reason+'">'+reason+'</div></td><td>'+fmt(a?.trigger,5)+'</td><td>'+fmt(a?.stop,5)+'</td><td>'+fmt(a?.tp1,5)+'</td><td><a class="action-link" href="'+link+'" target="_blank" rel="noopener noreferrer">Gràfic ↗</a></td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">'+(cryptoWatch.includes(x.symbol)?'★ Treure':'☆ Seguir')+'</button></td><td>'+(a&&Number.isFinite(a.trigger)&&a.trigger>0&&Number.isFinite(a.price)?fmt((a.trigger/a.price-1)*100,2)+'%':'—')+'</td><td>'+fmt(a?.support4h,5)+'</td><td>'+(Number.isFinite(a?.rvol)?fmt(a.rvol,2)+'×':'—')+'</td><td>'+safe(cryptoHistoryText(x.symbol))+'</td><td><button type="button" class="btn crypto-history-button" data-symbol="'+sym+'">Gràfic</button></td></tr>';
+ }).join(''):'<tr><td colspan="16">No hi ha criptomonedes que compleixin aquests filtres.</td></tr>';
+}
+document.querySelectorAll('.crypto-fast-state').forEach(button=>button.onclick=()=>{
+ const v=button.dataset.state;document.getElementById('cryptoState').value=v;
+ document.querySelectorAll('.crypto-fast-state').forEach(b=>b.classList.toggle('active',b===button));
+ paintCrypto();
+});
+['cryptoQuery','cryptoState','cryptoScore','cryptoProvider','cryptoDistance','cryptoVol','cryptoDirection'].forEach(id=>document.getElementById(id).addEventListener('input',paintCrypto));
+document.getElementById('cryptoReset').onclick=()=>{document.getElementById('cryptoQuery').value='';['cryptoState','cryptoProvider','cryptoDistance','cryptoVol','cryptoDirection'].forEach(id=>document.getElementById(id).value='');document.getElementById('cryptoScore').value='0';document.querySelector('.crypto-fast-state[data-state=""]').click();paintCrypto()};
+['cryptoOpportunity','cryptoMomentum','cryptoWatchMode'].forEach(id=>document.getElementById(id).onclick=()=>{
+ cryptoMode=id==='cryptoMomentum'?'momentum':id==='cryptoWatchMode'?'watch':'opportunity';
+ for(const [key,mode] of [['cryptoOpportunity','opportunity'],['cryptoMomentum','momentum'],['cryptoWatchMode','watch']])document.getElementById(key).classList.toggle('active',cryptoMode===mode);
+ paintCrypto();
+});
+function addCryptoWatch(raw){
+ const symbol=String(raw||'').trim().toUpperCase().replace(/[-/](USD|USDT|USDC)$/,'');
+ if(!/^[A-Z0-9]{2,12}$/.test(symbol)){alert('Ticker no vàlid');return}
+ if(!cryptoWatch.includes(symbol)){if(cryptoWatch.length>=100){alert('Màxim de 100 altcoins');return}cryptoWatch.push(symbol);persistCryptoWatch()}
+ discoveredCrypto=mergeWatchCandidates(discoveredCrypto);cryptoMode='watch';setCryptoView('watch');paintCrypto();renderTop10();connectCryptoPrices();
+}
+document.getElementById('cryptoWatchAdd').onclick=()=>{const input=document.getElementById('cryptoWatchInput');addCryptoWatch(input.value);input.value=''};
+document.getElementById('cryptoWatchInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('cryptoWatchAdd').click()});
+function installColumnSort(tableSelector,keys,callback){
+ const table=document.querySelector(tableSelector);if(!table)return;
+ table.querySelectorAll('thead th').forEach((th,i)=>{
+  if(!keys[i])return;
+  th.classList.add('sortable-col');th.tabIndex=0;th.setAttribute('role','button');th.setAttribute('aria-label','Ordenar per '+th.textContent);
+  const run=()=>callback(keys[i]);
+  th.addEventListener('click',run);
+  th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run()}});
+ });
+}
+installColumnSort('#simpleBox',['ticker','state','radar','price','trigger','distance','volume',null],key=>{
+ stockColumnAscending=stockColumnSort===key?!stockColumnAscending:false;
+ stockColumnSort=key;render();
+});
+installColumnSort('#cryptoWatchPanel',['symbol','state','score','price','trigger','distance','volume','stop',null],key=>{
+ cryptoColumnAscending=cryptoColumnSort===key?!cryptoColumnAscending:false;
+ cryptoColumnSort=key;paintCrypto();
+});
+document.getElementById('cryptoWatchBody').addEventListener('click',e=>{
+ const button=e.target.closest('.crypto-watch-remove');if(!button)return;
+ const sym=button.dataset.symbol;
+ cryptoWatch=cryptoWatch.filter(x=>x!==sym);persistCryptoWatch();paintCrypto();
+});
+document.getElementById('discoverCrypto').addEventListener('click',e=>{
+ const button=e.target.closest('.crypto-watch-toggle');if(!button)return;
+ const sym=button.dataset.symbol;if(!/^[A-Z0-9]{2,12}$/.test(sym))return;
+ if(cryptoWatch.includes(sym)){cryptoWatch=cryptoWatch.filter(x=>x!==sym);persistCryptoWatch()}
+ else addCryptoWatch(sym);
+ paintCrypto();
+});
+
+async function cryptoScan(){
+ if(cryptoScanning)return;
+ const b=document.getElementById('cryptoScanQuick'),info=document.getElementById('discoverInfo');
+ const scanUniverse=cryptoPageView==='watch'?cryptoWatch:discoveredCrypto.map(x=>x.symbol);
+ const symbols=[...new Set(scanUniverse.filter(x=>/^[A-Z0-9]{2,12}$/.test(x)))];
+ if(!symbols.length){info.textContent=cryptoPageView==='watch'?'Afegeix una altcoin a la teva llista':'Primer cal descobrir candidats';return}
+ cryptoScanning=true;b.disabled=true;b.textContent='Analitzant '+symbols.length+' altcoins…';
+ try{
+  let processed=0,scanSucceeded=0,scanFailed=0;
+  const total=symbols.length;
+  updateScanProgress('crypto',0,total,'Iniciant');
+  const pending=[...symbols];
+  // Four concurrent single-symbol requests avoid the serverless 10-symbol timeout.
+  // Every request is independent; one failed provider must not block the rest.
+  const workers=Array.from({length:Math.min(4,total)},async()=>{
+   while(pending.length){
+    const symbol=pending.shift();
+    updateScanProgress('crypto',processed,total,symbol);
+    try{
+     const controller=new AbortController();
+     const timeout=setTimeout(()=>controller.abort(),30000);
+     let response;
+     try{response=await fetch('/api/crypto-scan?symbols='+encodeURIComponent(symbol),{cache:'no-store',signal:controller.signal})}
+     finally{clearTimeout(timeout)}
+     const data=await response.json();
+     if(!response.ok)throw Error(data.error||'HTTP '+response.status);
+     const found=(data.results||[]).find(x=>x.symbol===symbol);
+     const err=(data.errors||[]).find(x=>x.symbol===symbol);
+     if(found){cryptoSignals[symbol]=found;delete cryptoFailures[symbol];saveCryptoObservation(found);scanSucceeded++}
+     else {cryptoFailures[symbol]=err?.message||'El proveïdor no ha retornat cap resultat';scanFailed++}
+    }catch(err){cryptoFailures[symbol]=err.name==='AbortError'?'Temps de resposta esgotat':String(err.message||err);scanFailed++}
+    processed++;
+    updateScanProgress('crypto',processed,total,symbol);
+    paintCrypto();renderTop10();
+    info.textContent='Escàner cripto '+processed+'/'+total+' · '+scanSucceeded+' correctes · '+scanFailed+' fallides';
+   }
+  });
+  await Promise.all(workers);
+  info.textContent='Escaneig completat: '+scanSucceeded+'/'+total+' amb dades vàlides · '+scanFailed+' errors. Els resultats anteriors es conserven; els errors poden indicar dades antigues o insuficients.';
+ }catch(e){info.textContent='Error de l’anàlisi: '+e.message}
+ finally{updateScanProgress('crypto',symbols.length,symbols.length,'',true);cryptoScanning=false;b.disabled=false;b.textContent='↻ Reanalitzar totes les altcoins'}
+}
+document.getElementById('cryptoScanBtn').onclick=cryptoScan;
+document.getElementById('cryptoViewSelect').onchange=e=>setCryptoView(e.target.value);
+document.getElementById('cryptoScanQuick').onclick=()=>cryptoScan();
+const autoScan=document.getElementById('cryptoAutoScan');
+try{autoScan.checked=localStorage.getItem('trading2026_crypto_auto_v1')==='true'}catch(_){}
+autoScan.onchange=()=>{try{localStorage.setItem('trading2026_crypto_auto_v1',String(autoScan.checked))}catch(_){}};
+setInterval(()=>{if(autoScan.checked&&!document.hidden&&!cryptoScanning&&cryptoWatch.length){const saved=discoveredCrypto;discoveredCrypto=mergeWatchCandidates(cryptoWatch.map(watchCandidate));cryptoScan().finally(()=>{discoveredCrypto=mergeWatchCandidates(saved);paintCrypto()})}},15*60*1000);
+let discoverOffset=0;
+function renderCryptoCandidates(coins){
+ const body=document.getElementById('cryptoCandidatesBody');
+ body.innerHTML=coins.map(x=>{
+  const sym=safe(x.symbol),added=cryptoWatch.includes(x.symbol),v=Number(x.price),a=cryptoSignals[x.symbol];
+  const decision=a?(a.operationalDecision||cryptoDecision(a)):'PENDENT D’ANÀLISI';
+  return '<tr><td><strong>'+sym+'</strong></td><td>'+contextualScore(a?.operationalQuality??a?.setupQuality,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a?.anticipationScore,'potential')+'</td><td>'+decisionBadge(decision)+'</td><td>'+fmt(v,v<1?5:2)+'</td><td>'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn candidate-follow" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Seguint':'☆ Seguir')+'</button></td></tr>';
+ }).join('')||'<tr><td colspan="7">Sense candidates disponibles</td></tr>';
+}
+
+document.getElementById('cryptoCandidatesBody').addEventListener('click',e=>{
+ const b=e.target.closest('.candidate-follow');if(b)addCryptoWatch(b.dataset.symbol);
+});
+async function discover(){
+ if(discoverInProgress)return;
+ discoverInProgress=true;
+ const btn=document.getElementById('discoverBtn'),info=document.getElementById('discoverInfo');
+ btn.disabled=true;btn.textContent='Cercant…';info.textContent='Consultant activitat de mercat…';
+ try{
+  const response=await fetch('/api/discover?market=crypto&offset='+discoverOffset+'&count=15',{cache:'no-store'});
+  const data=await response.json();if(!response.ok)throw Error(data.error||'Resposta '+response.status);
+  discoverOffset=(discoverOffset+15)%(data.coverage?.stockUniverse||125);
+  const stocks=(data.stocks||[]),coins=(data.crypto||[]);
+  document.getElementById('discoverStocks').innerHTML=stocks.length?stocks.map(x=>{
+   const sym=safe(x.symbol),added=META.some(m=>m.ticker===x.symbol);
+   return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),2)+' $</td><td class="'+(x.changePct>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn add-discovered" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Al radar':'+ Analitzar')+'</button></td></tr>';
+  }).join(''):'<tr><td colspan="4">Sense resultats d’accions</td></tr>';
+  renderCryptoCandidates(coins);
+  discoveredCrypto=mergeWatchCandidates(coins);
+  if(cryptoPageView==='opportunity')cryptoMode='opportunity';
+  paintCrypto();renderTop10();filterDiscoveredStocks();connectCryptoPrices();
+  if(!coins.length)showCryptoCandidateFallback('No hi ha candidates fresques dels proveïdors');
+  // No bloquejar la descoberta amb una anàlisi tècnica llarga.
+  if(coins.length)info.textContent=coins.length+' altcoins descobertes · prem ☆ Seguir per incorporar-les · '+(data.errors?.length||0)+' avisos del proveïdor';
+ }catch(e){info.textContent='No s’han pogut recuperar candidates: '+e.message+' · Torna a provar la descoberta';}
+ finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Actualitzar candidats'}
+}
+function showCryptoCandidateFallback(message){
+ const examples=['SOL','LINK','ONDO','SUI','RENDER','AAVE','NEAR','INJ','TIA','HYPE','AVAX','TAO'];
+ const el=document.getElementById('discoverCrypto');
+ const candidates=examples.filter(sym=>!cryptoWatch.includes(sym));
+ renderCryptoCandidates(candidates.map(symbol=>({symbol,price:NaN,changePct:NaN})));
+ el.innerHTML=candidates.map(sym=>'<tr><td><strong>'+sym+'</strong></td><td colspan="8" class="muted">Candidat de referència · cotització i senyal no verificats</td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">☆ Seguir</button></td></tr>').join('');
+ document.getElementById('discoverInfo').textContent=message+' · llista de referència (sense dades en directe)';
+}
+document.getElementById('discoverBtn').onclick=()=>{if(cryptoPageView!=='opportunity')setCryptoView('opportunity');else discover()};
+document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered');if(!b)return;const ticker=b.dataset.symbol;
+ if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(ticker)||META.some(x=>x.ticker===ticker))return;
+ if(extraStocks.length>=25){alert('Màxim de 25 accions addicionals.');return}
+ const x={ticker,sector:'Descobertes',theme:'Nova candidata · pendent Alpaca',dividend:0,risk:'Alt'};
+ extraStocks.push(x);META.push(x);rows.push({...x,status:'SENSE DADES'});localStorage.setItem('trading2026_extras',JSON.stringify(extraStocks));
+ b.disabled=true;b.textContent='✓ Al radar';const sel=document.getElementById('sectorFilter');if(![...sel.options].some(o=>o.value==='Descobertes'))sel.add(new Option('Descobertes','Descobertes'));render();scan();
+});
+
+document.getElementById('scanBtn').onclick=()=>scan('all');
+document.getElementById('modeBtn').onclick=()=>{const advanced=document.getElementById('advancedBox');advanced.hidden=!advanced.hidden;document.getElementById('simpleBox').hidden=!advanced.hidden;const b=document.getElementById('modeBtn');b.textContent=advanced.hidden?'Veure dades avançades':'Tornar a la vista clara';b.setAttribute('aria-pressed',String(!advanced.hidden));};
+document.addEventListener('click',e=>{const b=e.target.closest('.open-detail');if(b)showDetail(b.dataset.ticker)});
+['search','sectorFilter','statusFilter','riskFilter','divFilter','quoteOnly','radarSort'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+// Separate stock discovery into its own tab while preserving the original discovery API.
+const stockPanel=document.querySelector('#discoverStocks').closest('.discover-panel');
+const stocksTab=document.createElement('section');stocksTab.id='discoverStocksTab';stocksTab.hidden=true;
+stocksTab.innerHTML='<div class="discover-header"><div><h2>Descobrir accions</h2><div class="discover-note">Candidats per activitat, no ordres de compra. Analitza cada actiu a Alpaca.</div></div><button class="btn primary" id="stocksDiscoverBtn" type="button">✦ Cercar accions</button></div><div class="discover-controls"><input id="stockDiscoverQuery" placeholder="Filtrar ticker…" aria-label="Filtrar accions"><select id="stockDiscoverSort"><option value="change">Més impuls</option><option value="symbol">Ticker A-Z</option></select></div>';
+stocksTab.appendChild(stockPanel);
+// The crypto top-ten belongs on the crypto screen; the equities top screen remains equities-only.
+const cryptoTopPanel=document.getElementById('topCryptoBody').closest('.discover-panel');
+document.getElementById('cryptoTopSlot').appendChild(cryptoTopPanel);
+document.getElementById('discoverTab').after(stocksTab);
+document.getElementById('stocksDiscoverBtn').onclick=discover;
+function filterDiscoveredStocks(){const q=document.getElementById('stockDiscoverQuery').value.toUpperCase();const sorted=[...document.querySelectorAll('#discoverStocks tr')].filter(r=>r.querySelector('td'));sorted.forEach(r=>r.hidden=!!q&&!r.cells[0]?.textContent.toUpperCase().includes(q));if(document.getElementById('stockDiscoverSort').value==='symbol')sorted.sort((a,b)=>a.cells[0].textContent.localeCompare(b.cells[0].textContent)).forEach(r=>r.parentElement.appendChild(r))}
+['stockDiscoverQuery','stockDiscoverSort'].forEach(id=>document.getElementById(id).addEventListener('input',filterDiscoveredStocks));
+function activateTab(tab,scroll=true){
+ const isCrypto=tab==='discover';
+ const stockTab=!isCrypto;
+ document.body.classList.toggle('crypto-market',isCrypto);
+ document.getElementById('stockEngineNotice').hidden=isCrypto;
+ document.getElementById('stockControls').hidden=!stockTab||tab==='discoverStocks'||tab==='history'||tab==='early'||tab==='backtest';
+ document.getElementById('stockViewBar').hidden=!stockTab;
+ if(stockTab)document.getElementById('stockViewSelect').value=tab;
+ document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===(isCrypto?'discover':'radar');x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
+ ['radar','top','near','sectors','discover','discoverStocks','history','early','backtest'].forEach(t=>{document.getElementById(t+'Tab').hidden=t!==tab});
+ if(tab==='discoverStocks'&&!discoveredCrypto.length)discover();
+ if(tab==='history')renderStockHistory();
+ if(tab==='early')renderEarlyWatch();
+ if(tab==='discover'){setCryptoView(cryptoPageView);connectCryptoPrices()}else connectCryptoPrices();
+ if(scroll)window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
+document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
+document.getElementById('stockScanQuick').onclick=()=>scan('all');
+document.getElementById('btRun').onclick=async()=>{
+ const btn=document.getElementById('btRun'),el=document.getElementById('btResult');
+ const symbol=document.getElementById('btTicker').value.trim().toUpperCase(),mode=document.getElementById('btMode').value;
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)){el.textContent='Ticker no vàlid';return}
+ btn.disabled=true;el.textContent='Descarregant historial i reproduint les entrades de '+symbol+'…';
+ try{
+  const r=await fetch('/api/backtest?symbol='+encodeURIComponent(symbol)+'&mode='+encodeURIComponent(mode),{cache:'no-store'});
+  const data=await r.json();if(!r.ok)throw Error(data.error||'Error del simulador');
+  const fmtMetric=(x,suffix='')=>Number.isFinite(x)?fmt(x,2)+suffix:'Mostra insuficient';
+  const trades=(data.trades||[]).slice(-20).reverse();
+  el.innerHTML='<h3>'+safe(data.symbol)+' · '+safe(data.mode)+' · '+data.barCount+' espelmes</h3><div class="data-health-stats"><div><small>Operacions tancades</small><strong>'+data.total+'</strong></div><div><small>Amb retorn positiu</small><strong>'+fmtMetric(data.winRate,'%')+'</strong></div><div><small>Retorn compost simulat</small><strong>'+fmtMetric(data.totalReturnPct,'%')+'</strong></div><div><small>Drawdown màxim tancat</small><strong>'+fmtMetric(data.maxDrawdownPct,'%')+'</strong></div></div><p class="muted">'+safe(data.assumptions)+'</p><p class="muted">Capital reinvertit en una sola operació cada vegada; el drawdown es calcula en tancaments, no intradia. No inclou impostos, gaps intradia ni dades fora d’IEX. Mostra petita = resultat no concloent.</p><div class="tablebox"><table><thead><tr><th>Entrada</th><th>Sortida</th><th>Motiu</th><th>Rendiment net</th></tr></thead><tbody>'+trades.map(t=>'<tr><td>'+safe(t.entryDate.slice(0,10))+' · '+fmt(t.entry)+'</td><td>'+safe(t.date.slice(0,10))+' · '+fmt(t.exit)+'</td><td>'+safe(t.reason)+'</td><td>'+fmtMetric(t.returnPct,'%')+'</td></tr>').join('')+'</tbody></table></div>';
+ }catch(e){el.textContent='Backtesting no disponible: '+String(e.message||e)}
+ finally{btn.disabled=false}
+};
+document.getElementById('historyStatusFilter').onchange=renderStockHistory;
+document.getElementById('earlySort').onchange=renderEarlyWatch;
+document.getElementById('earlyOnly').onchange=renderEarlyWatch;
+document.getElementById('historyExport').onclick=()=>{const headers=['data','ticker','anterior','estat','preu_1h','radar','qualitat','trigger','stop','rendiment_3_sess','rendiment_5_sess','rendiment_10_sess'];const lines=[headers.join(',')];for(const h of stockSignalHistory)lines.push([h.day,h.ticker,h.previous,h.state,h.price,h.radar,h.quality,h.trigger,h.stop,h.d3,h.d5,h.d10].map(v=>v??'').join(','));const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='trading2026_senyals.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
+const showStockManager=()=>{
+ const el=document.getElementById('stockManualManager');
+ const active=META.map(x=>x.ticker).sort();
+ const removed=[...hiddenStocks].sort();
+ el.innerHTML='<strong>Accions seguides ('+active.length+')</strong><p class="small">Prem × per retirar una acció del radar i del Top 10.</p><div class="stock-manager-grid">'+active.map(t=>'<button type="button" class="btn stock-remove" data-remove="'+safe(t)+'">× '+safe(t)+'</button>').join('')+'</div><strong>Accions retirades ('+removed.length+')</strong><div class="stock-manager-grid">'+(removed.length?removed.map(t=>'<button type="button" class="btn" data-restore="'+safe(t)+'">+ '+safe(t)+'</button>').join(''):'<span class="muted">Cap</span>')+'</div>';
+};
+function removeTrackedStock(ticker){
+ hiddenStocks.add(ticker);saveHiddenStocks();
+ const index=META.findIndex(x=>x.ticker===ticker);if(index>=0)META.splice(index,1);
+ rows=rows.filter(x=>x.ticker!==ticker);
+ document.getElementById('stockAddMessage').textContent=ticker+' retirada (la pots recuperar)';
+ showStockManager();render();
+}
+function restoreTrackedStock(ticker){
+ const item=stockCatalog.get(ticker)||{ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'};
+ hiddenStocks.delete(ticker);saveHiddenStocks();
+ if(!META.some(x=>x.ticker===ticker))META.push({...item});
+ if(!stockCatalog.has(ticker)&&!manualStocks.includes(ticker)){manualStocks.push(ticker);saveManualStocks()}
+ rows.push({...item,status:'SENSE DADES'});
+ document.getElementById('stockAddMessage').textContent=ticker+' recuperada';
+ showStockManager();render();scan();
+}
+document.getElementById('stockAddBtn').onclick=()=>{
+ const field=document.getElementById('stockAddInput'),ticker=field.value.trim().toUpperCase(),msg=document.getElementById('stockAddMessage');
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(ticker)){msg.textContent='Ticker no vàlid';return}
+ if(hiddenStocks.has(ticker)){restoreTrackedStock(ticker);field.value='';return}
+ if(META.some(x=>x.ticker===ticker)){msg.textContent=ticker+' ja és a la llista';return}
+ if(manualStocks.length>=40){msg.textContent='Límit de 40 accions manuals';return}
+ manualStocks.push(ticker);saveManualStocks();
+ META.push({ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'});
+ rows.push({...META.at(-1),status:'SENSE DADES'});
+ field.value='';msg.textContent=ticker+' afegida; consultant dades…';
+ showStockManager();render();scan();
+};
+document.getElementById('stockAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('stockAddBtn').click()});
+document.getElementById('stockManageBtn').onclick=()=>{const el=document.getElementById('stockManualManager');el.hidden=!el.hidden;showStockManager()};
+document.getElementById('stockManualManager').onclick=e=>{
+ const rem=e.target.closest('[data-remove]'),restore=e.target.closest('[data-restore]');
+ if(rem)removeTrackedStock(rem.dataset.remove);
+ else if(restore)restoreTrackedStock(restore.dataset.restore);
+};
+
+let activeStockCard='all';
+
+discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
+async function refreshPaperServer(){
+ const status=document.getElementById('paperServerStatus'),details=document.getElementById('paperServerSummary');
+ if(!status||!details)return;
+ try{
+  const r=await fetch('/api/paper-health',{cache:'no-store'}),d=await r.json();
+  if(!r.ok)throw Error('HTTP '+r.status);
+  const label={OPERATIU:'Registre del servidor actualitzat',DESACTUALITZAT:'Última execució antiga: revisar Vercel',SENSE_EXECUCIONS:'Encara no hi ha cap execució registrada',NO_CONFIGURAT:'Servidor sense configurar',ERROR_LECTURA:'Error de lectura del servidor'}[d.state]||'Estat desconegut';
+  status.textContent=label+' · Última execució: '+(d.lastRun?new Date(d.lastRun).toLocaleString('ca-ES'):'pendent')+' · Tasca prevista: diària, 19:00 UTC';
+  details.innerHTML=[['Cicles',d.checks],['Candidatures revisades',d.sampled],['Descartades',d.rejected],['Candidates aptes',d.eligible],['Simulades obertes',d.open],['Simulades tancades',d.closed]].map(([k,v])=>'<span class="pill">'+safe(k)+': '+(Number.isFinite(v)?v:'—')+'</span>').join(' ');
+ }catch(e){status.textContent='No es pot verificar el servidor: '+String(e.message||e);details.innerHTML='';}
+}
+document.getElementById('paperServerRefresh').onclick=refreshPaperServer;
+refreshPaperServer();
+setInterval(refreshPaperServer,5*60*1000);
+const PAPER_KEY='trading2026_paper_trades_v1',PAPER_ON='trading2026_paper_enabled_v1',PAPER_MKT='trading2026_paper_market_v1';
+let paperTrades=[];try{const v=JSON.parse(localStorage.getItem(PAPER_KEY)||'[]');if(Array.isArray(v))paperTrades=v.slice(-500)}catch(_){}
+const paperEnabled=document.getElementById('paperEnabled'),paperMarket=document.getElementById('paperMarket');
+paperEnabled.checked=localStorage.getItem(PAPER_ON)==='yes';
+paperMarket.value=localStorage.getItem(PAPER_MKT)||'stocks';
+paperEnabled.onchange=()=>{localStorage.setItem(PAPER_ON,paperEnabled.checked?'yes':'no');paintPaper();};
+paperMarket.onchange=()=>{localStorage.setItem(PAPER_MKT,paperMarket.value);paintPaper();};
+function persistPaper(){try{localStorage.setItem(PAPER_KEY,JSON.stringify(paperTrades.slice(-500)))}catch(_){}}
+function samplePaper(market){
+ if(market==='stocks')return rows.map(r=>({symbol:r.ticker,price:stockPriceView(r).price,valid:stockPriceView(r).valid,
+  ready:stockDecision(r).startsWith('REVISAR ENTRADA')&&['READY','A','A+'].includes(r.status)&&r.pineEntryConfirmed===true,
+  trigger:r.trigger,stop:r.stop,stamp:r.extendedTimestamp||null}));
+ return Object.entries(cryptoSignals).map(([symbol,r])=>({symbol,price:r.price,
+  valid:Number.isFinite(r.price)&&Number.isFinite(Date.parse(r.quoteTime))&&Date.now()-Date.parse(r.quoteTime)<2*3600000&&r.dataQuality&&!Object.values(r.dataQuality).some(q=>q.stale),
+  ready:r.operationalDecision==='REVISAR ENTRADA'&&r.pineSignalCandidate===true,
+  trigger:r.pineReferenceEntry,stop:r.pineReferenceStop,stamp:r.quoteTime}));
+}
+function tickPaper(){
+ if(!paperEnabled.checked)return;
+ const markets=paperMarket.value==='all'?['stocks','crypto']:[paperMarket.value];
+ let changed=false;const now=Date.now();
+ for(const market of markets)for(const c of samplePaper(market)){
+  if(!c.valid||!Number.isFinite(c.price)||c.price<=0)continue;
+  const key=market+':'+c.symbol;
+  const open=paperTrades.find(t=>t.key===key&&t.state==='OBERTA');
+  if(open){
+   const sampleTime=Date.parse(c.stamp||'');
+   if(!Number.isFinite(sampleTime)||sampleTime<=open.lastTimestamp)continue;
+   open.lastPrice=c.price;open.lastTimestamp=sampleTime;
+   // Observed-price exit only: if market gaps through the stop, use worse sampled price.
+   if(c.price<=open.stop||c.price>=open.target){
+    open.exit=c.price;open.exitAt=new Date(sampleTime).toISOString();open.state='TANCADA';open.exitReason=c.price<=open.stop?'Stop observat':'Objectiu observat';
+    open.resultPct=Math.round((c.price/open.entry-1-0.0024)*10000)/100;
+   }
+   changed=true;continue;
+  }
+  if(!c.ready||!Number.isFinite(c.trigger)||!Number.isFinite(c.stop)||c.stop>=c.trigger)continue;
+  const sampleTime=Date.parse(c.stamp||'');
+  if(!Number.isFinite(sampleTime)||now-sampleTime>20*60000)continue;
+  if(c.price<c.trigger||c.price>c.trigger*1.01)continue;
+  const last=paperTrades.filter(t=>t.key===key).at(-1);
+  if(last&&now-Date.parse(last.entryAt)<7*86400000)continue;
+  const risk=c.price-c.stop;if(risk<=0||risk/c.price>.08)continue;
+  paperTrades.push({key,market,symbol:c.symbol,state:'OBERTA',entry:c.price,stop:c.stop,target:c.price+2*risk,entryAt:new Date(sampleTime).toISOString(),lastTimestamp:sampleTime,lastPrice:c.price,exit:null,resultPct:null});
+  changed=true;
+ }
+ if(changed){paperTrades=paperTrades.slice(-500);persistPaper()}
+ paintPaper();
+}
+function paintPaper(){
+ const closed=paperTrades.filter(t=>t.state==='TANCADA'),open=paperTrades.filter(t=>t.state==='OBERTA');
+ const wins=closed.filter(t=>t.resultPct>0).length;
+ document.getElementById('paperStats').innerHTML='<div><small>Obertes simulades</small><strong>'+open.length+'</strong></div><div><small>Tancades</small><strong>'+closed.length+'</strong></div><div><small>Amb retorn positiu</small><strong>'+(closed.length?Math.round(wins/closed.length*100)+'%':'—')+'</strong></div><div><small>Resultat mitjà net</small><strong>'+(closed.length?fmt(closed.reduce((a,t)=>a+t.resultPct,0)/closed.length,2)+'%':'—')+'</strong></div>';
+ document.getElementById('paperRows').innerHTML=paperTrades.slice(-35).reverse().map(t=>'<tr><td>'+safe(t.market)+'</td><td>'+safe(t.symbol)+'</td><td>'+safe(t.state)+'</td><td>'+fmt(t.entry,5)+'</td><td>'+fmt(t.lastPrice,5)+'</td><td>'+fmt(t.stop,5)+'</td><td>'+fmt(t.target,5)+'</td><td>'+(t.state==='TANCADA'?fmt(t.resultPct,2)+'%':'En seguiment')+'</td></tr>').join('')||'<tr><td colspan="8">Encara no hi ha operacions simulades. No s’obrirà cap operació fins que existeixi un senyal confirmat i dades recents.</td></tr>';
+ document.getElementById('paperMessage').textContent=paperEnabled.checked?'Simulació activa mentre aquesta pàgina sigui oberta':'Simulació pausada';
+}
+async function updateServerPaperHealth(){
+ const el=document.getElementById('serverPaperHealth');if(!el)return;
+ try{const r=await fetch('/api/paper-health',{cache:'no-store'});const x=await r.json();
+ const labels={OPERATIU:'Servidor · darrer cicle registrat',SENSE_EXECUCIONS:'Servidor · pendent de primera execució',DESACTUALITZAT:'Servidor · última execució antiga',ERROR_LECTURA:'Servidor · error de lectura',NO_CONFIGURAT:'Servidor · sense configuració'};
+ el.textContent=(labels[x.state]||'Servidor · estat desconegut')+(x.lastRun?' · '+new Date(x.lastRun).toLocaleString('ca-ES'):'')+' · mostres '+(x.sampled??0)+' · descartades '+(x.rejected??0)+' · simulades obertes '+(x.open??0)+' · tancades '+(x.closed??0);
+ }catch(_){el.textContent='Servidor · no es pot consultar l’estat (no vol dir que estigui actiu)'}
+}
+updateServerPaperHealth();setInterval(updateServerPaperHealth,5*60*1000);
+document.getElementById('paperCheck').onclick=()=>tickPaper();
+setInterval(tickPaper,60000);
+paintPaper();
+
+const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
+try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
+render();paintMacroGuard();
+async function refreshStocksInPhases(){
+ if(scanInProgress)return;
+ await scan('pending');
+ await scan('stale');
+}
+refreshStocksInPhases();
+setInterval(refreshStockQuotes,60000);
+setInterval(()=>{refreshStocksInPhases()},15*60*1000);setInterval(paintMacroGuard,5*60*1000);
+</script></body></html>],['Volum relatiu 1H / 4H',f(a.rvol)+'× / '+f(a.rvol4h)+'×'],
+ ['VWAP mòbil 24H',f(a.vwap24h,5)+' 
+ const clock=document.getElementById('stockMarketClock');if(clock)clock.textContent=marketClockLabel();
+ const rank={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
+ const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.technicalPrice))
+  .sort((a,b)=>Number(stockPriceView(b).valid)-Number(stockPriceView(a).valid)||(rank[b.status]??0)-(rank[a.status]??0)||(b.entryQuality??0)-(a.entryQuality??0)||(b.earlyScore??0)-(a.earlyScore??0)).slice(0,10);
+ document.getElementById('topStockBody').innerHTML=stocks.map((r,i)=>{
+  const pv=stockPriceView(r);
+  const dist=pv.valid&&Number.isFinite(r.trigger)?(r.trigger/pv.price-1)*100:null;
+  const plan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
+  const needs=!pv.valid?'ESPERAR · '+pv.reason:stockDecision(r);
+  return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button><span class="asset-subtitle">Acció · 1D/4H/1H</span></td><td>'+contextualScore(r.entryQuality,'entry',needs.startsWith('REVISAR ENTRADA'))+'</td><td>'+contextualScore(r.earlyScore,'potential')+'</td><td title="'+safe(pv.label)+'">'+fmt(pv.price)+(pv.live?' · IEX':pv.label.startsWith('Últim')?' · últim':' · 1H')+(pv.mismatch?' ⚠':'')+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+decisionBadge(needs)+'</td></tr>';
+ }).join('')||'<tr><td colspan="10">Esperant anàlisi tècnica vàlida</td></tr>';
+ const cryptoPriority={'CANDIDAT CONFIRMAT · WEB':8,'PRE-READY':7,'EXP · PRIMER IMPULS':6,'EXP · PROP RUPTURA':5,'EXP · PREPARACIÓ':4,'EXPLOSIVE WATCH':3,'WATCH':2,'SENSE SETUP':1};
+ const coins=discoveredCrypto.map(x=>({x,a:cryptoSignals[x.symbol]})).filter(v=>v.a&&Number.isFinite(v.a.score))
+  .sort((a,b)=>Number(b.a.operationalDecision==='REVISAR ENTRADA')-Number(a.a.operationalDecision==='REVISAR ENTRADA')||(cryptoPriority[b.a.pineState]??0)-(cryptoPriority[a.a.pineState]??0)||(b.a.operationalQuality??b.a.setupQuality??b.a.score)-(a.a.operationalQuality??a.a.setupQuality??a.a.score)||(b.a.anticipationScore??0)-(a.a.anticipationScore??0)).slice(0,10);
+ document.getElementById('topCryptoBody').innerHTML=coins.map(({x,a},i)=>{
+  const plan=Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop)&&a.planAvailable;
+  const needsBase=(Array.isArray(a.criticalBlocks)&&a.criticalBlocks.length?a.criticalBlocks.join(' · '):a.primaryBlocker)||cryptoDecision(a);
+  const highVolumeAgainst=Number.isFinite(a.volumeText)&&a.volumeText>=1.3&&a.volumeCandleDirection==='BAIXISTA';
+  const needs=highVolumeAgainst?'Volum alt en espelma baixista · '+needsBase:needsBase;
+  const decision=highVolumeAgainst&&a.operationalDecision==='REVISAR ENTRADA'?'ESPERAR · volum baixista':(a.operationalDecision||(a.tradeDecision==='REVISAR ENTRADA'?'ESPERAR · requereix reescaneig':a.tradeDecision)||cryptoDecision(a));
+  const phase=a.patternPhase||a.earlyStage||'Vigilància';
+  const vol=Number.isFinite(a.volumeText)?a.volumeText:null;
+  const candleDirection=a.volumeCandleDirection||'SENSE DADES';
+  const volClass=vol===null||vol<0.8?'vol-neutral':candleDirection==='ALCISTA'?'vol-bull':candleDirection==='BAIXISTA'?'vol-bear':'vol-neutral';
+  const volArrow=vol===null?'?':candleDirection==='ALCISTA'?'↑':candleDirection==='BAIXISTA'?'↓':'=';
+  const volLabel=candleDirection==='ALCISTA'?'alcista':candleDirection==='BAIXISTA'?'baixista':'neutre';
+  const volumePair=(vol===null?'—':fmt(vol,1)+'×')+' / '+(Number.isFinite(a.rvol4h)?fmt(a.rvol4h,1)+'×':'—');
+  const watchContext=a.accumulationWatch?'ACUMULACIÓ · vigilar':a.strongVolumeWatch?'VOLUM SOSTINGUT':' ';
+  const tierLabel=a.liquidityTier||'SENSE CLASSIFICAR';
+  const contextNote='VWAP 24H: '+(Number.isFinite(a.vwap24h)?fmt(a.vwap24h,5):'sense dades')+' · RS vs BTC 24H: '+(Number.isFinite(a.relativeStrengthBTC)?fmt(a.relativeStrengthBTC,2)+' punts':'sense dades')+' · Proveïdors: '+(a.providerConsistency||'sense dades')+' · Estudi acumulació: '+(a.historicalAccumulation?.events??'—')+' casos històrics (no backtest executiu)';
+  return '<tr><td>'+(i+1)+'</td><td><button type="button" class="crypto-info" data-coin="'+safe(x.symbol)+'">'+safe(x.symbol)+' ⓘ</button></td><td>'+contextualScore(a.operationalQuality??a.setupQuality??a.score,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a.anticipationScore,'potential')+'</td><td>'+fmt(a.price,5)+'</td><td title="'+safe('Volum relatiu 1H TANCADA (no espelma en curs) · espelma '+candleDirection+' · canvi '+(Number.isFinite(a.candleMovePct)?fmt(a.candleMovePct,2)+'%':'—')+' · Grup de liquiditat: '+tierLabel+' · '+watchContext+' · '+contextNote+'; volum alt no valida entrada')+'"><span class="vol-indicator '+volClass+'"><strong>'+volArrow+'</strong> '+safe(volumePair)+' <small>'+safe(volLabel)+'</small></span>'+(a.accumulationWatch?'<small class="asset-subtitle">Acumulació · vigilar</small>':a.strongVolumeWatch?'<small class="asset-subtitle">Volum sostingut</small>':'')+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span><span class="top-crypto-decision" title="'+safe(decision)+'">'+safe(decision.startsWith('REVISAR ENTRADA')?'REVISAR ENTRADA':decision.includes('NO PERSEGUIR')?'NO ENTRAR':decision.startsWith('ESPERAR')?'ESPERAR':'VIGILAR')+'</span></td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td>'+(Number.isFinite(a.price)&&Number.isFinite(a.pineReferenceEntry)?(a.pineReferenceEntry<=a.price?'Superat':fmt((a.pineReferenceEntry/a.price-1)*100,1)+'%'):'—')+'</td></tr>';
+ }).join('')||'<tr><td colspan="9">Escaneja altcoins per mostrar les millors configuracions</td></tr>';
+}
+document.getElementById('topRefresh').onclick=()=>{renderTop10();scan()};
+let cryptoMode='watch';
+let cryptoPageView='top';
+function renderCryptoDiagnostic(){
+ const body=document.getElementById('cryptoDiagnosticRows'),summary=document.getElementById('cryptoDiagnosticSummary');
+ if(!body||!summary)return;
+ const symbols=[...new Set([...cryptoWatch,...discoveredCrypto.map(x=>x.symbol)])];
+ const records=symbols.map(symbol=>({symbol,a:cryptoSignals[symbol],err:cryptoFailures[symbol]}));
+ let valid=0,stale=0,missing=0,blocked=0;
+ body.innerHTML=records.map(({symbol,a,err})=>{
+  if(!a){missing++;return '<tr><td>'+safe(symbol)+'</td><td>Sense anàlisi</td><td>—</td><td>—</td><td>—</td><td>'+safe(err||'Pendent d’escaneig')+'</td></tr>'}
+  const q=a.dataQuality||{},bad=Object.entries(q).filter(([,v])=>v&&v.stale).map(([k])=>k);
+  const coverage=a.coverage||{},enough=coverage.day>=30&&coverage.four>=30&&coverage.hour>=30&&coverage.half>=30;
+  const age=Date.now()-Date.parse(a.quoteTime||'');
+  const old=bad.length>0||!Number.isFinite(age)||age>5*3600000;
+  const volume=Number.isFinite(a.volumeText)?a.volumeText:a.rvol;
+  const volOK=Number.isFinite(volume)&&volume>=0.8;
+  const hasPlan=!!(a.planAvailable&&Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop));
+  const reason=old?'Espelmes antigues: '+(bad.join(', ')||'1H'):!enough?'Cobertura parcial':!volOK?'Volum 1H insuficient':!hasPlan?'Sense pla executable':a.primaryBlocker||'Revisar amb Pine';
+  if(old)stale++;else if(enough)valid++;else blocked++;
+  return '<tr><td><strong>'+safe(symbol)+'</strong></td><td>'+(old?'Antigues':enough?'Completes':'Parcials')+'</td><td>'+(Number.isFinite(volume)?fmt(volume,2)+'× · 1H tancada':'Sense dades')+'</td><td>'+safe(a.patternPhase||a.earlyStage||'Vigilància')+'</td><td>'+(hasPlan?'Pla calculat':'Sense pla')+'</td><td>'+safe(reason)+'</td></tr>';
+ }).join('')||'<tr><td colspan="6">No hi ha altcoins en seguiment. Descobreix-ne o afegeix-ne a la llista.</td></tr>';
+ summary.innerHTML='<div><small>Analitzades amb dades recents</small><strong>'+valid+'</strong></div><div><small>Amb dades antigues</small><strong>'+stale+'</strong></div><div><small>Sense anàlisi</small><strong>'+missing+'</strong></div><div><small>Cobertura parcial</small><strong>'+blocked+'</strong></div>';
+}
+function setCryptoView(view){
+ cryptoPageView=view;
+ document.getElementById('cryptoViewSelect').value=view;
+ const top=document.getElementById('cryptoTopSlot');
+
+ top.hidden=view!=='top';
+ document.getElementById('cryptoListContent').hidden=view==='top'||view==='diagnostic';
+ document.getElementById('cryptoDiagnosticPanel').hidden=view!=='diagnostic';
+ document.getElementById('paperPanel').hidden=view!=='top';
+ if(view!=='top'&&view!=='diagnostic'){
+  const id=view==='watch'?'cryptoWatchMode':view==='momentum'?'cryptoMomentum':'cryptoOpportunity';
+  document.getElementById(id).click();
+ }
+ paintCrypto();
+ if(view==='diagnostic')renderCryptoDiagnostic();
+ if(view==='opportunity'&&!discoverInProgress)discover();
+}
+let scanInProgress=false, discoverInProgress=false;
+function cryptoStateData(x){
+ const a=cryptoSignals[x.symbol],failed=cryptoFailures[x.symbol];
+ const state=a?.pineState||(failed?'SENSE DADES':'PENDENT');
+ const cls=state==='READY'?'chip-ready':state==='PRE-READY'?'chip-pre':state.startsWith('EXP')?'chip-watch':state==='WATCH'?'chip-watch':state==='SENSE DADES'?'chip-error':'chip-pending';
+ const decision=failed?'Dades insuficients':!a?'Pendent d’anàlisi':a.executionState||'SENSE PLA EXECUTABLE';
+ return {a,failed,state,cls,decision,score:Number.isFinite(a?.score)?a.score:null};
+}
+function paintCrypto(){
+ const query=document.getElementById('cryptoQuery').value.trim().toUpperCase(),stateFilter=document.getElementById('cryptoState').value,minScore=Number(document.getElementById('cryptoScore').value),provider=document.getElementById('cryptoProvider').value,maxDistance=Number(document.getElementById('cryptoDistance').value),minVol=Number(document.getElementById('cryptoVol').value),direction=document.getElementById('cryptoDirection').value;
+ const coins=discoveredCrypto.filter(x=>{
+  const t=cryptoStateData(x);
+  return (cryptoMode!=='watch'||cryptoWatch.includes(x.symbol))&&(!query||x.symbol.includes(query)||String(x.name||'').toUpperCase().includes(query))&&(!stateFilter||(stateFilter==='EXP'?t.state.startsWith('EXP'):stateFilter==='READY'?t.state==='READY':stateFilter==='WATCH'?['WATCH','EXPLOSIVE WATCH'].includes(t.state):t.state===stateFilter))&&(!minScore||(t.score??-1)>=minScore)&&(!provider||String(x.source||'').includes(provider)||String(t.a?.source||'').includes(provider))&&(!maxDistance||(Number.isFinite(t.a?.trigger)&&Number.isFinite(t.a?.price)&&t.a.price>0&&Math.abs((t.a.trigger/t.a.price-1)*100)<=maxDistance))&&(!minVol||(Number.isFinite(t.a?.rvol)&&t.a.rvol>=minVol))&&(!direction||t.a?.explosiveDirection===direction);
+ }).sort((x,y)=>{
+  if(cryptoMode==='momentum')return (Number(y.changePct)||0)-(Number(x.changePct)||0);
+  const priority={'READY':7,'PRE-READY':6,'EXP · PRIMER IMPULS':5,'EXP · PROP RUPTURA':4,'EXP · PREPARACIÓ':3,'EXPLOSIVE WATCH':2,'WATCH':2,'PENDENT':1,'SENSE SETUP':0,'SENSE DADES':-1};
+  const a=cryptoStateData(x),b=cryptoStateData(y);
+  return (priority[b.state]??1)-(priority[a.state]??1)||(b.score??0)-(a.score??0);
+ });
+ const stats=document.getElementById('cryptoStats'),total=discoveredCrypto.length,analyzed=Object.keys(cryptoSignals).length,failed=Object.keys(cryptoFailures).length;
+ const near=discoveredCrypto.filter(x=>['READY','PRE-READY'].includes(cryptoStateData(x).state)||cryptoStateData(x).state.startsWith('EXP')).length;
+ stats.innerHTML=[['Candidats',total],['Analitzades',analyzed],['Preparant entrada',near],['Sense dades',failed],['Pendents',Math.max(0,total-analyzed-failed)]].map(([label,value])=>'<div class="stat"><strong>'+value+'</strong><small>'+label+'</small></div>').join('');
+ document.getElementById('cryptoCandidatesPanel').hidden=cryptoPageView!=='opportunity';
+ const watchPanel=document.getElementById('cryptoWatchPanel');
+ const watchMode=cryptoPageView==='watch';
+ watchPanel.hidden=!watchMode;
+ document.getElementById('cryptoDiscoveryGrid').hidden=watchMode;
+ document.getElementById('cryptoWatchCount').textContent=cryptoWatch.length+' seguides';
+ if(watchMode){
+  coins.sort((x,y)=>{
+   const val=v=>{const a=cryptoSignals[v.symbol]||{};switch(cryptoColumnSort){case 'symbol':return v.symbol;case 'state':return cryptoStateData(v).state;case 'price':return a.price??v.price;case 'trigger':return a.trigger;case 'distance':return a.trigger&&a.price?(a.trigger/a.price-1)*100:null;case 'volume':return a.rvol;case 'stop':return a.stop;default:return cryptoStateData(v).score}};
+   const a=val(x),b=val(y),d=typeof a==='string'?String(a).localeCompare(String(b)):(Number(a??-Infinity)-Number(b??-Infinity));
+   return d*(cryptoColumnAscending?1:-1);
+  });
+  const lines=coins.map(x=>{
+   const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol);
+   const price=Number.isFinite(a?.price)?a.price:Number(x.price);
+   const trigger=a?.trigger;
+   const distance=Number.isFinite(trigger)&&trigger>0&&Number.isFinite(price)&&price>0?(trigger/price-1)*100:null;
+   const volume=Number.isFinite(a?.rvol)?a.rvol:null;
+   const digits=Number.isFinite(price)&&price<1?5:2;
+   const pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
+   const market=(a?.source||x.source||'').includes('Kraken')?'KRAKEN:':'COINBASE:';
+   const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(market+pair.replace('-',''));
+   const score=t.score===null?'—':scoreBadge(t.score);
+   return '<tr><td><a class="open-detail" href="'+link+'" target="_blank" rel="noopener noreferrer">'+sym+' ↗</a></td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td title="Qualitat tècnica (no probabilitat de guany)">'+score+'</td><td>'+fmt(price,digits)+'</td><td title="Vigilància '+fmt(a?.watchLevel,digits)+'; no executable">'+(Number.isFinite(trigger)?fmt(trigger,digits):'Vig. '+fmt(a?.watchLevel,digits))+'</td><td class="'+(distance!==null&&distance<=2?'near':'')+'">'+(distance===null?'—':distance<=0?'Superat':fmt(distance,1)+'%')+'</td><td>'+(volume===null?'—':fmt(volume,1)+'×')+'</td><td>'+fmt(a?.stop,digits)+'</td><td><button type="button" class="btn crypto-watch-remove" data-symbol="'+sym+'" aria-label="Treure '+sym+' de la llista">× Treure</button></td></tr>';
+  });
+  document.getElementById('cryptoWatchBody').innerHTML=lines.join('')||'<tr><td colspan="9">La llista és buida. Afegeix una altcoin a la part superior.</td></tr>';
+ }
+ const tb=document.getElementById('discoverCrypto');
+ tb.innerHTML=coins.length?coins.map(x=>{
+  const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol),pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
+  const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent((a?.source||x.source||'').includes('Kraken')?'KRAKEN:'+pair.replace('-',''):'COINBASE:'+pair.replace('-',''));
+  const reason=safe((t.failed||a?.reason||(!a?'Encara no analitzada':'Senyal orientatiu, validar al gràfic'))+(a?.pineState?' · Estat ref. 6.6.18: '+a.pineState:'')+(Number.isFinite(a?.explosiveWatchScore)?' · EXP '+a.explosiveDirection+' '+a.explosiveWatchScore+'/5':'')+(a?.executionState?' · '+a.executionState:'')+(a?.thirtyConfirm?' · Confirmació 30m':'')+(a?.volumeSupport4H?' · Suport 4H amb volum':'')+(Number.isFinite(a?.confidenceGrade)?' · Filtres '+a.confidenceGrade+'/7':'')+(Number.isFinite(a?.riskRewardToResistance)?' · R:R resistència '+a.riskRewardToResistance.toFixed(1):''));
+  const displayPrice=Number.isFinite(Number(x.price))&&Number(x.price)>0?Number(x.price):Number(a?.price);
+  const digits=displayPrice<1?5:2;
+  return '<tr><td><b>'+sym+'</b></td><td>'+fmt(displayPrice,digits)+' $<small style="display:block;color:#64748b">Anàlisi / descoberta</small><span data-crypto-quote="'+sym+'" style="display:block;color:#087e65;font-size:12px">— · sense preu directe</span></td><td class="'+(Number(x.changePct)>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td class="score-number">'+(t.score===null?'—':t.score+'/100')+'</td><td><strong>'+safe(t.decision)+'</strong><div class="detail-reason" title="'+reason+'">'+reason+'</div></td><td>'+fmt(a?.trigger,5)+'</td><td>'+fmt(a?.stop,5)+'</td><td>'+fmt(a?.tp1,5)+'</td><td><a class="action-link" href="'+link+'" target="_blank" rel="noopener noreferrer">Gràfic ↗</a></td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">'+(cryptoWatch.includes(x.symbol)?'★ Treure':'☆ Seguir')+'</button></td><td>'+(a&&Number.isFinite(a.trigger)&&a.trigger>0&&Number.isFinite(a.price)?fmt((a.trigger/a.price-1)*100,2)+'%':'—')+'</td><td>'+fmt(a?.support4h,5)+'</td><td>'+(Number.isFinite(a?.rvol)?fmt(a.rvol,2)+'×':'—')+'</td><td>'+safe(cryptoHistoryText(x.symbol))+'</td><td><button type="button" class="btn crypto-history-button" data-symbol="'+sym+'">Gràfic</button></td></tr>';
+ }).join(''):'<tr><td colspan="16">No hi ha criptomonedes que compleixin aquests filtres.</td></tr>';
+}
+document.querySelectorAll('.crypto-fast-state').forEach(button=>button.onclick=()=>{
+ const v=button.dataset.state;document.getElementById('cryptoState').value=v;
+ document.querySelectorAll('.crypto-fast-state').forEach(b=>b.classList.toggle('active',b===button));
+ paintCrypto();
+});
+['cryptoQuery','cryptoState','cryptoScore','cryptoProvider','cryptoDistance','cryptoVol','cryptoDirection'].forEach(id=>document.getElementById(id).addEventListener('input',paintCrypto));
+document.getElementById('cryptoReset').onclick=()=>{document.getElementById('cryptoQuery').value='';['cryptoState','cryptoProvider','cryptoDistance','cryptoVol','cryptoDirection'].forEach(id=>document.getElementById(id).value='');document.getElementById('cryptoScore').value='0';document.querySelector('.crypto-fast-state[data-state=""]').click();paintCrypto()};
+['cryptoOpportunity','cryptoMomentum','cryptoWatchMode'].forEach(id=>document.getElementById(id).onclick=()=>{
+ cryptoMode=id==='cryptoMomentum'?'momentum':id==='cryptoWatchMode'?'watch':'opportunity';
+ for(const [key,mode] of [['cryptoOpportunity','opportunity'],['cryptoMomentum','momentum'],['cryptoWatchMode','watch']])document.getElementById(key).classList.toggle('active',cryptoMode===mode);
+ paintCrypto();
+});
+function addCryptoWatch(raw){
+ const symbol=String(raw||'').trim().toUpperCase().replace(/[-/](USD|USDT|USDC)$/,'');
+ if(!/^[A-Z0-9]{2,12}$/.test(symbol)){alert('Ticker no vàlid');return}
+ if(!cryptoWatch.includes(symbol)){if(cryptoWatch.length>=100){alert('Màxim de 100 altcoins');return}cryptoWatch.push(symbol);persistCryptoWatch()}
+ discoveredCrypto=mergeWatchCandidates(discoveredCrypto);cryptoMode='watch';setCryptoView('watch');paintCrypto();renderTop10();connectCryptoPrices();
+}
+document.getElementById('cryptoWatchAdd').onclick=()=>{const input=document.getElementById('cryptoWatchInput');addCryptoWatch(input.value);input.value=''};
+document.getElementById('cryptoWatchInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('cryptoWatchAdd').click()});
+function installColumnSort(tableSelector,keys,callback){
+ const table=document.querySelector(tableSelector);if(!table)return;
+ table.querySelectorAll('thead th').forEach((th,i)=>{
+  if(!keys[i])return;
+  th.classList.add('sortable-col');th.tabIndex=0;th.setAttribute('role','button');th.setAttribute('aria-label','Ordenar per '+th.textContent);
+  const run=()=>callback(keys[i]);
+  th.addEventListener('click',run);
+  th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run()}});
+ });
+}
+installColumnSort('#simpleBox',['ticker','state','radar','price','trigger','distance','volume',null],key=>{
+ stockColumnAscending=stockColumnSort===key?!stockColumnAscending:false;
+ stockColumnSort=key;render();
+});
+installColumnSort('#cryptoWatchPanel',['symbol','state','score','price','trigger','distance','volume','stop',null],key=>{
+ cryptoColumnAscending=cryptoColumnSort===key?!cryptoColumnAscending:false;
+ cryptoColumnSort=key;paintCrypto();
+});
+document.getElementById('cryptoWatchBody').addEventListener('click',e=>{
+ const button=e.target.closest('.crypto-watch-remove');if(!button)return;
+ const sym=button.dataset.symbol;
+ cryptoWatch=cryptoWatch.filter(x=>x!==sym);persistCryptoWatch();paintCrypto();
+});
+document.getElementById('discoverCrypto').addEventListener('click',e=>{
+ const button=e.target.closest('.crypto-watch-toggle');if(!button)return;
+ const sym=button.dataset.symbol;if(!/^[A-Z0-9]{2,12}$/.test(sym))return;
+ if(cryptoWatch.includes(sym)){cryptoWatch=cryptoWatch.filter(x=>x!==sym);persistCryptoWatch()}
+ else addCryptoWatch(sym);
+ paintCrypto();
+});
+
+async function cryptoScan(){
+ if(cryptoScanning)return;
+ const b=document.getElementById('cryptoScanQuick'),info=document.getElementById('discoverInfo');
+ const scanUniverse=cryptoPageView==='watch'?cryptoWatch:discoveredCrypto.map(x=>x.symbol);
+ const symbols=[...new Set(scanUniverse.filter(x=>/^[A-Z0-9]{2,12}$/.test(x)))];
+ if(!symbols.length){info.textContent=cryptoPageView==='watch'?'Afegeix una altcoin a la teva llista':'Primer cal descobrir candidats';return}
+ cryptoScanning=true;b.disabled=true;b.textContent='Analitzant '+symbols.length+' altcoins…';
+ try{
+  let processed=0,scanSucceeded=0,scanFailed=0;
+  const total=symbols.length;
+  updateScanProgress('crypto',0,total,'Iniciant');
+  const pending=[...symbols];
+  // Four concurrent single-symbol requests avoid the serverless 10-symbol timeout.
+  // Every request is independent; one failed provider must not block the rest.
+  const workers=Array.from({length:Math.min(4,total)},async()=>{
+   while(pending.length){
+    const symbol=pending.shift();
+    updateScanProgress('crypto',processed,total,symbol);
+    try{
+     const controller=new AbortController();
+     const timeout=setTimeout(()=>controller.abort(),30000);
+     let response;
+     try{response=await fetch('/api/crypto-scan?symbols='+encodeURIComponent(symbol),{cache:'no-store',signal:controller.signal})}
+     finally{clearTimeout(timeout)}
+     const data=await response.json();
+     if(!response.ok)throw Error(data.error||'HTTP '+response.status);
+     const found=(data.results||[]).find(x=>x.symbol===symbol);
+     const err=(data.errors||[]).find(x=>x.symbol===symbol);
+     if(found){cryptoSignals[symbol]=found;delete cryptoFailures[symbol];saveCryptoObservation(found);scanSucceeded++}
+     else {cryptoFailures[symbol]=err?.message||'El proveïdor no ha retornat cap resultat';scanFailed++}
+    }catch(err){cryptoFailures[symbol]=err.name==='AbortError'?'Temps de resposta esgotat':String(err.message||err);scanFailed++}
+    processed++;
+    updateScanProgress('crypto',processed,total,symbol);
+    paintCrypto();renderTop10();
+    info.textContent='Escàner cripto '+processed+'/'+total+' · '+scanSucceeded+' correctes · '+scanFailed+' fallides';
+   }
+  });
+  await Promise.all(workers);
+  info.textContent='Escaneig completat: '+scanSucceeded+'/'+total+' amb dades vàlides · '+scanFailed+' errors. Els resultats anteriors es conserven; els errors poden indicar dades antigues o insuficients.';
+ }catch(e){info.textContent='Error de l’anàlisi: '+e.message}
+ finally{updateScanProgress('crypto',symbols.length,symbols.length,'',true);cryptoScanning=false;b.disabled=false;b.textContent='↻ Reanalitzar totes les altcoins'}
+}
+document.getElementById('cryptoScanBtn').onclick=cryptoScan;
+document.getElementById('cryptoViewSelect').onchange=e=>setCryptoView(e.target.value);
+document.getElementById('cryptoScanQuick').onclick=()=>cryptoScan();
+const autoScan=document.getElementById('cryptoAutoScan');
+try{autoScan.checked=localStorage.getItem('trading2026_crypto_auto_v1')==='true'}catch(_){}
+autoScan.onchange=()=>{try{localStorage.setItem('trading2026_crypto_auto_v1',String(autoScan.checked))}catch(_){}};
+setInterval(()=>{if(autoScan.checked&&!document.hidden&&!cryptoScanning&&cryptoWatch.length){const saved=discoveredCrypto;discoveredCrypto=mergeWatchCandidates(cryptoWatch.map(watchCandidate));cryptoScan().finally(()=>{discoveredCrypto=mergeWatchCandidates(saved);paintCrypto()})}},15*60*1000);
+let discoverOffset=0;
+function renderCryptoCandidates(coins){
+ const body=document.getElementById('cryptoCandidatesBody');
+ body.innerHTML=coins.map(x=>{
+  const sym=safe(x.symbol),added=cryptoWatch.includes(x.symbol),v=Number(x.price),a=cryptoSignals[x.symbol];
+  const decision=a?(a.operationalDecision||cryptoDecision(a)):'PENDENT D’ANÀLISI';
+  return '<tr><td><strong>'+sym+'</strong></td><td>'+contextualScore(a?.operationalQuality??a?.setupQuality,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a?.anticipationScore,'potential')+'</td><td>'+decisionBadge(decision)+'</td><td>'+fmt(v,v<1?5:2)+'</td><td>'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn candidate-follow" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Seguint':'☆ Seguir')+'</button></td></tr>';
+ }).join('')||'<tr><td colspan="7">Sense candidates disponibles</td></tr>';
+}
+
+document.getElementById('cryptoCandidatesBody').addEventListener('click',e=>{
+ const b=e.target.closest('.candidate-follow');if(b)addCryptoWatch(b.dataset.symbol);
+});
+async function discover(){
+ if(discoverInProgress)return;
+ discoverInProgress=true;
+ const btn=document.getElementById('discoverBtn'),info=document.getElementById('discoverInfo');
+ btn.disabled=true;btn.textContent='Cercant…';info.textContent='Consultant activitat de mercat…';
+ try{
+  const response=await fetch('/api/discover?market=crypto&offset='+discoverOffset+'&count=15',{cache:'no-store'});
+  const data=await response.json();if(!response.ok)throw Error(data.error||'Resposta '+response.status);
+  discoverOffset=(discoverOffset+15)%(data.coverage?.stockUniverse||125);
+  const stocks=(data.stocks||[]),coins=(data.crypto||[]);
+  document.getElementById('discoverStocks').innerHTML=stocks.length?stocks.map(x=>{
+   const sym=safe(x.symbol),added=META.some(m=>m.ticker===x.symbol);
+   return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),2)+' $</td><td class="'+(x.changePct>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn add-discovered" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Al radar':'+ Analitzar')+'</button></td></tr>';
+  }).join(''):'<tr><td colspan="4">Sense resultats d’accions</td></tr>';
+  renderCryptoCandidates(coins);
+  discoveredCrypto=mergeWatchCandidates(coins);
+  if(cryptoPageView==='opportunity')cryptoMode='opportunity';
+  paintCrypto();renderTop10();filterDiscoveredStocks();connectCryptoPrices();
+  if(!coins.length)showCryptoCandidateFallback('No hi ha candidates fresques dels proveïdors');
+  // No bloquejar la descoberta amb una anàlisi tècnica llarga.
+  if(coins.length)info.textContent=coins.length+' altcoins descobertes · prem ☆ Seguir per incorporar-les · '+(data.errors?.length||0)+' avisos del proveïdor';
+ }catch(e){info.textContent='No s’han pogut recuperar candidates: '+e.message+' · Torna a provar la descoberta';}
+ finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Actualitzar candidats'}
+}
+function showCryptoCandidateFallback(message){
+ const examples=['SOL','LINK','ONDO','SUI','RENDER','AAVE','NEAR','INJ','TIA','HYPE','AVAX','TAO'];
+ const el=document.getElementById('discoverCrypto');
+ const candidates=examples.filter(sym=>!cryptoWatch.includes(sym));
+ renderCryptoCandidates(candidates.map(symbol=>({symbol,price:NaN,changePct:NaN})));
+ el.innerHTML=candidates.map(sym=>'<tr><td><strong>'+sym+'</strong></td><td colspan="8" class="muted">Candidat de referència · cotització i senyal no verificats</td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">☆ Seguir</button></td></tr>').join('');
+ document.getElementById('discoverInfo').textContent=message+' · llista de referència (sense dades en directe)';
+}
+document.getElementById('discoverBtn').onclick=()=>{if(cryptoPageView!=='opportunity')setCryptoView('opportunity');else discover()};
+document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered');if(!b)return;const ticker=b.dataset.symbol;
+ if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(ticker)||META.some(x=>x.ticker===ticker))return;
+ if(extraStocks.length>=25){alert('Màxim de 25 accions addicionals.');return}
+ const x={ticker,sector:'Descobertes',theme:'Nova candidata · pendent Alpaca',dividend:0,risk:'Alt'};
+ extraStocks.push(x);META.push(x);rows.push({...x,status:'SENSE DADES'});localStorage.setItem('trading2026_extras',JSON.stringify(extraStocks));
+ b.disabled=true;b.textContent='✓ Al radar';const sel=document.getElementById('sectorFilter');if(![...sel.options].some(o=>o.value==='Descobertes'))sel.add(new Option('Descobertes','Descobertes'));render();scan();
+});
+
+document.getElementById('scanBtn').onclick=()=>scan('all');
+document.getElementById('modeBtn').onclick=()=>{const advanced=document.getElementById('advancedBox');advanced.hidden=!advanced.hidden;document.getElementById('simpleBox').hidden=!advanced.hidden;const b=document.getElementById('modeBtn');b.textContent=advanced.hidden?'Veure dades avançades':'Tornar a la vista clara';b.setAttribute('aria-pressed',String(!advanced.hidden));};
+document.addEventListener('click',e=>{const b=e.target.closest('.open-detail');if(b)showDetail(b.dataset.ticker)});
+['search','sectorFilter','statusFilter','riskFilter','divFilter','quoteOnly','radarSort'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+// Separate stock discovery into its own tab while preserving the original discovery API.
+const stockPanel=document.querySelector('#discoverStocks').closest('.discover-panel');
+const stocksTab=document.createElement('section');stocksTab.id='discoverStocksTab';stocksTab.hidden=true;
+stocksTab.innerHTML='<div class="discover-header"><div><h2>Descobrir accions</h2><div class="discover-note">Candidats per activitat, no ordres de compra. Analitza cada actiu a Alpaca.</div></div><button class="btn primary" id="stocksDiscoverBtn" type="button">✦ Cercar accions</button></div><div class="discover-controls"><input id="stockDiscoverQuery" placeholder="Filtrar ticker…" aria-label="Filtrar accions"><select id="stockDiscoverSort"><option value="change">Més impuls</option><option value="symbol">Ticker A-Z</option></select></div>';
+stocksTab.appendChild(stockPanel);
+// The crypto top-ten belongs on the crypto screen; the equities top screen remains equities-only.
+const cryptoTopPanel=document.getElementById('topCryptoBody').closest('.discover-panel');
+document.getElementById('cryptoTopSlot').appendChild(cryptoTopPanel);
+document.getElementById('discoverTab').after(stocksTab);
+document.getElementById('stocksDiscoverBtn').onclick=discover;
+function filterDiscoveredStocks(){const q=document.getElementById('stockDiscoverQuery').value.toUpperCase();const sorted=[...document.querySelectorAll('#discoverStocks tr')].filter(r=>r.querySelector('td'));sorted.forEach(r=>r.hidden=!!q&&!r.cells[0]?.textContent.toUpperCase().includes(q));if(document.getElementById('stockDiscoverSort').value==='symbol')sorted.sort((a,b)=>a.cells[0].textContent.localeCompare(b.cells[0].textContent)).forEach(r=>r.parentElement.appendChild(r))}
+['stockDiscoverQuery','stockDiscoverSort'].forEach(id=>document.getElementById(id).addEventListener('input',filterDiscoveredStocks));
+function activateTab(tab,scroll=true){
+ const isCrypto=tab==='discover';
+ const stockTab=!isCrypto;
+ document.body.classList.toggle('crypto-market',isCrypto);
+ document.getElementById('stockEngineNotice').hidden=isCrypto;
+ document.getElementById('stockControls').hidden=!stockTab||tab==='discoverStocks'||tab==='history'||tab==='early'||tab==='backtest';
+ document.getElementById('stockViewBar').hidden=!stockTab;
+ if(stockTab)document.getElementById('stockViewSelect').value=tab;
+ document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===(isCrypto?'discover':'radar');x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
+ ['radar','top','near','sectors','discover','discoverStocks','history','early','backtest'].forEach(t=>{document.getElementById(t+'Tab').hidden=t!==tab});
+ if(tab==='discoverStocks'&&!discoveredCrypto.length)discover();
+ if(tab==='history')renderStockHistory();
+ if(tab==='early')renderEarlyWatch();
+ if(tab==='discover'){setCryptoView(cryptoPageView);connectCryptoPrices()}else connectCryptoPrices();
+ if(scroll)window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
+document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
+document.getElementById('stockScanQuick').onclick=()=>scan('all');
+document.getElementById('btRun').onclick=async()=>{
+ const btn=document.getElementById('btRun'),el=document.getElementById('btResult');
+ const symbol=document.getElementById('btTicker').value.trim().toUpperCase(),mode=document.getElementById('btMode').value;
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)){el.textContent='Ticker no vàlid';return}
+ btn.disabled=true;el.textContent='Descarregant historial i reproduint les entrades de '+symbol+'…';
+ try{
+  const r=await fetch('/api/backtest?symbol='+encodeURIComponent(symbol)+'&mode='+encodeURIComponent(mode),{cache:'no-store'});
+  const data=await r.json();if(!r.ok)throw Error(data.error||'Error del simulador');
+  const fmtMetric=(x,suffix='')=>Number.isFinite(x)?fmt(x,2)+suffix:'Mostra insuficient';
+  const trades=(data.trades||[]).slice(-20).reverse();
+  el.innerHTML='<h3>'+safe(data.symbol)+' · '+safe(data.mode)+' · '+data.barCount+' espelmes</h3><div class="data-health-stats"><div><small>Operacions tancades</small><strong>'+data.total+'</strong></div><div><small>Amb retorn positiu</small><strong>'+fmtMetric(data.winRate,'%')+'</strong></div><div><small>Retorn compost simulat</small><strong>'+fmtMetric(data.totalReturnPct,'%')+'</strong></div><div><small>Drawdown màxim tancat</small><strong>'+fmtMetric(data.maxDrawdownPct,'%')+'</strong></div></div><p class="muted">'+safe(data.assumptions)+'</p><p class="muted">Capital reinvertit en una sola operació cada vegada; el drawdown es calcula en tancaments, no intradia. No inclou impostos, gaps intradia ni dades fora d’IEX. Mostra petita = resultat no concloent.</p><div class="tablebox"><table><thead><tr><th>Entrada</th><th>Sortida</th><th>Motiu</th><th>Rendiment net</th></tr></thead><tbody>'+trades.map(t=>'<tr><td>'+safe(t.entryDate.slice(0,10))+' · '+fmt(t.entry)+'</td><td>'+safe(t.date.slice(0,10))+' · '+fmt(t.exit)+'</td><td>'+safe(t.reason)+'</td><td>'+fmtMetric(t.returnPct,'%')+'</td></tr>').join('')+'</tbody></table></div>';
+ }catch(e){el.textContent='Backtesting no disponible: '+String(e.message||e)}
+ finally{btn.disabled=false}
+};
+document.getElementById('historyStatusFilter').onchange=renderStockHistory;
+document.getElementById('earlySort').onchange=renderEarlyWatch;
+document.getElementById('earlyOnly').onchange=renderEarlyWatch;
+document.getElementById('historyExport').onclick=()=>{const headers=['data','ticker','anterior','estat','preu_1h','radar','qualitat','trigger','stop','rendiment_3_sess','rendiment_5_sess','rendiment_10_sess'];const lines=[headers.join(',')];for(const h of stockSignalHistory)lines.push([h.day,h.ticker,h.previous,h.state,h.price,h.radar,h.quality,h.trigger,h.stop,h.d3,h.d5,h.d10].map(v=>v??'').join(','));const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='trading2026_senyals.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
+const showStockManager=()=>{
+ const el=document.getElementById('stockManualManager');
+ const active=META.map(x=>x.ticker).sort();
+ const removed=[...hiddenStocks].sort();
+ el.innerHTML='<strong>Accions seguides ('+active.length+')</strong><p class="small">Prem × per retirar una acció del radar i del Top 10.</p><div class="stock-manager-grid">'+active.map(t=>'<button type="button" class="btn stock-remove" data-remove="'+safe(t)+'">× '+safe(t)+'</button>').join('')+'</div><strong>Accions retirades ('+removed.length+')</strong><div class="stock-manager-grid">'+(removed.length?removed.map(t=>'<button type="button" class="btn" data-restore="'+safe(t)+'">+ '+safe(t)+'</button>').join(''):'<span class="muted">Cap</span>')+'</div>';
+};
+function removeTrackedStock(ticker){
+ hiddenStocks.add(ticker);saveHiddenStocks();
+ const index=META.findIndex(x=>x.ticker===ticker);if(index>=0)META.splice(index,1);
+ rows=rows.filter(x=>x.ticker!==ticker);
+ document.getElementById('stockAddMessage').textContent=ticker+' retirada (la pots recuperar)';
+ showStockManager();render();
+}
+function restoreTrackedStock(ticker){
+ const item=stockCatalog.get(ticker)||{ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'};
+ hiddenStocks.delete(ticker);saveHiddenStocks();
+ if(!META.some(x=>x.ticker===ticker))META.push({...item});
+ if(!stockCatalog.has(ticker)&&!manualStocks.includes(ticker)){manualStocks.push(ticker);saveManualStocks()}
+ rows.push({...item,status:'SENSE DADES'});
+ document.getElementById('stockAddMessage').textContent=ticker+' recuperada';
+ showStockManager();render();scan();
+}
+document.getElementById('stockAddBtn').onclick=()=>{
+ const field=document.getElementById('stockAddInput'),ticker=field.value.trim().toUpperCase(),msg=document.getElementById('stockAddMessage');
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(ticker)){msg.textContent='Ticker no vàlid';return}
+ if(hiddenStocks.has(ticker)){restoreTrackedStock(ticker);field.value='';return}
+ if(META.some(x=>x.ticker===ticker)){msg.textContent=ticker+' ja és a la llista';return}
+ if(manualStocks.length>=40){msg.textContent='Límit de 40 accions manuals';return}
+ manualStocks.push(ticker);saveManualStocks();
+ META.push({ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'});
+ rows.push({...META.at(-1),status:'SENSE DADES'});
+ field.value='';msg.textContent=ticker+' afegida; consultant dades…';
+ showStockManager();render();scan();
+};
+document.getElementById('stockAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('stockAddBtn').click()});
+document.getElementById('stockManageBtn').onclick=()=>{const el=document.getElementById('stockManualManager');el.hidden=!el.hidden;showStockManager()};
+document.getElementById('stockManualManager').onclick=e=>{
+ const rem=e.target.closest('[data-remove]'),restore=e.target.closest('[data-restore]');
+ if(rem)removeTrackedStock(rem.dataset.remove);
+ else if(restore)restoreTrackedStock(restore.dataset.restore);
+};
+
+let activeStockCard='all';
+
+discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
+async function refreshPaperServer(){
+ const status=document.getElementById('paperServerStatus'),details=document.getElementById('paperServerSummary');
+ if(!status||!details)return;
+ try{
+  const r=await fetch('/api/paper-health',{cache:'no-store'}),d=await r.json();
+  if(!r.ok)throw Error('HTTP '+r.status);
+  const label={OPERATIU:'Registre del servidor actualitzat',DESACTUALITZAT:'Última execució antiga: revisar Vercel',SENSE_EXECUCIONS:'Encara no hi ha cap execució registrada',NO_CONFIGURAT:'Servidor sense configurar',ERROR_LECTURA:'Error de lectura del servidor'}[d.state]||'Estat desconegut';
+  status.textContent=label+' · Última execució: '+(d.lastRun?new Date(d.lastRun).toLocaleString('ca-ES'):'pendent')+' · Tasca prevista: diària, 19:00 UTC';
+  details.innerHTML=[['Cicles',d.checks],['Candidatures revisades',d.sampled],['Descartades',d.rejected],['Candidates aptes',d.eligible],['Simulades obertes',d.open],['Simulades tancades',d.closed]].map(([k,v])=>'<span class="pill">'+safe(k)+': '+(Number.isFinite(v)?v:'—')+'</span>').join(' ');
+ }catch(e){status.textContent='No es pot verificar el servidor: '+String(e.message||e);details.innerHTML='';}
+}
+document.getElementById('paperServerRefresh').onclick=refreshPaperServer;
+refreshPaperServer();
+setInterval(refreshPaperServer,5*60*1000);
+const PAPER_KEY='trading2026_paper_trades_v1',PAPER_ON='trading2026_paper_enabled_v1',PAPER_MKT='trading2026_paper_market_v1';
+let paperTrades=[];try{const v=JSON.parse(localStorage.getItem(PAPER_KEY)||'[]');if(Array.isArray(v))paperTrades=v.slice(-500)}catch(_){}
+const paperEnabled=document.getElementById('paperEnabled'),paperMarket=document.getElementById('paperMarket');
+paperEnabled.checked=localStorage.getItem(PAPER_ON)==='yes';
+paperMarket.value=localStorage.getItem(PAPER_MKT)||'stocks';
+paperEnabled.onchange=()=>{localStorage.setItem(PAPER_ON,paperEnabled.checked?'yes':'no');paintPaper();};
+paperMarket.onchange=()=>{localStorage.setItem(PAPER_MKT,paperMarket.value);paintPaper();};
+function persistPaper(){try{localStorage.setItem(PAPER_KEY,JSON.stringify(paperTrades.slice(-500)))}catch(_){}}
+function samplePaper(market){
+ if(market==='stocks')return rows.map(r=>({symbol:r.ticker,price:stockPriceView(r).price,valid:stockPriceView(r).valid,
+  ready:stockDecision(r).startsWith('REVISAR ENTRADA')&&['READY','A','A+'].includes(r.status)&&r.pineEntryConfirmed===true,
+  trigger:r.trigger,stop:r.stop,stamp:r.extendedTimestamp||null}));
+ return Object.entries(cryptoSignals).map(([symbol,r])=>({symbol,price:r.price,
+  valid:Number.isFinite(r.price)&&Number.isFinite(Date.parse(r.quoteTime))&&Date.now()-Date.parse(r.quoteTime)<2*3600000&&r.dataQuality&&!Object.values(r.dataQuality).some(q=>q.stale),
+  ready:r.operationalDecision==='REVISAR ENTRADA'&&r.pineSignalCandidate===true,
+  trigger:r.pineReferenceEntry,stop:r.pineReferenceStop,stamp:r.quoteTime}));
+}
+function tickPaper(){
+ if(!paperEnabled.checked)return;
+ const markets=paperMarket.value==='all'?['stocks','crypto']:[paperMarket.value];
+ let changed=false;const now=Date.now();
+ for(const market of markets)for(const c of samplePaper(market)){
+  if(!c.valid||!Number.isFinite(c.price)||c.price<=0)continue;
+  const key=market+':'+c.symbol;
+  const open=paperTrades.find(t=>t.key===key&&t.state==='OBERTA');
+  if(open){
+   const sampleTime=Date.parse(c.stamp||'');
+   if(!Number.isFinite(sampleTime)||sampleTime<=open.lastTimestamp)continue;
+   open.lastPrice=c.price;open.lastTimestamp=sampleTime;
+   // Observed-price exit only: if market gaps through the stop, use worse sampled price.
+   if(c.price<=open.stop||c.price>=open.target){
+    open.exit=c.price;open.exitAt=new Date(sampleTime).toISOString();open.state='TANCADA';open.exitReason=c.price<=open.stop?'Stop observat':'Objectiu observat';
+    open.resultPct=Math.round((c.price/open.entry-1-0.0024)*10000)/100;
+   }
+   changed=true;continue;
+  }
+  if(!c.ready||!Number.isFinite(c.trigger)||!Number.isFinite(c.stop)||c.stop>=c.trigger)continue;
+  const sampleTime=Date.parse(c.stamp||'');
+  if(!Number.isFinite(sampleTime)||now-sampleTime>20*60000)continue;
+  if(c.price<c.trigger||c.price>c.trigger*1.01)continue;
+  const last=paperTrades.filter(t=>t.key===key).at(-1);
+  if(last&&now-Date.parse(last.entryAt)<7*86400000)continue;
+  const risk=c.price-c.stop;if(risk<=0||risk/c.price>.08)continue;
+  paperTrades.push({key,market,symbol:c.symbol,state:'OBERTA',entry:c.price,stop:c.stop,target:c.price+2*risk,entryAt:new Date(sampleTime).toISOString(),lastTimestamp:sampleTime,lastPrice:c.price,exit:null,resultPct:null});
+  changed=true;
+ }
+ if(changed){paperTrades=paperTrades.slice(-500);persistPaper()}
+ paintPaper();
+}
+function paintPaper(){
+ const closed=paperTrades.filter(t=>t.state==='TANCADA'),open=paperTrades.filter(t=>t.state==='OBERTA');
+ const wins=closed.filter(t=>t.resultPct>0).length;
+ document.getElementById('paperStats').innerHTML='<div><small>Obertes simulades</small><strong>'+open.length+'</strong></div><div><small>Tancades</small><strong>'+closed.length+'</strong></div><div><small>Amb retorn positiu</small><strong>'+(closed.length?Math.round(wins/closed.length*100)+'%':'—')+'</strong></div><div><small>Resultat mitjà net</small><strong>'+(closed.length?fmt(closed.reduce((a,t)=>a+t.resultPct,0)/closed.length,2)+'%':'—')+'</strong></div>';
+ document.getElementById('paperRows').innerHTML=paperTrades.slice(-35).reverse().map(t=>'<tr><td>'+safe(t.market)+'</td><td>'+safe(t.symbol)+'</td><td>'+safe(t.state)+'</td><td>'+fmt(t.entry,5)+'</td><td>'+fmt(t.lastPrice,5)+'</td><td>'+fmt(t.stop,5)+'</td><td>'+fmt(t.target,5)+'</td><td>'+(t.state==='TANCADA'?fmt(t.resultPct,2)+'%':'En seguiment')+'</td></tr>').join('')||'<tr><td colspan="8">Encara no hi ha operacions simulades. No s’obrirà cap operació fins que existeixi un senyal confirmat i dades recents.</td></tr>';
+ document.getElementById('paperMessage').textContent=paperEnabled.checked?'Simulació activa mentre aquesta pàgina sigui oberta':'Simulació pausada';
+}
+async function updateServerPaperHealth(){
+ const el=document.getElementById('serverPaperHealth');if(!el)return;
+ try{const r=await fetch('/api/paper-health',{cache:'no-store'});const x=await r.json();
+ const labels={OPERATIU:'Servidor · darrer cicle registrat',SENSE_EXECUCIONS:'Servidor · pendent de primera execució',DESACTUALITZAT:'Servidor · última execució antiga',ERROR_LECTURA:'Servidor · error de lectura',NO_CONFIGURAT:'Servidor · sense configuració'};
+ el.textContent=(labels[x.state]||'Servidor · estat desconegut')+(x.lastRun?' · '+new Date(x.lastRun).toLocaleString('ca-ES'):'')+' · mostres '+(x.sampled??0)+' · descartades '+(x.rejected??0)+' · simulades obertes '+(x.open??0)+' · tancades '+(x.closed??0);
+ }catch(_){el.textContent='Servidor · no es pot consultar l’estat (no vol dir que estigui actiu)'}
+}
+updateServerPaperHealth();setInterval(updateServerPaperHealth,5*60*1000);
+document.getElementById('paperCheck').onclick=()=>tickPaper();
+setInterval(tickPaper,60000);
+paintPaper();
+
+const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
+try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
+render();paintMacroGuard();
+async function refreshStocksInPhases(){
+ if(scanInProgress)return;
+ await scan('pending');
+ await scan('stale');
+}
+refreshStocksInPhases();
+setInterval(refreshStockQuotes,60000);
+setInterval(()=>{refreshStocksInPhases()},15*60*1000);setInterval(paintMacroGuard,5*60*1000);
+</script></body></html>],['Preu respecte al VWAP',a.priceAboveVwap===true?'Per sobre':a.priceAboveVwap===false?'Per sota':'Sense dades'],
+ ['Força relativa a BTC 24H',Number.isFinite(a.relativeStrengthBTC)?f(a.relativeStrengthBTC)+' punts percentuals':'Sense dades'],
+ ['Liquiditat',a.liquidityTier||'Sense dades'],['Volum mitjà diari',Number.isFinite(a.dollarVolumeDay)?f(a.dollarVolumeDay,0)+' 
+ const clock=document.getElementById('stockMarketClock');if(clock)clock.textContent=marketClockLabel();
+ const rank={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
+ const stocks=rows.filter(r=>Number.isFinite(r.radarScore)&&Number.isFinite(r.technicalPrice))
+  .sort((a,b)=>Number(stockPriceView(b).valid)-Number(stockPriceView(a).valid)||(rank[b.status]??0)-(rank[a.status]??0)||(b.entryQuality??0)-(a.entryQuality??0)||(b.earlyScore??0)-(a.earlyScore??0)).slice(0,10);
+ document.getElementById('topStockBody').innerHTML=stocks.map((r,i)=>{
+  const pv=stockPriceView(r);
+  const dist=pv.valid&&Number.isFinite(r.trigger)?(r.trigger/pv.price-1)*100:null;
+  const plan=Number.isFinite(r.trigger)&&Number.isFinite(r.stop)&&r.stop<r.trigger;
+  const needs=!pv.valid?'ESPERAR · '+pv.reason:stockDecision(r);
+  return '<tr><td>'+(i+1)+'</td><td><button class="open-detail" data-ticker="'+safe(r.ticker)+'">'+safe(r.ticker)+'</button><span class="asset-subtitle">Acció · 1D/4H/1H</span></td><td>'+contextualScore(r.entryQuality,'entry',needs.startsWith('REVISAR ENTRADA'))+'</td><td>'+contextualScore(r.earlyScore,'potential')+'</td><td title="'+safe(pv.label)+'">'+fmt(pv.price)+(pv.live?' · IEX':pv.label.startsWith('Últim')?' · últim':' · 1H')+(pv.mismatch?' ⚠':'')+'</td><td>'+fmt(r.trigger)+'</td><td>'+(dist===null?'—':dist<=0?'Superat':fmt(dist,1)+'%')+'</td><td>'+volumeArrow(r)+'</td><td><span class="status '+statusClass(r.status)+'">'+safe(r.status==='PRE'?'PRE-READY':r.status)+'</span></td><td>'+decisionBadge(needs)+'</td></tr>';
+ }).join('')||'<tr><td colspan="10">Esperant anàlisi tècnica vàlida</td></tr>';
+ const cryptoPriority={'CANDIDAT CONFIRMAT · WEB':8,'PRE-READY':7,'EXP · PRIMER IMPULS':6,'EXP · PROP RUPTURA':5,'EXP · PREPARACIÓ':4,'EXPLOSIVE WATCH':3,'WATCH':2,'SENSE SETUP':1};
+ const coins=discoveredCrypto.map(x=>({x,a:cryptoSignals[x.symbol]})).filter(v=>v.a&&Number.isFinite(v.a.score))
+  .sort((a,b)=>Number(b.a.operationalDecision==='REVISAR ENTRADA')-Number(a.a.operationalDecision==='REVISAR ENTRADA')||(cryptoPriority[b.a.pineState]??0)-(cryptoPriority[a.a.pineState]??0)||(b.a.operationalQuality??b.a.setupQuality??b.a.score)-(a.a.operationalQuality??a.a.setupQuality??a.a.score)||(b.a.anticipationScore??0)-(a.a.anticipationScore??0)).slice(0,10);
+ document.getElementById('topCryptoBody').innerHTML=coins.map(({x,a},i)=>{
+  const plan=Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop)&&a.planAvailable;
+  const needsBase=(Array.isArray(a.criticalBlocks)&&a.criticalBlocks.length?a.criticalBlocks.join(' · '):a.primaryBlocker)||cryptoDecision(a);
+  const highVolumeAgainst=Number.isFinite(a.volumeText)&&a.volumeText>=1.3&&a.volumeCandleDirection==='BAIXISTA';
+  const needs=highVolumeAgainst?'Volum alt en espelma baixista · '+needsBase:needsBase;
+  const decision=highVolumeAgainst&&a.operationalDecision==='REVISAR ENTRADA'?'ESPERAR · volum baixista':(a.operationalDecision||(a.tradeDecision==='REVISAR ENTRADA'?'ESPERAR · requereix reescaneig':a.tradeDecision)||cryptoDecision(a));
+  const phase=a.patternPhase||a.earlyStage||'Vigilància';
+  const vol=Number.isFinite(a.volumeText)?a.volumeText:null;
+  const candleDirection=a.volumeCandleDirection||'SENSE DADES';
+  const volClass=vol===null||vol<0.8?'vol-neutral':candleDirection==='ALCISTA'?'vol-bull':candleDirection==='BAIXISTA'?'vol-bear':'vol-neutral';
+  const volArrow=vol===null?'?':candleDirection==='ALCISTA'?'↑':candleDirection==='BAIXISTA'?'↓':'=';
+  const volLabel=candleDirection==='ALCISTA'?'alcista':candleDirection==='BAIXISTA'?'baixista':'neutre';
+  const volumePair=(vol===null?'—':fmt(vol,1)+'×')+' / '+(Number.isFinite(a.rvol4h)?fmt(a.rvol4h,1)+'×':'—');
+  const watchContext=a.accumulationWatch?'ACUMULACIÓ · vigilar':a.strongVolumeWatch?'VOLUM SOSTINGUT':' ';
+  const tierLabel=a.liquidityTier||'SENSE CLASSIFICAR';
+  const contextNote='VWAP 24H: '+(Number.isFinite(a.vwap24h)?fmt(a.vwap24h,5):'sense dades')+' · RS vs BTC 24H: '+(Number.isFinite(a.relativeStrengthBTC)?fmt(a.relativeStrengthBTC,2)+' punts':'sense dades')+' · Proveïdors: '+(a.providerConsistency||'sense dades')+' · Estudi acumulació: '+(a.historicalAccumulation?.events??'—')+' casos històrics (no backtest executiu)';
+  return '<tr><td>'+(i+1)+'</td><td><button type="button" class="crypto-info" data-coin="'+safe(x.symbol)+'">'+safe(x.symbol)+' ⓘ</button></td><td>'+contextualScore(a.operationalQuality??a.setupQuality??a.score,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a.anticipationScore,'potential')+'</td><td>'+fmt(a.price,5)+'</td><td title="'+safe('Volum relatiu 1H TANCADA (no espelma en curs) · espelma '+candleDirection+' · canvi '+(Number.isFinite(a.candleMovePct)?fmt(a.candleMovePct,2)+'%':'—')+' · Grup de liquiditat: '+tierLabel+' · '+watchContext+' · '+contextNote+'; volum alt no valida entrada')+'"><span class="vol-indicator '+volClass+'"><strong>'+volArrow+'</strong> '+safe(volumePair)+' <small>'+safe(volLabel)+'</small></span>'+(a.accumulationWatch?'<small class="asset-subtitle">Acumulació · vigilar</small>':a.strongVolumeWatch?'<small class="asset-subtitle">Volum sostingut</small>':'')+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span><span class="top-crypto-decision" title="'+safe(decision)+'">'+safe(decision.startsWith('REVISAR ENTRADA')?'REVISAR ENTRADA':decision.includes('NO PERSEGUIR')?'NO ENTRAR':decision.startsWith('ESPERAR')?'ESPERAR':'VIGILAR')+'</span></td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td>'+(Number.isFinite(a.price)&&Number.isFinite(a.pineReferenceEntry)?(a.pineReferenceEntry<=a.price?'Superat':fmt((a.pineReferenceEntry/a.price-1)*100,1)+'%'):'—')+'</td></tr>';
+ }).join('')||'<tr><td colspan="9">Escaneja altcoins per mostrar les millors configuracions</td></tr>';
+}
+document.getElementById('topRefresh').onclick=()=>{renderTop10();scan()};
+let cryptoMode='watch';
+let cryptoPageView='top';
+function renderCryptoDiagnostic(){
+ const body=document.getElementById('cryptoDiagnosticRows'),summary=document.getElementById('cryptoDiagnosticSummary');
+ if(!body||!summary)return;
+ const symbols=[...new Set([...cryptoWatch,...discoveredCrypto.map(x=>x.symbol)])];
+ const records=symbols.map(symbol=>({symbol,a:cryptoSignals[symbol],err:cryptoFailures[symbol]}));
+ let valid=0,stale=0,missing=0,blocked=0;
+ body.innerHTML=records.map(({symbol,a,err})=>{
+  if(!a){missing++;return '<tr><td>'+safe(symbol)+'</td><td>Sense anàlisi</td><td>—</td><td>—</td><td>—</td><td>'+safe(err||'Pendent d’escaneig')+'</td></tr>'}
+  const q=a.dataQuality||{},bad=Object.entries(q).filter(([,v])=>v&&v.stale).map(([k])=>k);
+  const coverage=a.coverage||{},enough=coverage.day>=30&&coverage.four>=30&&coverage.hour>=30&&coverage.half>=30;
+  const age=Date.now()-Date.parse(a.quoteTime||'');
+  const old=bad.length>0||!Number.isFinite(age)||age>5*3600000;
+  const volume=Number.isFinite(a.volumeText)?a.volumeText:a.rvol;
+  const volOK=Number.isFinite(volume)&&volume>=0.8;
+  const hasPlan=!!(a.planAvailable&&Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop));
+  const reason=old?'Espelmes antigues: '+(bad.join(', ')||'1H'):!enough?'Cobertura parcial':!volOK?'Volum 1H insuficient':!hasPlan?'Sense pla executable':a.primaryBlocker||'Revisar amb Pine';
+  if(old)stale++;else if(enough)valid++;else blocked++;
+  return '<tr><td><strong>'+safe(symbol)+'</strong></td><td>'+(old?'Antigues':enough?'Completes':'Parcials')+'</td><td>'+(Number.isFinite(volume)?fmt(volume,2)+'× · 1H tancada':'Sense dades')+'</td><td>'+safe(a.patternPhase||a.earlyStage||'Vigilància')+'</td><td>'+(hasPlan?'Pla calculat':'Sense pla')+'</td><td>'+safe(reason)+'</td></tr>';
+ }).join('')||'<tr><td colspan="6">No hi ha altcoins en seguiment. Descobreix-ne o afegeix-ne a la llista.</td></tr>';
+ summary.innerHTML='<div><small>Analitzades amb dades recents</small><strong>'+valid+'</strong></div><div><small>Amb dades antigues</small><strong>'+stale+'</strong></div><div><small>Sense anàlisi</small><strong>'+missing+'</strong></div><div><small>Cobertura parcial</small><strong>'+blocked+'</strong></div>';
+}
+function setCryptoView(view){
+ cryptoPageView=view;
+ document.getElementById('cryptoViewSelect').value=view;
+ const top=document.getElementById('cryptoTopSlot');
+
+ top.hidden=view!=='top';
+ document.getElementById('cryptoListContent').hidden=view==='top'||view==='diagnostic';
+ document.getElementById('cryptoDiagnosticPanel').hidden=view!=='diagnostic';
+ document.getElementById('paperPanel').hidden=view!=='top';
+ if(view!=='top'&&view!=='diagnostic'){
+  const id=view==='watch'?'cryptoWatchMode':view==='momentum'?'cryptoMomentum':'cryptoOpportunity';
+  document.getElementById(id).click();
+ }
+ paintCrypto();
+ if(view==='diagnostic')renderCryptoDiagnostic();
+ if(view==='opportunity'&&!discoverInProgress)discover();
+}
+let scanInProgress=false, discoverInProgress=false;
+function cryptoStateData(x){
+ const a=cryptoSignals[x.symbol],failed=cryptoFailures[x.symbol];
+ const state=a?.pineState||(failed?'SENSE DADES':'PENDENT');
+ const cls=state==='READY'?'chip-ready':state==='PRE-READY'?'chip-pre':state.startsWith('EXP')?'chip-watch':state==='WATCH'?'chip-watch':state==='SENSE DADES'?'chip-error':'chip-pending';
+ const decision=failed?'Dades insuficients':!a?'Pendent d’anàlisi':a.executionState||'SENSE PLA EXECUTABLE';
+ return {a,failed,state,cls,decision,score:Number.isFinite(a?.score)?a.score:null};
+}
+function paintCrypto(){
+ const query=document.getElementById('cryptoQuery').value.trim().toUpperCase(),stateFilter=document.getElementById('cryptoState').value,minScore=Number(document.getElementById('cryptoScore').value),provider=document.getElementById('cryptoProvider').value,maxDistance=Number(document.getElementById('cryptoDistance').value),minVol=Number(document.getElementById('cryptoVol').value),direction=document.getElementById('cryptoDirection').value;
+ const coins=discoveredCrypto.filter(x=>{
+  const t=cryptoStateData(x);
+  return (cryptoMode!=='watch'||cryptoWatch.includes(x.symbol))&&(!query||x.symbol.includes(query)||String(x.name||'').toUpperCase().includes(query))&&(!stateFilter||(stateFilter==='EXP'?t.state.startsWith('EXP'):stateFilter==='READY'?t.state==='READY':stateFilter==='WATCH'?['WATCH','EXPLOSIVE WATCH'].includes(t.state):t.state===stateFilter))&&(!minScore||(t.score??-1)>=minScore)&&(!provider||String(x.source||'').includes(provider)||String(t.a?.source||'').includes(provider))&&(!maxDistance||(Number.isFinite(t.a?.trigger)&&Number.isFinite(t.a?.price)&&t.a.price>0&&Math.abs((t.a.trigger/t.a.price-1)*100)<=maxDistance))&&(!minVol||(Number.isFinite(t.a?.rvol)&&t.a.rvol>=minVol))&&(!direction||t.a?.explosiveDirection===direction);
+ }).sort((x,y)=>{
+  if(cryptoMode==='momentum')return (Number(y.changePct)||0)-(Number(x.changePct)||0);
+  const priority={'READY':7,'PRE-READY':6,'EXP · PRIMER IMPULS':5,'EXP · PROP RUPTURA':4,'EXP · PREPARACIÓ':3,'EXPLOSIVE WATCH':2,'WATCH':2,'PENDENT':1,'SENSE SETUP':0,'SENSE DADES':-1};
+  const a=cryptoStateData(x),b=cryptoStateData(y);
+  return (priority[b.state]??1)-(priority[a.state]??1)||(b.score??0)-(a.score??0);
+ });
+ const stats=document.getElementById('cryptoStats'),total=discoveredCrypto.length,analyzed=Object.keys(cryptoSignals).length,failed=Object.keys(cryptoFailures).length;
+ const near=discoveredCrypto.filter(x=>['READY','PRE-READY'].includes(cryptoStateData(x).state)||cryptoStateData(x).state.startsWith('EXP')).length;
+ stats.innerHTML=[['Candidats',total],['Analitzades',analyzed],['Preparant entrada',near],['Sense dades',failed],['Pendents',Math.max(0,total-analyzed-failed)]].map(([label,value])=>'<div class="stat"><strong>'+value+'</strong><small>'+label+'</small></div>').join('');
+ document.getElementById('cryptoCandidatesPanel').hidden=cryptoPageView!=='opportunity';
+ const watchPanel=document.getElementById('cryptoWatchPanel');
+ const watchMode=cryptoPageView==='watch';
+ watchPanel.hidden=!watchMode;
+ document.getElementById('cryptoDiscoveryGrid').hidden=watchMode;
+ document.getElementById('cryptoWatchCount').textContent=cryptoWatch.length+' seguides';
+ if(watchMode){
+  coins.sort((x,y)=>{
+   const val=v=>{const a=cryptoSignals[v.symbol]||{};switch(cryptoColumnSort){case 'symbol':return v.symbol;case 'state':return cryptoStateData(v).state;case 'price':return a.price??v.price;case 'trigger':return a.trigger;case 'distance':return a.trigger&&a.price?(a.trigger/a.price-1)*100:null;case 'volume':return a.rvol;case 'stop':return a.stop;default:return cryptoStateData(v).score}};
+   const a=val(x),b=val(y),d=typeof a==='string'?String(a).localeCompare(String(b)):(Number(a??-Infinity)-Number(b??-Infinity));
+   return d*(cryptoColumnAscending?1:-1);
+  });
+  const lines=coins.map(x=>{
+   const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol);
+   const price=Number.isFinite(a?.price)?a.price:Number(x.price);
+   const trigger=a?.trigger;
+   const distance=Number.isFinite(trigger)&&trigger>0&&Number.isFinite(price)&&price>0?(trigger/price-1)*100:null;
+   const volume=Number.isFinite(a?.rvol)?a.rvol:null;
+   const digits=Number.isFinite(price)&&price<1?5:2;
+   const pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
+   const market=(a?.source||x.source||'').includes('Kraken')?'KRAKEN:':'COINBASE:';
+   const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(market+pair.replace('-',''));
+   const score=t.score===null?'—':scoreBadge(t.score);
+   return '<tr><td><a class="open-detail" href="'+link+'" target="_blank" rel="noopener noreferrer">'+sym+' ↗</a></td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td title="Qualitat tècnica (no probabilitat de guany)">'+score+'</td><td>'+fmt(price,digits)+'</td><td title="Vigilància '+fmt(a?.watchLevel,digits)+'; no executable">'+(Number.isFinite(trigger)?fmt(trigger,digits):'Vig. '+fmt(a?.watchLevel,digits))+'</td><td class="'+(distance!==null&&distance<=2?'near':'')+'">'+(distance===null?'—':distance<=0?'Superat':fmt(distance,1)+'%')+'</td><td>'+(volume===null?'—':fmt(volume,1)+'×')+'</td><td>'+fmt(a?.stop,digits)+'</td><td><button type="button" class="btn crypto-watch-remove" data-symbol="'+sym+'" aria-label="Treure '+sym+' de la llista">× Treure</button></td></tr>';
+  });
+  document.getElementById('cryptoWatchBody').innerHTML=lines.join('')||'<tr><td colspan="9">La llista és buida. Afegeix una altcoin a la part superior.</td></tr>';
+ }
+ const tb=document.getElementById('discoverCrypto');
+ tb.innerHTML=coins.length?coins.map(x=>{
+  const t=cryptoStateData(x),a=t.a,sym=safe(x.symbol),pair=String(a?.pair||x.pair||x.symbol+'-USD').replace(/[^A-Za-z0-9-]/g,'');
+  const link='https://www.tradingview.com/chart/?symbol='+encodeURIComponent((a?.source||x.source||'').includes('Kraken')?'KRAKEN:'+pair.replace('-',''):'COINBASE:'+pair.replace('-',''));
+  const reason=safe((t.failed||a?.reason||(!a?'Encara no analitzada':'Senyal orientatiu, validar al gràfic'))+(a?.pineState?' · Estat ref. 6.6.18: '+a.pineState:'')+(Number.isFinite(a?.explosiveWatchScore)?' · EXP '+a.explosiveDirection+' '+a.explosiveWatchScore+'/5':'')+(a?.executionState?' · '+a.executionState:'')+(a?.thirtyConfirm?' · Confirmació 30m':'')+(a?.volumeSupport4H?' · Suport 4H amb volum':'')+(Number.isFinite(a?.confidenceGrade)?' · Filtres '+a.confidenceGrade+'/7':'')+(Number.isFinite(a?.riskRewardToResistance)?' · R:R resistència '+a.riskRewardToResistance.toFixed(1):''));
+  const displayPrice=Number.isFinite(Number(x.price))&&Number(x.price)>0?Number(x.price):Number(a?.price);
+  const digits=displayPrice<1?5:2;
+  return '<tr><td><b>'+sym+'</b></td><td>'+fmt(displayPrice,digits)+' $<small style="display:block;color:#64748b">Anàlisi / descoberta</small><span data-crypto-quote="'+sym+'" style="display:block;color:#087e65;font-size:12px">— · sense preu directe</span></td><td class="'+(Number(x.changePct)>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><span class="status-chip '+t.cls+'">'+safe(t.state)+'</span></td><td class="score-number">'+(t.score===null?'—':t.score+'/100')+'</td><td><strong>'+safe(t.decision)+'</strong><div class="detail-reason" title="'+reason+'">'+reason+'</div></td><td>'+fmt(a?.trigger,5)+'</td><td>'+fmt(a?.stop,5)+'</td><td>'+fmt(a?.tp1,5)+'</td><td><a class="action-link" href="'+link+'" target="_blank" rel="noopener noreferrer">Gràfic ↗</a></td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">'+(cryptoWatch.includes(x.symbol)?'★ Treure':'☆ Seguir')+'</button></td><td>'+(a&&Number.isFinite(a.trigger)&&a.trigger>0&&Number.isFinite(a.price)?fmt((a.trigger/a.price-1)*100,2)+'%':'—')+'</td><td>'+fmt(a?.support4h,5)+'</td><td>'+(Number.isFinite(a?.rvol)?fmt(a.rvol,2)+'×':'—')+'</td><td>'+safe(cryptoHistoryText(x.symbol))+'</td><td><button type="button" class="btn crypto-history-button" data-symbol="'+sym+'">Gràfic</button></td></tr>';
+ }).join(''):'<tr><td colspan="16">No hi ha criptomonedes que compleixin aquests filtres.</td></tr>';
+}
+document.querySelectorAll('.crypto-fast-state').forEach(button=>button.onclick=()=>{
+ const v=button.dataset.state;document.getElementById('cryptoState').value=v;
+ document.querySelectorAll('.crypto-fast-state').forEach(b=>b.classList.toggle('active',b===button));
+ paintCrypto();
+});
+['cryptoQuery','cryptoState','cryptoScore','cryptoProvider','cryptoDistance','cryptoVol','cryptoDirection'].forEach(id=>document.getElementById(id).addEventListener('input',paintCrypto));
+document.getElementById('cryptoReset').onclick=()=>{document.getElementById('cryptoQuery').value='';['cryptoState','cryptoProvider','cryptoDistance','cryptoVol','cryptoDirection'].forEach(id=>document.getElementById(id).value='');document.getElementById('cryptoScore').value='0';document.querySelector('.crypto-fast-state[data-state=""]').click();paintCrypto()};
+['cryptoOpportunity','cryptoMomentum','cryptoWatchMode'].forEach(id=>document.getElementById(id).onclick=()=>{
+ cryptoMode=id==='cryptoMomentum'?'momentum':id==='cryptoWatchMode'?'watch':'opportunity';
+ for(const [key,mode] of [['cryptoOpportunity','opportunity'],['cryptoMomentum','momentum'],['cryptoWatchMode','watch']])document.getElementById(key).classList.toggle('active',cryptoMode===mode);
+ paintCrypto();
+});
+function addCryptoWatch(raw){
+ const symbol=String(raw||'').trim().toUpperCase().replace(/[-/](USD|USDT|USDC)$/,'');
+ if(!/^[A-Z0-9]{2,12}$/.test(symbol)){alert('Ticker no vàlid');return}
+ if(!cryptoWatch.includes(symbol)){if(cryptoWatch.length>=100){alert('Màxim de 100 altcoins');return}cryptoWatch.push(symbol);persistCryptoWatch()}
+ discoveredCrypto=mergeWatchCandidates(discoveredCrypto);cryptoMode='watch';setCryptoView('watch');paintCrypto();renderTop10();connectCryptoPrices();
+}
+document.getElementById('cryptoWatchAdd').onclick=()=>{const input=document.getElementById('cryptoWatchInput');addCryptoWatch(input.value);input.value=''};
+document.getElementById('cryptoWatchInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('cryptoWatchAdd').click()});
+function installColumnSort(tableSelector,keys,callback){
+ const table=document.querySelector(tableSelector);if(!table)return;
+ table.querySelectorAll('thead th').forEach((th,i)=>{
+  if(!keys[i])return;
+  th.classList.add('sortable-col');th.tabIndex=0;th.setAttribute('role','button');th.setAttribute('aria-label','Ordenar per '+th.textContent);
+  const run=()=>callback(keys[i]);
+  th.addEventListener('click',run);
+  th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run()}});
+ });
+}
+installColumnSort('#simpleBox',['ticker','state','radar','price','trigger','distance','volume',null],key=>{
+ stockColumnAscending=stockColumnSort===key?!stockColumnAscending:false;
+ stockColumnSort=key;render();
+});
+installColumnSort('#cryptoWatchPanel',['symbol','state','score','price','trigger','distance','volume','stop',null],key=>{
+ cryptoColumnAscending=cryptoColumnSort===key?!cryptoColumnAscending:false;
+ cryptoColumnSort=key;paintCrypto();
+});
+document.getElementById('cryptoWatchBody').addEventListener('click',e=>{
+ const button=e.target.closest('.crypto-watch-remove');if(!button)return;
+ const sym=button.dataset.symbol;
+ cryptoWatch=cryptoWatch.filter(x=>x!==sym);persistCryptoWatch();paintCrypto();
+});
+document.getElementById('discoverCrypto').addEventListener('click',e=>{
+ const button=e.target.closest('.crypto-watch-toggle');if(!button)return;
+ const sym=button.dataset.symbol;if(!/^[A-Z0-9]{2,12}$/.test(sym))return;
+ if(cryptoWatch.includes(sym)){cryptoWatch=cryptoWatch.filter(x=>x!==sym);persistCryptoWatch()}
+ else addCryptoWatch(sym);
+ paintCrypto();
+});
+
+async function cryptoScan(){
+ if(cryptoScanning)return;
+ const b=document.getElementById('cryptoScanQuick'),info=document.getElementById('discoverInfo');
+ const scanUniverse=cryptoPageView==='watch'?cryptoWatch:discoveredCrypto.map(x=>x.symbol);
+ const symbols=[...new Set(scanUniverse.filter(x=>/^[A-Z0-9]{2,12}$/.test(x)))];
+ if(!symbols.length){info.textContent=cryptoPageView==='watch'?'Afegeix una altcoin a la teva llista':'Primer cal descobrir candidats';return}
+ cryptoScanning=true;b.disabled=true;b.textContent='Analitzant '+symbols.length+' altcoins…';
+ try{
+  let processed=0,scanSucceeded=0,scanFailed=0;
+  const total=symbols.length;
+  updateScanProgress('crypto',0,total,'Iniciant');
+  const pending=[...symbols];
+  // Four concurrent single-symbol requests avoid the serverless 10-symbol timeout.
+  // Every request is independent; one failed provider must not block the rest.
+  const workers=Array.from({length:Math.min(4,total)},async()=>{
+   while(pending.length){
+    const symbol=pending.shift();
+    updateScanProgress('crypto',processed,total,symbol);
+    try{
+     const controller=new AbortController();
+     const timeout=setTimeout(()=>controller.abort(),30000);
+     let response;
+     try{response=await fetch('/api/crypto-scan?symbols='+encodeURIComponent(symbol),{cache:'no-store',signal:controller.signal})}
+     finally{clearTimeout(timeout)}
+     const data=await response.json();
+     if(!response.ok)throw Error(data.error||'HTTP '+response.status);
+     const found=(data.results||[]).find(x=>x.symbol===symbol);
+     const err=(data.errors||[]).find(x=>x.symbol===symbol);
+     if(found){cryptoSignals[symbol]=found;delete cryptoFailures[symbol];saveCryptoObservation(found);scanSucceeded++}
+     else {cryptoFailures[symbol]=err?.message||'El proveïdor no ha retornat cap resultat';scanFailed++}
+    }catch(err){cryptoFailures[symbol]=err.name==='AbortError'?'Temps de resposta esgotat':String(err.message||err);scanFailed++}
+    processed++;
+    updateScanProgress('crypto',processed,total,symbol);
+    paintCrypto();renderTop10();
+    info.textContent='Escàner cripto '+processed+'/'+total+' · '+scanSucceeded+' correctes · '+scanFailed+' fallides';
+   }
+  });
+  await Promise.all(workers);
+  info.textContent='Escaneig completat: '+scanSucceeded+'/'+total+' amb dades vàlides · '+scanFailed+' errors. Els resultats anteriors es conserven; els errors poden indicar dades antigues o insuficients.';
+ }catch(e){info.textContent='Error de l’anàlisi: '+e.message}
+ finally{updateScanProgress('crypto',symbols.length,symbols.length,'',true);cryptoScanning=false;b.disabled=false;b.textContent='↻ Reanalitzar totes les altcoins'}
+}
+document.getElementById('cryptoScanBtn').onclick=cryptoScan;
+document.getElementById('cryptoViewSelect').onchange=e=>setCryptoView(e.target.value);
+document.getElementById('cryptoScanQuick').onclick=()=>cryptoScan();
+const autoScan=document.getElementById('cryptoAutoScan');
+try{autoScan.checked=localStorage.getItem('trading2026_crypto_auto_v1')==='true'}catch(_){}
+autoScan.onchange=()=>{try{localStorage.setItem('trading2026_crypto_auto_v1',String(autoScan.checked))}catch(_){}};
+setInterval(()=>{if(autoScan.checked&&!document.hidden&&!cryptoScanning&&cryptoWatch.length){const saved=discoveredCrypto;discoveredCrypto=mergeWatchCandidates(cryptoWatch.map(watchCandidate));cryptoScan().finally(()=>{discoveredCrypto=mergeWatchCandidates(saved);paintCrypto()})}},15*60*1000);
+let discoverOffset=0;
+function renderCryptoCandidates(coins){
+ const body=document.getElementById('cryptoCandidatesBody');
+ body.innerHTML=coins.map(x=>{
+  const sym=safe(x.symbol),added=cryptoWatch.includes(x.symbol),v=Number(x.price),a=cryptoSignals[x.symbol];
+  const decision=a?(a.operationalDecision||cryptoDecision(a)):'PENDENT D’ANÀLISI';
+  return '<tr><td><strong>'+sym+'</strong></td><td>'+contextualScore(a?.operationalQuality??a?.setupQuality,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a?.anticipationScore,'potential')+'</td><td>'+decisionBadge(decision)+'</td><td>'+fmt(v,v<1?5:2)+'</td><td>'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn candidate-follow" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Seguint':'☆ Seguir')+'</button></td></tr>';
+ }).join('')||'<tr><td colspan="7">Sense candidates disponibles</td></tr>';
+}
+
+document.getElementById('cryptoCandidatesBody').addEventListener('click',e=>{
+ const b=e.target.closest('.candidate-follow');if(b)addCryptoWatch(b.dataset.symbol);
+});
+async function discover(){
+ if(discoverInProgress)return;
+ discoverInProgress=true;
+ const btn=document.getElementById('discoverBtn'),info=document.getElementById('discoverInfo');
+ btn.disabled=true;btn.textContent='Cercant…';info.textContent='Consultant activitat de mercat…';
+ try{
+  const response=await fetch('/api/discover?market=crypto&offset='+discoverOffset+'&count=15',{cache:'no-store'});
+  const data=await response.json();if(!response.ok)throw Error(data.error||'Resposta '+response.status);
+  discoverOffset=(discoverOffset+15)%(data.coverage?.stockUniverse||125);
+  const stocks=(data.stocks||[]),coins=(data.crypto||[]);
+  document.getElementById('discoverStocks').innerHTML=stocks.length?stocks.map(x=>{
+   const sym=safe(x.symbol),added=META.some(m=>m.ticker===x.symbol);
+   return '<tr><td><b>'+sym+'</b></td><td>'+fmt(Number(x.price),2)+' $</td><td class="'+(x.changePct>=0?'disc-up':'disc-down')+'">'+fmt(Number(x.changePct),2)+'%</td><td><button type="button" class="btn add-discovered" data-symbol="'+sym+'" '+(added?'disabled':'')+'>'+(added?'✓ Al radar':'+ Analitzar')+'</button></td></tr>';
+  }).join(''):'<tr><td colspan="4">Sense resultats d’accions</td></tr>';
+  renderCryptoCandidates(coins);
+  discoveredCrypto=mergeWatchCandidates(coins);
+  if(cryptoPageView==='opportunity')cryptoMode='opportunity';
+  paintCrypto();renderTop10();filterDiscoveredStocks();connectCryptoPrices();
+  if(!coins.length)showCryptoCandidateFallback('No hi ha candidates fresques dels proveïdors');
+  // No bloquejar la descoberta amb una anàlisi tècnica llarga.
+  if(coins.length)info.textContent=coins.length+' altcoins descobertes · prem ☆ Seguir per incorporar-les · '+(data.errors?.length||0)+' avisos del proveïdor';
+ }catch(e){info.textContent='No s’han pogut recuperar candidates: '+e.message+' · Torna a provar la descoberta';}
+ finally{discoverInProgress=false;btn.disabled=false;btn.textContent='✦ Actualitzar candidats'}
+}
+function showCryptoCandidateFallback(message){
+ const examples=['SOL','LINK','ONDO','SUI','RENDER','AAVE','NEAR','INJ','TIA','HYPE','AVAX','TAO'];
+ const el=document.getElementById('discoverCrypto');
+ const candidates=examples.filter(sym=>!cryptoWatch.includes(sym));
+ renderCryptoCandidates(candidates.map(symbol=>({symbol,price:NaN,changePct:NaN})));
+ el.innerHTML=candidates.map(sym=>'<tr><td><strong>'+sym+'</strong></td><td colspan="8" class="muted">Candidat de referència · cotització i senyal no verificats</td><td><button type="button" class="btn crypto-watch-toggle" data-symbol="'+sym+'">☆ Seguir</button></td></tr>').join('');
+ document.getElementById('discoverInfo').textContent=message+' · llista de referència (sense dades en directe)';
+}
+document.getElementById('discoverBtn').onclick=()=>{if(cryptoPageView!=='opportunity')setCryptoView('opportunity');else discover()};
+document.addEventListener('click',e=>{const b=e.target.closest('.add-discovered');if(!b)return;const ticker=b.dataset.symbol;
+ if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(ticker)||META.some(x=>x.ticker===ticker))return;
+ if(extraStocks.length>=25){alert('Màxim de 25 accions addicionals.');return}
+ const x={ticker,sector:'Descobertes',theme:'Nova candidata · pendent Alpaca',dividend:0,risk:'Alt'};
+ extraStocks.push(x);META.push(x);rows.push({...x,status:'SENSE DADES'});localStorage.setItem('trading2026_extras',JSON.stringify(extraStocks));
+ b.disabled=true;b.textContent='✓ Al radar';const sel=document.getElementById('sectorFilter');if(![...sel.options].some(o=>o.value==='Descobertes'))sel.add(new Option('Descobertes','Descobertes'));render();scan();
+});
+
+document.getElementById('scanBtn').onclick=()=>scan('all');
+document.getElementById('modeBtn').onclick=()=>{const advanced=document.getElementById('advancedBox');advanced.hidden=!advanced.hidden;document.getElementById('simpleBox').hidden=!advanced.hidden;const b=document.getElementById('modeBtn');b.textContent=advanced.hidden?'Veure dades avançades':'Tornar a la vista clara';b.setAttribute('aria-pressed',String(!advanced.hidden));};
+document.addEventListener('click',e=>{const b=e.target.closest('.open-detail');if(b)showDetail(b.dataset.ticker)});
+['search','sectorFilter','statusFilter','riskFilter','divFilter','quoteOnly','radarSort'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+// Separate stock discovery into its own tab while preserving the original discovery API.
+const stockPanel=document.querySelector('#discoverStocks').closest('.discover-panel');
+const stocksTab=document.createElement('section');stocksTab.id='discoverStocksTab';stocksTab.hidden=true;
+stocksTab.innerHTML='<div class="discover-header"><div><h2>Descobrir accions</h2><div class="discover-note">Candidats per activitat, no ordres de compra. Analitza cada actiu a Alpaca.</div></div><button class="btn primary" id="stocksDiscoverBtn" type="button">✦ Cercar accions</button></div><div class="discover-controls"><input id="stockDiscoverQuery" placeholder="Filtrar ticker…" aria-label="Filtrar accions"><select id="stockDiscoverSort"><option value="change">Més impuls</option><option value="symbol">Ticker A-Z</option></select></div>';
+stocksTab.appendChild(stockPanel);
+// The crypto top-ten belongs on the crypto screen; the equities top screen remains equities-only.
+const cryptoTopPanel=document.getElementById('topCryptoBody').closest('.discover-panel');
+document.getElementById('cryptoTopSlot').appendChild(cryptoTopPanel);
+document.getElementById('discoverTab').after(stocksTab);
+document.getElementById('stocksDiscoverBtn').onclick=discover;
+function filterDiscoveredStocks(){const q=document.getElementById('stockDiscoverQuery').value.toUpperCase();const sorted=[...document.querySelectorAll('#discoverStocks tr')].filter(r=>r.querySelector('td'));sorted.forEach(r=>r.hidden=!!q&&!r.cells[0]?.textContent.toUpperCase().includes(q));if(document.getElementById('stockDiscoverSort').value==='symbol')sorted.sort((a,b)=>a.cells[0].textContent.localeCompare(b.cells[0].textContent)).forEach(r=>r.parentElement.appendChild(r))}
+['stockDiscoverQuery','stockDiscoverSort'].forEach(id=>document.getElementById(id).addEventListener('input',filterDiscoveredStocks));
+function activateTab(tab,scroll=true){
+ const isCrypto=tab==='discover';
+ const stockTab=!isCrypto;
+ document.body.classList.toggle('crypto-market',isCrypto);
+ document.getElementById('stockEngineNotice').hidden=isCrypto;
+ document.getElementById('stockControls').hidden=!stockTab||tab==='discoverStocks'||tab==='history'||tab==='early'||tab==='backtest';
+ document.getElementById('stockViewBar').hidden=!stockTab;
+ if(stockTab)document.getElementById('stockViewSelect').value=tab;
+ document.querySelectorAll('.tab').forEach(x=>{const active=x.dataset.tab===(isCrypto?'discover':'radar');x.classList.toggle('active',active);x.setAttribute('aria-selected',String(active))});
+ ['radar','top','near','sectors','discover','discoverStocks','history','early','backtest'].forEach(t=>{document.getElementById(t+'Tab').hidden=t!==tab});
+ if(tab==='discoverStocks'&&!discoveredCrypto.length)discover();
+ if(tab==='history')renderStockHistory();
+ if(tab==='early')renderEarlyWatch();
+ if(tab==='discover'){setCryptoView(cryptoPageView);connectCryptoPrices()}else connectCryptoPrices();
+ if(scroll)window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
+document.getElementById('stockViewSelect').onchange=e=>activateTab(e.target.value,false);
+document.getElementById('stockScanQuick').onclick=()=>scan('all');
+document.getElementById('btRun').onclick=async()=>{
+ const btn=document.getElementById('btRun'),el=document.getElementById('btResult');
+ const symbol=document.getElementById('btTicker').value.trim().toUpperCase(),mode=document.getElementById('btMode').value;
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)){el.textContent='Ticker no vàlid';return}
+ btn.disabled=true;el.textContent='Descarregant historial i reproduint les entrades de '+symbol+'…';
+ try{
+  const r=await fetch('/api/backtest?symbol='+encodeURIComponent(symbol)+'&mode='+encodeURIComponent(mode),{cache:'no-store'});
+  const data=await r.json();if(!r.ok)throw Error(data.error||'Error del simulador');
+  const fmtMetric=(x,suffix='')=>Number.isFinite(x)?fmt(x,2)+suffix:'Mostra insuficient';
+  const trades=(data.trades||[]).slice(-20).reverse();
+  el.innerHTML='<h3>'+safe(data.symbol)+' · '+safe(data.mode)+' · '+data.barCount+' espelmes</h3><div class="data-health-stats"><div><small>Operacions tancades</small><strong>'+data.total+'</strong></div><div><small>Amb retorn positiu</small><strong>'+fmtMetric(data.winRate,'%')+'</strong></div><div><small>Retorn compost simulat</small><strong>'+fmtMetric(data.totalReturnPct,'%')+'</strong></div><div><small>Drawdown màxim tancat</small><strong>'+fmtMetric(data.maxDrawdownPct,'%')+'</strong></div></div><p class="muted">'+safe(data.assumptions)+'</p><p class="muted">Capital reinvertit en una sola operació cada vegada; el drawdown es calcula en tancaments, no intradia. No inclou impostos, gaps intradia ni dades fora d’IEX. Mostra petita = resultat no concloent.</p><div class="tablebox"><table><thead><tr><th>Entrada</th><th>Sortida</th><th>Motiu</th><th>Rendiment net</th></tr></thead><tbody>'+trades.map(t=>'<tr><td>'+safe(t.entryDate.slice(0,10))+' · '+fmt(t.entry)+'</td><td>'+safe(t.date.slice(0,10))+' · '+fmt(t.exit)+'</td><td>'+safe(t.reason)+'</td><td>'+fmtMetric(t.returnPct,'%')+'</td></tr>').join('')+'</tbody></table></div>';
+ }catch(e){el.textContent='Backtesting no disponible: '+String(e.message||e)}
+ finally{btn.disabled=false}
+};
+document.getElementById('historyStatusFilter').onchange=renderStockHistory;
+document.getElementById('earlySort').onchange=renderEarlyWatch;
+document.getElementById('earlyOnly').onchange=renderEarlyWatch;
+document.getElementById('historyExport').onclick=()=>{const headers=['data','ticker','anterior','estat','preu_1h','radar','qualitat','trigger','stop','rendiment_3_sess','rendiment_5_sess','rendiment_10_sess'];const lines=[headers.join(',')];for(const h of stockSignalHistory)lines.push([h.day,h.ticker,h.previous,h.state,h.price,h.radar,h.quality,h.trigger,h.stop,h.d3,h.d5,h.d10].map(v=>v??'').join(','));const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='trading2026_senyals.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
+const showStockManager=()=>{
+ const el=document.getElementById('stockManualManager');
+ const active=META.map(x=>x.ticker).sort();
+ const removed=[...hiddenStocks].sort();
+ el.innerHTML='<strong>Accions seguides ('+active.length+')</strong><p class="small">Prem × per retirar una acció del radar i del Top 10.</p><div class="stock-manager-grid">'+active.map(t=>'<button type="button" class="btn stock-remove" data-remove="'+safe(t)+'">× '+safe(t)+'</button>').join('')+'</div><strong>Accions retirades ('+removed.length+')</strong><div class="stock-manager-grid">'+(removed.length?removed.map(t=>'<button type="button" class="btn" data-restore="'+safe(t)+'">+ '+safe(t)+'</button>').join(''):'<span class="muted">Cap</span>')+'</div>';
+};
+function removeTrackedStock(ticker){
+ hiddenStocks.add(ticker);saveHiddenStocks();
+ const index=META.findIndex(x=>x.ticker===ticker);if(index>=0)META.splice(index,1);
+ rows=rows.filter(x=>x.ticker!==ticker);
+ document.getElementById('stockAddMessage').textContent=ticker+' retirada (la pots recuperar)';
+ showStockManager();render();
+}
+function restoreTrackedStock(ticker){
+ const item=stockCatalog.get(ticker)||{ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'};
+ hiddenStocks.delete(ticker);saveHiddenStocks();
+ if(!META.some(x=>x.ticker===ticker))META.push({...item});
+ if(!stockCatalog.has(ticker)&&!manualStocks.includes(ticker)){manualStocks.push(ticker);saveManualStocks()}
+ rows.push({...item,status:'SENSE DADES'});
+ document.getElementById('stockAddMessage').textContent=ticker+' recuperada';
+ showStockManager();render();scan();
+}
+document.getElementById('stockAddBtn').onclick=()=>{
+ const field=document.getElementById('stockAddInput'),ticker=field.value.trim().toUpperCase(),msg=document.getElementById('stockAddMessage');
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(ticker)){msg.textContent='Ticker no vàlid';return}
+ if(hiddenStocks.has(ticker)){restoreTrackedStock(ticker);field.value='';return}
+ if(META.some(x=>x.ticker===ticker)){msg.textContent=ticker+' ja és a la llista';return}
+ if(manualStocks.length>=40){msg.textContent='Límit de 40 accions manuals';return}
+ manualStocks.push(ticker);saveManualStocks();
+ META.push({ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'});
+ rows.push({...META.at(-1),status:'SENSE DADES'});
+ field.value='';msg.textContent=ticker+' afegida; consultant dades…';
+ showStockManager();render();scan();
+};
+document.getElementById('stockAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('stockAddBtn').click()});
+document.getElementById('stockManageBtn').onclick=()=>{const el=document.getElementById('stockManualManager');el.hidden=!el.hidden;showStockManager()};
+document.getElementById('stockManualManager').onclick=e=>{
+ const rem=e.target.closest('[data-remove]'),restore=e.target.closest('[data-restore]');
+ if(rem)removeTrackedStock(rem.dataset.remove);
+ else if(restore)restoreTrackedStock(restore.dataset.restore);
+};
+
+let activeStockCard='all';
+
+discoveredCrypto=mergeWatchCandidates([]);activateTab('top',false);
+async function refreshPaperServer(){
+ const status=document.getElementById('paperServerStatus'),details=document.getElementById('paperServerSummary');
+ if(!status||!details)return;
+ try{
+  const r=await fetch('/api/paper-health',{cache:'no-store'}),d=await r.json();
+  if(!r.ok)throw Error('HTTP '+r.status);
+  const label={OPERATIU:'Registre del servidor actualitzat',DESACTUALITZAT:'Última execució antiga: revisar Vercel',SENSE_EXECUCIONS:'Encara no hi ha cap execució registrada',NO_CONFIGURAT:'Servidor sense configurar',ERROR_LECTURA:'Error de lectura del servidor'}[d.state]||'Estat desconegut';
+  status.textContent=label+' · Última execució: '+(d.lastRun?new Date(d.lastRun).toLocaleString('ca-ES'):'pendent')+' · Tasca prevista: diària, 19:00 UTC';
+  details.innerHTML=[['Cicles',d.checks],['Candidatures revisades',d.sampled],['Descartades',d.rejected],['Candidates aptes',d.eligible],['Simulades obertes',d.open],['Simulades tancades',d.closed]].map(([k,v])=>'<span class="pill">'+safe(k)+': '+(Number.isFinite(v)?v:'—')+'</span>').join(' ');
+ }catch(e){status.textContent='No es pot verificar el servidor: '+String(e.message||e);details.innerHTML='';}
+}
+document.getElementById('paperServerRefresh').onclick=refreshPaperServer;
+refreshPaperServer();
+setInterval(refreshPaperServer,5*60*1000);
+const PAPER_KEY='trading2026_paper_trades_v1',PAPER_ON='trading2026_paper_enabled_v1',PAPER_MKT='trading2026_paper_market_v1';
+let paperTrades=[];try{const v=JSON.parse(localStorage.getItem(PAPER_KEY)||'[]');if(Array.isArray(v))paperTrades=v.slice(-500)}catch(_){}
+const paperEnabled=document.getElementById('paperEnabled'),paperMarket=document.getElementById('paperMarket');
+paperEnabled.checked=localStorage.getItem(PAPER_ON)==='yes';
+paperMarket.value=localStorage.getItem(PAPER_MKT)||'stocks';
+paperEnabled.onchange=()=>{localStorage.setItem(PAPER_ON,paperEnabled.checked?'yes':'no');paintPaper();};
+paperMarket.onchange=()=>{localStorage.setItem(PAPER_MKT,paperMarket.value);paintPaper();};
+function persistPaper(){try{localStorage.setItem(PAPER_KEY,JSON.stringify(paperTrades.slice(-500)))}catch(_){}}
+function samplePaper(market){
+ if(market==='stocks')return rows.map(r=>({symbol:r.ticker,price:stockPriceView(r).price,valid:stockPriceView(r).valid,
+  ready:stockDecision(r).startsWith('REVISAR ENTRADA')&&['READY','A','A+'].includes(r.status)&&r.pineEntryConfirmed===true,
+  trigger:r.trigger,stop:r.stop,stamp:r.extendedTimestamp||null}));
+ return Object.entries(cryptoSignals).map(([symbol,r])=>({symbol,price:r.price,
+  valid:Number.isFinite(r.price)&&Number.isFinite(Date.parse(r.quoteTime))&&Date.now()-Date.parse(r.quoteTime)<2*3600000&&r.dataQuality&&!Object.values(r.dataQuality).some(q=>q.stale),
+  ready:r.operationalDecision==='REVISAR ENTRADA'&&r.pineSignalCandidate===true,
+  trigger:r.pineReferenceEntry,stop:r.pineReferenceStop,stamp:r.quoteTime}));
+}
+function tickPaper(){
+ if(!paperEnabled.checked)return;
+ const markets=paperMarket.value==='all'?['stocks','crypto']:[paperMarket.value];
+ let changed=false;const now=Date.now();
+ for(const market of markets)for(const c of samplePaper(market)){
+  if(!c.valid||!Number.isFinite(c.price)||c.price<=0)continue;
+  const key=market+':'+c.symbol;
+  const open=paperTrades.find(t=>t.key===key&&t.state==='OBERTA');
+  if(open){
+   const sampleTime=Date.parse(c.stamp||'');
+   if(!Number.isFinite(sampleTime)||sampleTime<=open.lastTimestamp)continue;
+   open.lastPrice=c.price;open.lastTimestamp=sampleTime;
+   // Observed-price exit only: if market gaps through the stop, use worse sampled price.
+   if(c.price<=open.stop||c.price>=open.target){
+    open.exit=c.price;open.exitAt=new Date(sampleTime).toISOString();open.state='TANCADA';open.exitReason=c.price<=open.stop?'Stop observat':'Objectiu observat';
+    open.resultPct=Math.round((c.price/open.entry-1-0.0024)*10000)/100;
+   }
+   changed=true;continue;
+  }
+  if(!c.ready||!Number.isFinite(c.trigger)||!Number.isFinite(c.stop)||c.stop>=c.trigger)continue;
+  const sampleTime=Date.parse(c.stamp||'');
+  if(!Number.isFinite(sampleTime)||now-sampleTime>20*60000)continue;
+  if(c.price<c.trigger||c.price>c.trigger*1.01)continue;
+  const last=paperTrades.filter(t=>t.key===key).at(-1);
+  if(last&&now-Date.parse(last.entryAt)<7*86400000)continue;
+  const risk=c.price-c.stop;if(risk<=0||risk/c.price>.08)continue;
+  paperTrades.push({key,market,symbol:c.symbol,state:'OBERTA',entry:c.price,stop:c.stop,target:c.price+2*risk,entryAt:new Date(sampleTime).toISOString(),lastTimestamp:sampleTime,lastPrice:c.price,exit:null,resultPct:null});
+  changed=true;
+ }
+ if(changed){paperTrades=paperTrades.slice(-500);persistPaper()}
+ paintPaper();
+}
+function paintPaper(){
+ const closed=paperTrades.filter(t=>t.state==='TANCADA'),open=paperTrades.filter(t=>t.state==='OBERTA');
+ const wins=closed.filter(t=>t.resultPct>0).length;
+ document.getElementById('paperStats').innerHTML='<div><small>Obertes simulades</small><strong>'+open.length+'</strong></div><div><small>Tancades</small><strong>'+closed.length+'</strong></div><div><small>Amb retorn positiu</small><strong>'+(closed.length?Math.round(wins/closed.length*100)+'%':'—')+'</strong></div><div><small>Resultat mitjà net</small><strong>'+(closed.length?fmt(closed.reduce((a,t)=>a+t.resultPct,0)/closed.length,2)+'%':'—')+'</strong></div>';
+ document.getElementById('paperRows').innerHTML=paperTrades.slice(-35).reverse().map(t=>'<tr><td>'+safe(t.market)+'</td><td>'+safe(t.symbol)+'</td><td>'+safe(t.state)+'</td><td>'+fmt(t.entry,5)+'</td><td>'+fmt(t.lastPrice,5)+'</td><td>'+fmt(t.stop,5)+'</td><td>'+fmt(t.target,5)+'</td><td>'+(t.state==='TANCADA'?fmt(t.resultPct,2)+'%':'En seguiment')+'</td></tr>').join('')||'<tr><td colspan="8">Encara no hi ha operacions simulades. No s’obrirà cap operació fins que existeixi un senyal confirmat i dades recents.</td></tr>';
+ document.getElementById('paperMessage').textContent=paperEnabled.checked?'Simulació activa mentre aquesta pàgina sigui oberta':'Simulació pausada';
+}
+async function updateServerPaperHealth(){
+ const el=document.getElementById('serverPaperHealth');if(!el)return;
+ try{const r=await fetch('/api/paper-health',{cache:'no-store'});const x=await r.json();
+ const labels={OPERATIU:'Servidor · darrer cicle registrat',SENSE_EXECUCIONS:'Servidor · pendent de primera execució',DESACTUALITZAT:'Servidor · última execució antiga',ERROR_LECTURA:'Servidor · error de lectura',NO_CONFIGURAT:'Servidor · sense configuració'};
+ el.textContent=(labels[x.state]||'Servidor · estat desconegut')+(x.lastRun?' · '+new Date(x.lastRun).toLocaleString('ca-ES'):'')+' · mostres '+(x.sampled??0)+' · descartades '+(x.rejected??0)+' · simulades obertes '+(x.open??0)+' · tancades '+(x.closed??0);
+ }catch(_){el.textContent='Servidor · no es pot consultar l’estat (no vol dir que estigui actiu)'}
+}
+updateServerPaperHealth();setInterval(updateServerPaperHealth,5*60*1000);
+document.getElementById('paperCheck').onclick=()=>tickPaper();
+setInterval(tickPaper,60000);
+paintPaper();
+
+const secs=[...new Set(META.map(x=>x.sector))].sort();document.getElementById('sectorFilter').innerHTML+=[...secs].map(s=>`<option>${s}</option>`).join('');
+try{const saved=JSON.parse(localStorage.getItem('trading2026_v2_scan'));if(saved?.rows) rows=saved.rows.filter(x=>META.some(m=>m.ticker===x.ticker));}catch(e){}
+render();paintMacroGuard();
+async function refreshStocksInPhases(){
+ if(scanInProgress)return;
+ await scan('pending');
+ await scan('stale');
+}
+refreshStocksInPhases();
+setInterval(refreshStockQuotes,60000);
+setInterval(()=>{refreshStocksInPhases()},15*60*1000);setInterval(paintMacroGuard,5*60*1000);
+</script></body></html>:'Sense dades'],
+ ['OBV / Acumulació',a.accumulationWatch?'Indicis · vigilar':'No detectada'],
+ ['Volum sostingut',a.strongVolumeWatch?'Detectat':'No detectat'],
+ ['Estat',a.pineState||a.status||'Sense dades'],['Font homogènia',a.providerConsistency||'Sense dades'],
+ ['Pla executable',a.planAvailable?'Pla orientatiu; validar Pine':'No disponible']
+ ];
+ document.getElementById('coinTitle').textContent=symbol+' · Anàlisi avançada';
+ document.getElementById('coinDetails').innerHTML='<div class="coin-metrics">'+tiles.map(x=>tile(...x)).join('')+'</div>'+
+ '<p class="coin-foot">Estudi preliminar: '+safe(String(study.events??'—'))+' episodis; rendiment mitjà posterior a 6 hores: '+safe(Number.isFinite(study.avgForward6hPct)?f(study.avgForward6hPct)+'%':'Sense dades')+'. No és un backtest operatiu ni una probabilitat de guany.</p>'+
+ '<p class="coin-foot">Valors calculats amb espelmes tancades. Les dades de vigilància no autoritzen READY. Contrasta el senyal amb TradingView abans d’operar.</p>';
+ document.getElementById('coinOverlay').hidden=false;document.getElementById('coinClose').focus();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-coin]');if(b){showCoinDetails(b.dataset.coin);return;}if(e.target.id==='coinClose'||e.target.id==='coinOverlay')document.getElementById('coinOverlay').hidden=true;});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('coinOverlay').hidden=true;});
+
 function renderTop10(){
  const clock=document.getElementById('stockMarketClock');if(clock)clock.textContent=marketClockLabel();
  const rank={'A+':7,'A':6,'READY':5,'PRE':4,'WATCH':3,'NO SETUP':1,'INVALIDAT':0,'SENSE DADES':-1};
@@ -757,7 +2218,7 @@ function renderTop10(){
   const watchContext=a.accumulationWatch?'ACUMULACIÓ · vigilar':a.strongVolumeWatch?'VOLUM SOSTINGUT':' ';
   const tierLabel=a.liquidityTier||'SENSE CLASSIFICAR';
   const contextNote='VWAP 24H: '+(Number.isFinite(a.vwap24h)?fmt(a.vwap24h,5):'sense dades')+' · RS vs BTC 24H: '+(Number.isFinite(a.relativeStrengthBTC)?fmt(a.relativeStrengthBTC,2)+' punts':'sense dades')+' · Proveïdors: '+(a.providerConsistency||'sense dades')+' · Estudi acumulació: '+(a.historicalAccumulation?.events??'—')+' casos històrics (no backtest executiu)';
-  return '<tr><td>'+(i+1)+'</td><td>'+safe(x.symbol)+'</td><td>'+contextualScore(a.operationalQuality??a.setupQuality??a.score,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a.anticipationScore,'potential')+'</td><td>'+fmt(a.price,5)+'</td><td title="'+safe('Volum relatiu 1H TANCADA (no espelma en curs) · espelma '+candleDirection+' · canvi '+(Number.isFinite(a.candleMovePct)?fmt(a.candleMovePct,2)+'%':'—')+' · Grup de liquiditat: '+tierLabel+' · '+watchContext+' · '+contextNote+'; volum alt no valida entrada')+'"><span class="vol-indicator '+volClass+'"><strong>'+volArrow+'</strong> '+safe(volumePair)+' <small>'+safe(volLabel)+'</small></span>'+(a.accumulationWatch?'<small class="asset-subtitle">Acumulació · vigilar</small>':a.strongVolumeWatch?'<small class="asset-subtitle">Volum sostingut</small>':'')+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span><span class="top-crypto-decision" title="'+safe(decision)+'">'+safe(decision.startsWith('REVISAR ENTRADA')?'REVISAR ENTRADA':decision.includes('NO PERSEGUIR')?'NO ENTRAR':decision.startsWith('ESPERAR')?'ESPERAR':'VIGILAR')+'</span></td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td>'+(Number.isFinite(a.price)&&Number.isFinite(a.pineReferenceEntry)?(a.pineReferenceEntry<=a.price?'Superat':fmt((a.pineReferenceEntry/a.price-1)*100,1)+'%'):'—')+'</td></tr>';
+  return '<tr><td>'+(i+1)+'</td><td><button type="button" class="crypto-info" data-coin="'+safe(x.symbol)+'">'+safe(x.symbol)+' ⓘ</button></td><td>'+contextualScore(a.operationalQuality??a.setupQuality??a.score,'entry',decision==='REVISAR ENTRADA')+'</td><td>'+contextualScore(a.anticipationScore,'potential')+'</td><td>'+fmt(a.price,5)+'</td><td title="'+safe('Volum relatiu 1H TANCADA (no espelma en curs) · espelma '+candleDirection+' · canvi '+(Number.isFinite(a.candleMovePct)?fmt(a.candleMovePct,2)+'%':'—')+' · Grup de liquiditat: '+tierLabel+' · '+watchContext+' · '+contextNote+'; volum alt no valida entrada')+'"><span class="vol-indicator '+volClass+'"><strong>'+volArrow+'</strong> '+safe(volumePair)+' <small>'+safe(volLabel)+'</small></span>'+(a.accumulationWatch?'<small class="asset-subtitle">Acumulació · vigilar</small>':a.strongVolumeWatch?'<small class="asset-subtitle">Volum sostingut</small>':'')+'</td><td><span class="status-chip '+cryptoStateData(x).cls+'">'+safe(a.pineState||a.status)+'</span><span class="top-crypto-decision" title="'+safe(decision)+'">'+safe(decision.startsWith('REVISAR ENTRADA')?'REVISAR ENTRADA':decision.includes('NO PERSEGUIR')?'NO ENTRAR':decision.startsWith('ESPERAR')?'ESPERAR':'VIGILAR')+'</span></td><td>'+(plan?fmt(a.pineReferenceEntry,5):'—')+'</td><td>'+(Number.isFinite(a.price)&&Number.isFinite(a.pineReferenceEntry)?(a.pineReferenceEntry<=a.price?'Superat':fmt((a.pineReferenceEntry/a.price-1)*100,1)+'%'):'—')+'</td></tr>';
  }).join('')||'<tr><td colspan="9">Escaneja altcoins per mostrar les millors configuracions</td></tr>';
 }
 document.getElementById('topRefresh').onclick=()=>{renderTop10();scan()};
