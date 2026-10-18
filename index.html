@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Trading 2026 · LONG AI v6.6.31</title>
+<title>Trading 2026 · LONG AI v6.6.32</title>
 <style>
 :root{--bg:#08101f;--panel:#111a2d;--line:#25324b;--text:#eff5ff;--muted:#8fa0bb;--g:#36d399;--y:#fbbf24;--b:#60a5fa;--r:#fb7185;--p:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#070d18,#0a1222 50%,#08101f);color:var(--text)}.wrap{max-width:1550px;margin:auto;padding:20px}
@@ -700,10 +700,43 @@ function connectCryptoPrices(){
   ws.onerror=()=>{status.textContent='Coinbase: error de connexió'};
  }catch(_){status.textContent='Coinbase: canal no disponible'}
 }
+const cryptoRecheckAt={};
+let cryptoRecheckBusy=false;
+const cryptoRecheckQueue=[];
+function quoteDrift(symbol){
+ const quote=cryptoLive[symbol],scan=cryptoSignals[symbol];
+ if(!quote||Date.now()-quote.received>60000||!Number.isFinite(scan?.price)||scan.price<=0)return null;
+ return (quote.price/scan.price-1)*100;
+}
+function enqueueCryptoRecheck(symbol){
+ if(cryptoScanning||cryptoRecheckBusy||cryptoRecheckQueue.includes(symbol))return;
+ if(Date.now()-(cryptoRecheckAt[symbol]||0)<180000)return;
+ cryptoRecheckQueue.push(symbol);
+ scheduleCryptoRecheck();
+}
+async function scheduleCryptoRecheck(){
+ if(cryptoRecheckBusy||cryptoScanning||document.hidden||!cryptoRecheckQueue.length)return;
+ cryptoRecheckBusy=true;
+ const sym=cryptoRecheckQueue.shift();
+ cryptoRecheckAt[sym]=Date.now();
+ try{
+  const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),28000);
+  let res;
+  try{res=await fetch('/api/crypto-scan?symbols='+encodeURIComponent(sym),{cache:'no-store',signal:ctl.signal})}finally{clearTimeout(timer)}
+  if(!res.ok)throw Error('HTTP '+res.status);
+  const data=await res.json(),updated=(data.results||[]).find(x=>x.symbol===sym);
+  if(updated){cryptoSignals[sym]=updated;delete cryptoFailures[sym];saveCryptoObservation(updated);paintCrypto();renderTop10();}
+ }catch(e){console.warn('Reescaneig prioritari no disponible',sym,e.message)}
+ finally{cryptoRecheckBusy=false;if(cryptoRecheckQueue.length)setTimeout(scheduleCryptoRecheck,30000)}
+}
 function renderCryptoLivePrices(){
  document.querySelectorAll('[data-crypto-quote]').forEach(el=>{
   let q=cryptoLive[el.dataset.cryptoQuote];
-  el.textContent=q&&Date.now()-q.received<60000?fmt(q.price,q.price<1?6:2)+' $ · '+(q.source||'Coinbase')+(q.approximateTime?' · hora consulta':'')+' · '+new Date(q.time).toLocaleTimeString('ca-ES'):'— · directe no disponible';
+  const symbol=el.dataset.cryptoQuote,drift=quoteDrift(symbol);
+  const stale=drift!==null&&Math.abs(drift)>=3;
+  el.textContent=q&&Date.now()-q.received<60000?fmt(q.price,q.price<1?6:2)+' $ · '+(q.source||'Coinbase')+(q.approximateTime?' · hora consulta':'')+' · '+new Date(q.time).toLocaleTimeString('ca-ES')+(stale?' · ⚠ Anàlisi desfasada '+(drift>0?'+':'')+fmt(drift,1)+'%':''):'— · directe no disponible';
+  el.style.color=stale?'#fbbf24':'#69edc2';
+  if(stale&&cryptoWatch.includes(symbol))enqueueCryptoRecheck(symbol);
  });
 }
 let cryptoQuoteOffset=0;
