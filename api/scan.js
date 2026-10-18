@@ -1,5 +1,17 @@
 
 const ALPACA = 'https://data.alpaca.markets/v2/stocks/bars';
+const providerCache=new Map();
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function limitedAlpaca(url){
+ const cached=providerCache.get(url);if(cached&&Date.now()-cached.at<120000)return cached.data;
+ for(let attempt=0;attempt<3;attempt++){
+  const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
+  if(response.status===429){if(attempt<2){await sleep(700*(attempt+1));continue;}throw new Error('Alpaca 429: límit de peticions; dades no actualitzades');}
+  const body=await response.text();if(!response.ok)throw new Error('Alpaca '+response.status+': '+body.slice(0,220));
+  const data=JSON.parse(body);providerCache.set(url,{at:Date.now(),data});if(providerCache.size>75)providerCache.delete(providerCache.keys().next().value);return data;
+ }
+}
+
 const BENCHMARK = {
   ANET:'QQQ', CRDO:'SOXX', AAOI:'SOXX', CLS:'QQQ', MU:'SOXX', AVGO:'SOXX',
   VRT:'XLI', ETN:'XLI', GEV:'XLI', POWL:'XLI', NVT:'XLI', HUBB:'XLI', FIX:'XLI', STRL:'XLI', EME:'XLI', MOD:'XLI', CARR:'XLI',
@@ -142,10 +154,7 @@ async function fetchBars(symbols,timeframe,start,limit=10000,historyFeed='iex',h
    const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'split',feed:historyFeed,sort:'asc'});
    if(historyFeed==='sip'&&historyCutoff)params.set('end',historyCutoff);
    if(pageToken)params.set('page_token',pageToken);
-   const r=await fetch(`${ALPACA}?${params}`,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
-   const body=await r.text();
-   if(!r.ok)throw new Error(`Alpaca ${r.status}: ${body.slice(0,220)}`);
-   const j=JSON.parse(body);
+   const j=await limitedAlpaca(`${ALPACA}?${params}`);
    for(const [sym,bars] of Object.entries(j.bars||{}))merged[sym]=(merged[sym]||[]).concat(bars||[]);
    pageToken=j.next_page_token||null;
    page++;
@@ -525,14 +534,14 @@ export default async function handler(req,res){
     ]);
 
     const bh1 = {};
-    await Promise.all(benchSymbols.map(async (b) => {
+    for(const b of benchSymbols){
       try {
         const one = await fetchBars([b],'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff);
         bh1[b] = one[b] || [];
       } catch (_) {
         bh1[b] = [];
       }
-    }));
+    }
 
     // Fallback: si el benchmark específic té poca cobertura IEX
     // (p. ex. algun ETF sectorial), fem servir QQQ.
@@ -551,14 +560,15 @@ export default async function handler(req,res){
       }
     }
     const retryErrors=[];
-    for(let i=0;i<retryTasks.length;i+=5){
-      await Promise.all(retryTasks.slice(i,i+5).map(async t=>{
+    for(let i=0;i<Math.min(retryTasks.length,12);i+=2){
+      await Promise.all(retryTasks.slice(i,i+2).map(async t=>{
         try{
           const result=await fetchBars([t.sym],t.tf,addDays(new Date(),t.tf==='1Day'?-240:-160),10000,feedInfo.feed,feedInfo.cutoff);
           if((result[t.sym]?.length||0)>(t.collection[t.sym]?.length||0))t.collection[t.sym]=result[t.sym];
         }catch(e){retryErrors.push(t.sym+' '+t.tf+': '+String(e.message||e).slice(0,80))}
       }));
     }
+    if(retryTasks.length>12)retryErrors.push((retryTasks.length-12)+' intents addicionals ajornats per limitar peticions');
     // Limit extra provider requests: 30m confirmation only for leading 20 candidates.
     const top30=raw.map(symbol=>({symbol,pre:compute(symbol,d[symbol]||[],h4[symbol]||[],h1[symbol]||[],bh1[BENCHMARK[symbol]||'QQQ']||bh1.QQQ||[])})).filter(x=>Number.isFinite(x.pre.radarScore)).sort((a,b)=>b.pre.radarScore-a.pre.radarScore).slice(0,20).map(x=>x.symbol);
     let m30={};
