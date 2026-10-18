@@ -433,7 +433,7 @@ function showDetail(ticker){
  <section class="detail-box detail-wide"><h3>Momentum · diagnòstic</h3><div class="stock-decision-metrics">
  ${toneTag('EMA 200 · 1D','neutral',r.momentum?.day?.ema200Available?fmt(r.momentum.day.ema200)+' $':'Històric insuficient')}
  ${toneTag('EMA 20/50 · 4H',r.momentum?.four?.emaCross5==='ALCISTA'?'positive':r.momentum?.four?.emaCross5==='BAIXISTA'?'negative':'neutral',safe(r.momentum?.four?.emaCross5||'Sense dades'))}
- ${toneTag('MACD · 1H',r.momentum?.hour?.macdTone||'neutral',safe(r.momentum?.hour?.macdCross||'Sense dades'))}
+ ${toneTag('MACD · 1H',r.momentum?.hour?.macdTone||'neutral',safe(!r.momentum?.hour?.available?'Sense dades':(r.momentum.hour.macdHistogram>=0?'Positiu':'Negatiu')+' · '+(r.momentum.hour.macdCross==='CAP RECENT'?'Sense creuament recent':r.momentum.hour.macdCross)+' · Hist. '+fmt(r.momentum.hour.macdHistogram,4)))}
  ${toneTag('RSI · 1H',r.momentum?.hour?.rsiTone||'neutral',Number.isFinite(r.momentum?.hour?.rsi14)?fmt(r.momentum.hour.rsi14,1):'Sense dades')}
  </div><p class="small">Indicadors informatius, no alteren READY. EMA 200 exigeix 200 espelmes.</p></section>
  <section class="detail-box detail-wide"><h3>Plans de seguiment</h3><div class="stock-decision-metrics">
