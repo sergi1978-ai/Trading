@@ -1,5 +1,5 @@
 import {loadPaper,savePaper} from './_paper-store.js';
-const STOCKS=['UBER','CRM','NOW','ABBV','MU','ANET','SNOW','FTNT','PANW','VLO','LLY','NFLX','PLTR','MRVL','FSLR','CF','INTU','COHR','CEG','OKLO','EME','FTNT'];
+const STOCKS=['UBER','CRM','NOW','ABBV','MU','ANET','SNOW','FTNT','PANW','VLO','LLY','NFLX','PLTR','MRVL','FSLR','CF','INTU','COHR','CEG','OKLO','EME'];
 const COINS=['BTC','ETH','SOL','NEAR','LINK','ONDO','AAVE','RENDER','TAO','FIL','SUI','INJ','HYPE','PYTH','HBAR','XRP','FET','STX','JASMY','ENA','MORPHO','AKT','TIA','BNB'];
 const STOCK_BATCH=6, CRYPTO_BATCH=6;
 function rotatingBatch(items,cursor,size){return Array.from({length:Math.min(items.length,size)},(_,i)=>items[(cursor+i)%items.length]);}
@@ -13,7 +13,7 @@ function cryptoCandidate(r){
 function stockCandidate(r,q){
  const price=n(q?.extendedPrice),entry=n(r.trigger),stop=n(r.stop),age=n(q?.extendedAgeMinutes);
  const coherent=price>0&&n(r.technicalPrice)>0&&Math.abs(price/r.technicalPrice-1)<=.05&&r.priceBasis==='SPLIT_ADJUSTED';
- const valid=!!(r.pineEntryConfirmed&&r.pinePlanValid&&r.entryDataReliable!==false&&coherent&&q?.extendedStale===false&&age!==null&&age>=-2&&age<=15);
+ const valid=!!(r.pineEntryConfirmed&&r.pinePlanValid&&r.entryDataReliable!==false&&coherent&&q?.priceStale===false&&q?.extendedRecent===true&&q?.priceKind==='TRADE IEX'&&age!==null&&age>=-2&&age<=15);
  return {market:'stocks',symbol:r.ticker||r.symbol,price,entry,stop,ready:valid,stamp:q?.extendedTimestamp,phase:r.status||'SENSE DADES',potential:n(r.earlyScore),quality:n(r.entryQuality),reason:r.pineBlockedReason||'Pine not confirmed'};
 }
 function update(state,candidates){
