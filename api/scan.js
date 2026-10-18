@@ -522,7 +522,7 @@ export default async function handler(req,res){
     const raw=(req.query.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean).slice(0,60);
     if(!raw.length) return res.status(400).json({error:'Cal indicar ?symbols=PLTR,CRM,...'});
     const feedInfo=await chooseHistoricalFeed();
-    const startDay=addDays(new Date(),-130);
+    const startDay=addDays(new Date(),-450); // ~64 closed weeks; weekly EMA50 research context
     const startIntraday=addDays(new Date(),-60);
     const benchSymbols=[...new Set(raw.map(s=>BENCHMARK[s]||'QQQ'))];
 
