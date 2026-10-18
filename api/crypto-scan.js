@@ -88,7 +88,7 @@ function scanOne(symbol,pack){
  const bearish=c.rvol>=1.2&&last.c<last.o&&last.c<f.at(-2).c;
  const dist=trigger>0?100*(trigger-last.c)/trigger:null;
  const weak=dist!==null&&(dist>=3.75||dist>=2.5&&last.c<c.ema20&&bearish);
- const momentum=c.rsi>=48&&c.rsi<=72,trend=dailyTrend&&fourTrend,volumeOk=c.rvol>=0.90&&!bearish,liquid=d.slice(-20).reduce((sum,x)=>sum+x.c*x.v,0)/20>=1000000;
+ const momentum=c.rsi>=48&&c.rsi<=72,trend=dailyTrend&&fourTrend,volumeOk=c.rvol>=1.05&&!bearish,liquid=d.slice(-20).reduce((sum,x)=>sum+x.c*x.v,0)/20>=1000000;
  const canPlan=trigger!==null&&risk>0&&stopPct<=10;
  let status='WATCH',reason='Sense configuració de compra validada';
  if(extended||stopPct>10){status='NO PERSEGUIR';reason='Sobreextensió o stop massa distant'}
@@ -169,7 +169,7 @@ function scanOne(symbol,pack){
  const earlyDistance=b.atr>0?(earlyTrigger-last.c)/b.atr:null;
  const earlyNear=Number.isFinite(earlyDistance)&&earlyDistance>=0&&earlyDistance<=1.00;
  const earlyTrend=a.c>a.ema50*.94&&b.c>b.ema50*.97&&b.ema20>=b.ema50*.98;
- const earlyVolume=Number.isFinite(c.rvol)&&c.rvol>=1.05;
+ const earlyVolume=Number.isFinite(c.rvol)&&c.rvol>=0.90;
  const earlyFirstImpulse=last.c>earlyTrigger&&f.at(-2).c<=earlyTrigger&&last.c>last.o&&earlyVolume;
  // Independent directional early-watch: bearish monitoring is not a SHORT signal.
  const bearTrend=a.c<a.ema50&&b.c<b.ema50;
