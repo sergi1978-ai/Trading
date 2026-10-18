@@ -49,6 +49,12 @@
       ['MACD · 1H',!a.momentum?.hour?.available?'Sense dades':(a.momentum.hour.macdHistogram>=0?'Positiu':'Negatiu')+' · '+(a.momentum.hour.macdCross==='CAP RECENT'?'Sense creuament recent':a.momentum.hour.macdCross)+' · Hist. '+fmtValue(a.momentum.hour.macdHistogram,4),a.momentum?.hour?.macdTone||'neutral'],
       ['RSI · 1H',Number.isFinite(a.momentum?.hour?.rsi14)?fmtValue(a.momentum.hour.rsi14,1):'Sense dades',a.momentum?.hour?.rsiTone||'neutral']
     ];
+    for(const [tf,label] of [['week','1W'],['day','1D'],['four','4H'],['hour','1H']]){
+      const m=a.momentum?.[tf],v=m?.macdHistogram,ok=m?.available&&Number.isFinite(v);
+      grid.append(metric('MACD '+label,ok?(v>=0?'+':'')+fmtValue(v,4)+' · '+(m.macdCross==='CAP RECENT'?'Sense creuament':m.macdCross):'Sense dades',!ok?'neutral':v>=0?'positive':'negative'));
+    }
+    const crossMarket=a.momentum?.week?.weeklyTrend==='ALCISTA'&&a.momentum?.day?.macdHistogram<0&&a.momentum?.four?.macdHistogram<0;
+    if(crossMarket)grid.append(metric('Divergència temporal','1W alcista · 1D i 4H amb momentum negatiu','negative'));
     for(const [k,v,tone] of vals)grid.append(metric(k,v,tone));
     const content=document.getElementById('coinMetrics');content.replaceChildren();
     const summary=document.createElement('div');summary.className='coin-summary';
