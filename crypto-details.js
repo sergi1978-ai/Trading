@@ -46,7 +46,7 @@
       ['Tendència 1W',a.momentum?.week?.available?a.momentum.week.weeklyTrend:'Històric insuficient',a.momentum?.week?.weeklyTrend==='ALCISTA'?'positive':a.momentum?.week?.weeklyTrend==='BAIXISTA'?'negative':'neutral'],
       ['EMA 200 · 1D',a.momentum?.day?.ema200Available?fmtValue(a.momentum.day.ema200,5):'Històric insuficient',a.momentum?.day?.emaAligned?'positive':'neutral'],
       ['Creuament EMA 20/50 · 4H',a.momentum?.four?.emaCross5||'Sense dades',a.momentum?.four?.emaCross5==='ALCISTA'?'positive':a.momentum?.four?.emaCross5==='BAIXISTA'?'negative':'neutral'],
-      ['MACD · 1H',a.momentum?.hour?.macdCross||'Sense dades',a.momentum?.hour?.macdTone||'neutral'],
+      ['MACD · 1H',!a.momentum?.hour?.available?'Sense dades':(a.momentum.hour.macdHistogram>=0?'Positiu':'Negatiu')+' · '+(a.momentum.hour.macdCross==='CAP RECENT'?'Sense creuament recent':a.momentum.hour.macdCross)+' · Hist. '+fmtValue(a.momentum.hour.macdHistogram,4),a.momentum?.hour?.macdTone||'neutral'],
       ['RSI · 1H',Number.isFinite(a.momentum?.hour?.rsi14)?fmtValue(a.momentum.hour.rsi14,1):'Sense dades',a.momentum?.hour?.rsiTone||'neutral']
     ];
     for(const [k,v,tone] of vals)grid.append(metric(k,v,tone));
