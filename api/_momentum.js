@@ -14,9 +14,30 @@ export function momentumDiagnostic(bars,market='crypto'){
  const rsi=down===0?100:100-100/(1+up/down);
  // Interpretation bands differ by market, but do not affect READY.
  const rsiTone=market==='crypto'?(rsi>=55&&rsi<=75?'positive':rsi<40?'negative':'neutral'):(rsi>=50&&rsi<=70?'positive':rsi<45?'negative':'neutral');
+ const histPrevious=count>=35&&emaSeries( prices,12).length>0?(()=>{const line=[];for(let i=25;i<count;i++)line.push(e12[i-11]-e26[i-25]);const sig=emaSeries(line,9);return sig.length>1?line.at(-2)-sig.at(-2):null})():null;
  const macdTone=hist>0&&macdCross!=='BAIXISTA'?'positive':hist<0?'negative':'neutral';
- return {available:true,candles:count,market,ema20:last(e20),ema50:last(e50),ema200:last(e200),ema200Available:count>=200,emaAligned:count>=200?aligned:null,emaCross5:emaCross,macd,macdSignal:signal,macdHistogram:hist,macdCross,rsi14:rsi,rsiTone,macdTone,interpretation:market==='crypto'?'24/7 · amplitud de RSI més alta':'Sessions de borsa · gaps i volum IEX parcial',diagnosticOnly:true};
+ return {available:true,candles:count,market,lastClose:last(prices),histPrevious,ema20:last(e20),ema50:last(e50),ema200:last(e200),ema200Available:count>=200,emaAligned:count>=200?aligned:null,emaCross5:emaCross,macd,macdSignal:signal,macdHistogram:hist,macdCross,rsi14:rsi,rsiTone,macdTone,interpretation:market==='crypto'?'24/7 · amplitud de RSI més alta':'Sessions de borsa · gaps i volum IEX parcial',diagnosticOnly:true};
 }
+export function momentumPhase(m){
+ if(!m?.available||![m.macd,m.macdHistogram,m.ema20,m.ema50,m.lastClose].every(Number.isFinite))return 'SENSE DADES';
+ if(m.macd>0&&m.macdHistogram>0&&m.lastClose>m.ema20)return 'IMPULS ALCISTA';
+ if(m.macd<0&&m.macdHistogram>0&&m.histPrevious!==null&&m.macdHistogram>m.histPrevious&&m.lastClose>m.ema20)return 'RECUPERACIO INICIAL';
+ if(m.macd>0&&m.histPrevious!==null&&m.macdHistogram<m.histPrevious)return 'PERDUA IMPULS';
+ if(m.macd<0&&m.macdHistogram<0&&m.lastClose<m.ema20&&m.lastClose<m.ema50)return 'DEBILITAT BAIXISTA';
+ return 'TRANSICIO / MIXT';
+}
+export function momentumContext(m){
+ const w=m?.week,d=m?.day,f=m?.four,h=m?.hour;
+ if(w?.weeklyTrend==='ALCISTA'&&d?.macdHistogram<0&&f?.macdHistogram<0)return 'CORRECCIO / DETERIORAMENT';
+ if(w?.weeklyTrend==='BAIXISTA'&&h?.macdHistogram>0)return 'REBOT CONTRA TENDENCIA';
+ if(d?.macdHistogram<0&&f?.macdHistogram<0)return 'DEBILITAT MULTITEMPORAL';
+ return 'SENSE CONFLICTE CLAR';
+}
+export function earlyMomentumTurn(m,market='stock'){
+ const d=m?.day,f=m?.four;
+ return Boolean(d?.available&&f?.available&&Number.isFinite(d.histPrevious)&&Number.isFinite(f.histPrevious)&&d.macdHistogram>d.histPrevious&&f.macdHistogram>f.histPrevious&&d.rsi14>(market==='crypto'?48:46)&&d.lastClose>d.ema20);
+}
+
 export function weeklyDiagnostic(dailyBars,market='stock'){
  const weeks=new Map();
  for(const b of dailyBars){
