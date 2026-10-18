@@ -4,7 +4,7 @@
   const fmtValue = (v, decimals=2) => typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString('ca-ES',{maximumFractionDigits:decimals}) : 'Sense dades';
   const style = document.createElement('style');
   style.textContent = '.crypto-info{font:inherit;color:#b9dcff;background:transparent;border:0;text-decoration:underline;cursor:pointer;font-weight:800;padding:5px}.coin-overlay[hidden]{display:none}.coin-overlay{position:fixed;inset:0;z-index:1000;background:#030914d8;display:grid;place-items:center;padding:15px}.coin-panel{width:min(560px,100%);max-height:90vh;overflow:auto;background:#14243d;border:1px solid #486080;border-radius:16px;padding:20px;color:#eef5ff}.coin-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.coin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.coin-tile{padding:12px;background:#21334e;border-radius:10px;overflow-wrap:anywhere}.coin-tile small{display:block;font-size:11px;color:#bdd0e5;margin-bottom:5px}.coin-note{color:#b6cbe2;font-size:12px;line-height:1.5}.coin-tile.positive{background:#153a33;border:1px solid #27745c}.coin-tile.positive strong{color:#8af3c2}.coin-tile.negative{background:#432631;border:1px solid #98505f}.coin-tile.negative strong{color:#ffb5c1}.coin-tile.neutral{background:#21334e;border:1px solid #354a68}.coin-summary{padding:13px;border-radius:12px;background:#1c3048;border:1px solid #3c5978;margin-top:16px}.coin-summary strong{display:block;margin-bottom:7px}.coin-summary p{margin:5px 0;font-size:12px;line-height:1.4}.coin-summary .up{color:#8af3c2}.coin-summary .down{color:#ffb5c1}.coin-summary .flat{color:#c7d5e8}';
-  document.head.append(style);
+  style.textContent += '.coin-overview{display:grid;gap:12px;margin-top:14px}.coin-headline,.coin-brief-reasons{padding:13px;background:#20354e;border-radius:12px;border:1px solid #41617e}.coin-headline p,.coin-brief-reasons p{font-size:13px;line-height:1.4;color:#c7d7e9;margin:7px 0 0}.coin-brief-tf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.coin-brief-chip{padding:10px;border-radius:9px;font-size:12px;background:#23354c}.coin-brief-chip.positive{color:#9bf0bf}.coin-brief-chip.negative{color:#ffc0c9}.coin-all-details{margin-top:15px;border:1px solid #486080;border-radius:12px;padding:12px}.coin-all-details summary{font-weight:700;cursor:pointer}.coin-all-details .coin-grid{margin-bottom:10px}';document.head.append(style);
   const overlay=document.createElement('div');
   overlay.id='cryptoDetailModal';overlay.className='coin-overlay';overlay.hidden=true;
   overlay.innerHTML='<section class="coin-panel" role="dialog" aria-modal="true" aria-labelledby="coinHeading"><div class="coin-head"><h2 id="coinHeading">Anàlisi avançada</h2><button type="button" class="btn" id="coinDismiss">✕ Tancar</button></div><div id="coinMetrics"></div></section>';
@@ -73,10 +73,35 @@
       [noPlan?'down':'flat',noPlan?'Cap pla executable.':'Pla orientatiu: comprovar al Pine.']
     ];
     for(const [tone,line] of findings){const p=document.createElement('p');p.className=tone;p.textContent=(tone==='up'?'▲ ':tone==='down'?'▼ ':'● ')+line;summary.append(p);}
-    content.append(summary,grid);
+    const overview=document.createElement('div');overview.className='coin-overview';
+    const phase=a.momentum?.four?.phase||'SENSE DADES';
+    const context=a.momentum?.context||'Sense context confirmat';
+    const headline=document.createElement('div');headline.className='coin-headline';
+    const title=document.createElement('strong');title.textContent=phase==='DEBILITAT BAIXISTA'?'Debilitat de tendència':phase==='IMPULS ALCISTA'?'Momentum favorable':phase==='RECUPERACIO INICIAL'?'Recuperació inicial':phase==='PERDUA IMPULS'?'Pèrdua d’impuls':'Context de tendència mixt';
+    const p=document.createElement('p');p.textContent=context+' · '+(a.momentum?.earlyTurn?'Possible gir inicial per vigilar.':'Sense gir incipient confirmat.');
+    headline.append(title,p);overview.append(headline);
+    const tf=document.createElement('div');tf.className='coin-brief-tf';
+    for(const [key,label] of [['week','1W'],['day','1D'],['four','4H'],['hour','1H']]){
+      const m=a.momentum?.[key],v=m?.macdHistogram;
+      const span=document.createElement('span');span.className='coin-brief-chip '+(m?.available&&Number.isFinite(v)?v>=0?'positive':'negative':'neutral');
+      span.textContent=label+': '+(m?.available&&Number.isFinite(v)?v>=0?'Impuls +':'Impuls −':'Sense dades');tf.append(span);
+    }
+    overview.append(tf);
+    const reasons=document.createElement('div');reasons.className='coin-brief-reasons';
+    const heading2=document.createElement('strong');heading2.textContent='Què falta per entrar?';reasons.append(heading2);
+    const items=[];
+    if(!a.planAvailable)items.push('Falta un pla executable amb risc i objectiu validats.');
+    if(a.priceAboveVwap===false)items.push('El preu continua per sota del VWAP.');
+    if(volumeTone!=='positive')items.push('Falta confirmació de volum alcista 1H/4H.');
+    if(items.length===0)items.push('Validar tancament, trigger, liquiditat i preu executable al Pine.');
+    for(const item of items.slice(0,3)){const t=document.createElement('p');t.textContent='• '+item;reasons.append(t)}
+    overview.append(reasons);
+    const details=document.createElement('details');details.className='coin-all-details';
+    const detailsTitle=document.createElement('summary');detailsTitle.textContent='Veure tots els indicadors i dades tècniques';details.append(detailsTitle,grid);
+    content.append(summary,overview,details);
     const info=document.createElement('p');info.className='coin-note';
     info.textContent='Estudi retrospectiu exploratori: '+safeText(st.events??'—')+' episodis; variació mitjana posterior a 6 h: '+(typeof st.avgForward6hPct==='number'?fmtValue(st.avgForward6hPct)+'%':'Sense dades')+'. No és un backtesting executiu. Els indicadors de vigilància no autoritzen READY.';
-    content.append(info);
+    details.append(info);
     overlay.hidden=false;document.getElementById('coinDismiss').focus();
   }
   document.addEventListener('click',e=>{
