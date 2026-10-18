@@ -425,6 +425,11 @@ function showDetail(ticker){
  ${toneTag('Cotització / frescor',hasFreshPrice?'positive':'negative',safe(priceState))}
  ${toneTag('Resistències fins a TP','neutral','Sense validar')}
  </div><p class="small">Verd = condició favorable · vermell = risc o condició desfavorable · gris = neutral o pendent. El volum IEX no cobreix tot el mercat.</p></section>
+ <section class="detail-box detail-wide"><h3>Context setmanal · 1W</h3><div class="stock-decision-metrics">
+ ${toneTag('Tendència 1W',r.momentum?.week?.weeklyTrend==='ALCISTA'?'positive':r.momentum?.week?.weeklyTrend==='BAIXISTA'?'negative':'neutral',safe(r.momentum?.week?.available?r.momentum.week.weeklyTrend:'Històric insuficient'))}
+ ${toneTag('MACD 1W',r.momentum?.week?.macdTone||'neutral',safe(r.momentum?.week?.available?r.momentum.week.macdCross:'Sense dades'))}
+ ${toneTag('RSI 1W',r.momentum?.week?.rsiTone||'neutral',Number.isFinite(r.momentum?.week?.rsi14)?fmt(r.momentum.week.rsi14,1):'—')}
+ </div><p class="small">Només setmanes completades. Context informatiu: no bloqueja READY ni modifica la puntuació.</p></section>
  <section class="detail-box detail-wide"><h3>Momentum · diagnòstic</h3><div class="stock-decision-metrics">
  ${toneTag('EMA 200 · 1D','neutral',r.momentum?.day?.ema200Available?fmt(r.momentum.day.ema200)+' $':'Històric insuficient')}
  ${toneTag('EMA 20/50 · 4H',r.momentum?.four?.emaCross5==='ALCISTA'?'positive':r.momentum?.four?.emaCross5==='BAIXISTA'?'negative':'neutral',safe(r.momentum?.four?.emaCross5||'Sense dades'))}
