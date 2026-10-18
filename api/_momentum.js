@@ -17,3 +17,19 @@ export function momentumDiagnostic(bars,market='crypto'){
  const macdTone=hist>0&&macdCross!=='BAIXISTA'?'positive':hist<0?'negative':'neutral';
  return {available:true,candles:count,market,ema20:last(e20),ema50:last(e50),ema200:last(e200),ema200Available:count>=200,emaAligned:count>=200?aligned:null,emaCross5:emaCross,macd,macdSignal:signal,macdHistogram:hist,macdCross,rsi14:rsi,rsiTone,macdTone,interpretation:market==='crypto'?'24/7 · amplitud de RSI més alta':'Sessions de borsa · gaps i volum IEX parcial',diagnosticOnly:true};
 }
+export function weeklyDiagnostic(dailyBars,market='stock'){
+ const weeks=new Map();
+ for(const b of dailyBars){
+  const d=new Date(typeof b.t==='number'?(b.t<1e11?b.t*1000:b.t):b.t);
+  if(!Number.isFinite(d.getTime())||!Number.isFinite(b.c))continue;
+  const day=d.getUTCDay(),monday=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-(day+6)%7));
+  const key=monday.toISOString().slice(0,10);
+  weeks.set(key,{c:b.c,t:key});
+ }
+ // Exclude the current incomplete calendar week. Conservative for stock/crypto.
+ const now=new Date(),wd=now.getUTCDay(),currentMonday=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-(wd+6)%7)).toISOString().slice(0,10);
+ const closed=[...weeks].filter(([k])=>k<currentMonday).sort((a,b)=>a[0].localeCompare(b[0])).map(([,b])=>b);
+ if(closed.length<55)return {available:false,candles:closed.length,reason:'Menys de 55 setmanes completes',diagnosticOnly:true};
+ const info=momentumDiagnostic(closed,market),lastClose=closed.at(-1).c;
+ return {...info,timeframe:'1W',lastClose,weeklyTrend:lastClose>info.ema20&&info.ema20>info.ema50?'ALCISTA':lastClose<info.ema20&&info.ema20<info.ema50?'BAIXISTA':'MIXTA',diagnosticOnly:true};
+}
