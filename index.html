@@ -1100,7 +1100,7 @@ document.getElementById('stockAddBtn').onclick=()=>{
  META.push({ticker,sector:'Personalitzades',theme:'Acció afegida manualment',dividend:0,risk:'Pendent'});
  rows.push({...META.at(-1),status:'SENSE DADES'});
  field.value='';msg.textContent=ticker+' afegida; pendent d’anàlisi manual';
- showStockManager();render();scan();
+ showStockManager();render();
 };
 document.getElementById('stockAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('stockAddBtn').click()});
 document.getElementById('stockManageBtn').onclick=()=>{const el=document.getElementById('stockManualManager');el.hidden=!el.hidden;showStockManager()};
