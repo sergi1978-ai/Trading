@@ -197,6 +197,29 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   if(reconstructed4H)h4Bars=rebuilt;
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
   const m30=latestCompleted(m30Raw,'30Min');
+  // RSI 1W uses completed historical weeks only; today's partial week is excluded.
+  const weeklyCloses=[];
+  const weeklyKeys=[];
+  for(const bar of dBars){
+    const t=new Date(bar.t);if(!Number.isFinite(t.getTime()))continue;
+    const day=t.getUTCDay(),monday=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth(),t.getUTCDate()-(day+6)%7)).toISOString().slice(0,10);
+    if(weeklyKeys.at(-1)===monday)weeklyCloses[weeklyCloses.length-1]=bar.c;
+    else {weeklyKeys.push(monday);weeklyCloses.push(bar.c)}
+  }
+  // The ongoing week is not a closed weekly candle.
+  const now=new Date(),todayDay=now.getUTCDay(),thisMonday=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-(todayDay+6)%7)).toISOString().slice(0,10);
+  if(weeklyKeys.at(-1)===thisMonday)weeklyCloses.pop();
+  const dailyCloses=dBars.map(b=>b.c);
+  const rsiDaily=rsi(dailyCloses,14),rsiDailyPrev=rsi(dailyCloses.slice(0,-1),14);
+  const rsiWeekly=rsi(weeklyCloses,14),rsiWeeklyPrev=rsi(weeklyCloses.slice(0,-1),14);
+  const recentDailyOversold=Number.isFinite(rsiDaily)&&Number.isFinite(rsiDailyPrev)&&Math.min(rsiDaily,rsiDailyPrev)<35;
+  const recovering=recentDailyOversold&&rsiDaily>rsiDailyPrev&&rsiDaily>=30;
+  const oversold=Number.isFinite(rsiDaily)&&rsiDaily<30;
+  const weeklyOversold=Number.isFinite(rsiWeekly)&&rsiWeekly<40;
+  const overbought=Number.isFinite(rsiDaily)&&rsiDaily>=70;
+  const weeklyOverbought=Number.isFinite(rsiWeekly)&&rsiWeekly>=70;
+  const rsiState=overbought&&weeklyOverbought?'SOBRECOMPRA 1D+1W':overbought?'SOBRECOMPRA 1D':weeklyOverbought?'SOBRECOMPRA 1W':recovering?'RECOVERY PRE-WATCH':oversold?'RECOVERY WATCH':weeklyOversold?'RECOVERY 1W WATCH':'NEUTRE';
+  const rsiDiagnostic={daily:rsiDaily,weekly:rsiWeekly,dailyPrevious:rsiDailyPrev,weeklyPrevious:rsiWeeklyPrev,state:rsiState,oversold,weeklyOversold,overbought,weeklyOverbought,recovering,warning:overbought||weeklyOverbought?'RSI elevat: risc de correcció, no senyal de venda automàtic':null};
   const momentumIndicators={week:weeklyDiagnostic(dBars,'stock'),day:momentumDiagnostic(dBars,'stock'),four:momentumDiagnostic(h4Bars,'stock'),hour:momentumDiagnostic(h1Bars,'stock')};
  for(const tf of ['week','day','four','hour'])momentumIndicators[tf].phase=momentumPhase(momentumIndicators[tf]);
  momentumIndicators.context=momentumContext(momentumIndicators);
@@ -495,7 +518,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
     symbol,momentum:momentumIndicators,
     pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,h1AgeHours,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
-    earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
+    rsiDiagnostic,earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
     fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
     hourlySlotRvol:hourlyVolume.ratio,hourlySlotSamples:hourlyVolume.samples,hourlySlotSource:hourlyVolume.source,hourlySlotNY:hourlyVolume.nyHour||null,
     technicalPrice:h1.c,
