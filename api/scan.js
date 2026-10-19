@@ -238,11 +238,15 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const weeklyOversold=Number.isFinite(rsiWeekly)&&rsiWeekly<40;
   const overbought=Number.isFinite(rsiDaily)&&rsiDaily>=70;
   const weeklyOverbought=Number.isFinite(rsiWeekly)&&rsiWeekly>=70;
-  const rsiState=overbought&&weeklyOverbought?'SOBRECOMPRA 1D+1W':overbought?'SOBRECOMPRA 1D':weeklyOverbought?'SOBRECOMPRA 1W':recovering?'RECOVERY PRE-WATCH':oversold?'RECOVERY WATCH':weeklyOversold?'RECOVERY 1W WATCH':'NEUTRE';
-  const rsiDiagnostic={daily:rsiDaily,weekly:rsiWeekly,dailyPrevious:rsiDailyPrev,weeklyPrevious:rsiWeeklyPrev,state:rsiState,oversold,weeklyOversold,overbought,weeklyOverbought,recovering,warning:overbought||weeklyOverbought?'RSI elevat: risc de correcció, no senyal de venda automàtic':null};
+  const recoveryExtended=weeklyOversold&&Number.isFinite(rsiDaily)&&rsiDaily>=65;
+  const rsiState=overbought&&weeklyOverbought?'SOBRECOMPRA 1D+1W':overbought?'SOBRECOMPRA 1D':weeklyOverbought?'SOBRECOMPRA 1W':recoveryExtended?'RECOVERY ESTESA · PRECAUCIÓ':recovering?'RECOVERY PRE-WATCH':oversold?'RECOVERY WATCH':weeklyOversold?'RECOVERY 1W WATCH':'NEUTRE';
+  const rsiDiagnostic={daily:rsiDaily,weekly:rsiWeekly,dailyPrevious:rsiDailyPrev,weeklyPrevious:rsiWeeklyPrev,state:rsiState,recoveryExtended,oversold,weeklyOversold,overbought,weeklyOverbought,recovering,warning:overbought||weeklyOverbought?'RSI elevat: risc de correcció, no senyal de venda automàtic':null};
   const momentumIndicators={week:weeklyDiagnostic(dBars,'stock'),day:momentumDiagnostic(dBars,'stock'),four:momentumDiagnostic(h4Bars,'stock'),hour:momentumDiagnostic(h1Bars,'stock')};
  for(const tf of ['week','day','four','hour'])momentumIndicators[tf].phase=momentumPhase(momentumIndicators[tf]);
  momentumIndicators.context=momentumContext(momentumIndicators);
+ const weekTrend=String(momentumIndicators.week?.weeklyTrend||'').toUpperCase();
+ const dayPhase=String(momentumIndicators.day?.phase||'').toUpperCase();
+ if(weekTrend.includes('BAIXIST')&&(dayPhase.includes('RECUPERACI')||dayPhase.includes('ALCIST')||dayPhase.includes('IMPULS')))momentumIndicators.context='CONFLICTE 1W BAIXISTA / 1D RECUPERACIÓ';
  momentumIndicators.earlyTurn=earlyMomentumTurn(momentumIndicators,'stock');
   if(dBars.length<25 || h4Bars.length<25 || h1Bars.length<25) return {symbol,status:'SENSE DADES',error:`Històric insuficient (1D ${dBars.length} · 4H ${h4Bars.length} · 1H ${h1Bars.length})`};
 
