@@ -197,6 +197,26 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   if(reconstructed4H)h4Bars=rebuilt;
   const h1Bars=latestCompleted(h1BarsRaw,'1Hour');
   const m30=latestCompleted(m30Raw,'30Min');
+  // Approximate session VWAP from completed 1H IEX bars. Never classify as consolidated exchange VWAP.
+  const nyDay=t=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
+  const nyHour=t=>Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',hourCycle:'h23'}).format(new Date(t)));
+  const lastHour=h1Bars.at(-1);
+  const sessionDay=lastHour?.t?nyDay(lastHour.t):null;
+  const sessionBars=h1Bars.filter(b=>sessionDay&&nyDay(b.t)===sessionDay&&nyHour(b.t)>=9&&nyHour(b.t)<16);
+  const weightedVwap=bars=>{let pv=0,v=0;for(const b of bars){if(!(b.v>0))continue;pv+=((b.h+b.l+b.c)/3)*b.v;v+=b.v}return v>0?pv/v:null};
+  const sessionVwap=sessionBars.length>=2?weightedVwap(sessionBars):null;
+  // AVWAP anchored at the lowest completed daily low among the last 30 trading days.
+  const recentDaily=dBars.slice(-30);
+  const anchorBar=recentDaily.length>=15?recentDaily.reduce((lo,b)=>b.l<lo.l?b:lo):null;
+  const anchorTimestamp=anchorBar?.t?new Date(anchorBar.t).getTime():null;
+  const anchoredBars=h1Bars.filter(b=>anchorTimestamp!==null&&new Date(b.t).getTime()>=anchorTimestamp);
+  const anchoredVwap=anchoredBars.length>=5?weightedVwap(anchoredBars):null;
+  const vwapDiagnostic={session:sessionVwap,anchored:anchoredVwap,anchorDate:anchorBar?.t?String(anchorBar.t).slice(0,10):null,
+   sessionDay,sessionBars:sessionBars.length,anchoredBars:anchoredBars.length,
+   sessionDistancePct:Number.isFinite(sessionVwap)&&lastHour?100*(lastHour.c/sessionVwap-1):null,
+   anchoredDistancePct:Number.isFinite(anchoredVwap)&&lastHour?100*(lastHour.c/anchoredVwap-1):null,
+   source:'ALPACA IEX · aproximació OHLC3 × volum · només espelmes 1H tancades',
+   note:'No és VWAP consolidat ni VWAP intradia en temps real; ús diagnòstic, no bloqueja READY'};
   // RSI 1W uses completed historical weeks only; today's partial week is excluded.
   const weeklyCloses=[];
   const weeklyKeys=[];
@@ -526,6 +546,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
     dayChange,
     trendScore:trend,
     entryQuality:quality,
+    vwapDiagnostic,
     status,
     authorization:auth,
     structureState: structuralInvalidation ? 'Trencada' : (weakStructure ? 'Feble / recuperar' : 'Vàlida'),
