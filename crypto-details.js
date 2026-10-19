@@ -16,7 +16,7 @@
   function openCoin(sym) {
     const a=typeof cryptoSignals!=='undefined' ? cryptoSignals[sym] : null;
     if(!a)return;
-    document.getElementById('coinHeading').textContent=sym+' · Anàlisi avançada';
+    document.getElementById('coinHeading').textContent=sym+' · Anàlisi web avançada';
     const metric=(label,value,tone='neutral')=>{
       const el=document.createElement('div');el.className='coin-tile '+tone;
       const k=document.createElement('small');k.textContent=label;
@@ -66,6 +66,17 @@
     const summary=document.createElement('div');summary.className='coin-summary';
     const heading=document.createElement('strong');heading.textContent=noPlan?'DIAGNÒSTIC · Sense entrada confirmada':'DIAGNÒSTIC · Revisar pla al Pine';
     summary.append(heading);
+    const comparison=document.createElement('p');
+    comparison.className='coin-comparison-note';
+    const webScore=Number.isFinite(a.setupQuality)?a.setupQuality:Number.isFinite(a.score)?a.score:null;
+    comparison.textContent='Entrada web: '+(webScore===null?'sense dades':Math.round(webScore)+'/100')+
+      ' · Pine: score no disponible en aquesta aplicació. Motors independents: els valors no són equivalents.';
+    summary.append(comparison);
+    if(Number.isFinite(a.pineReferenceEntry)&&Number.isFinite(a.pineReferenceStop)){
+      const planNote=document.createElement('p');
+      planNote.textContent='Pla web de referència: entrada '+fmtValue(a.pineReferenceEntry,5)+' $ · stop '+fmtValue(a.pineReferenceStop,5)+' $ · R:R '+fmtValue(a.pineReferenceNetRR,2)+'. Validar a TradingView amb mateixa espelma i exchange.';
+      summary.append(planNote);
+    }
     const findings=[
       [a.priceAboveVwap===true?'up':a.priceAboveVwap===false?'down':'flat',a.priceAboveVwap===true?'Preu per sobre del VWAP.':a.priceAboveVwap===false?'Preu per sota del VWAP.':'VWAP no concloent.'],
       [relativeTone==='positive'?'up':relativeTone==='negative'?'down':'flat',Number.isFinite(a.relativeStrengthBTC)?'Força relativa vs BTC: '+fmtValue(a.relativeStrengthBTC)+' punts.':'Força relativa no disponible.'],
