@@ -343,7 +343,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   if(riskBlocked){
     auth='NO';
     if(['A','A+','READY'].includes(status))status='PRE';
-    radarScore=clamp(radarScore-20,0,100);
+    radarScore=clamp(radarScore-20,0,100); // risk-adjusted ranking may be zero; never a missing-data placeholder
   }
   const estimatedSuccessProbability=null; // No calibrated probability until historical walk-forward validation.
   const thirty=m30.length>=22?m30.at(-1):null;
@@ -467,7 +467,13 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const avgRecent=lastVol.length?lastVol.reduce((a,b)=>a+b,0)/lastVol.length:0;
   const volumeBuild=avgPrior>0?avgRecent/avgPrior:null;
   const positiveVolume=Number.isFinite(volumeBuild)&&volumeBuild>=1.15;
-  const earlyScore=Math.round((trend>=65?25:trend>=45?12:0)+(compression?30:0)+(nearBreakout?25:0)+(positiveVolume?20:0));
+  // Gradual anticipation diagnostic: avoid artificial zero clusters from four binary thresholds.
+  // This affects discovery ranking only, never READY / authorization.
+  const trendPoints=Number.isFinite(trend)?25*clamp(trend/100,0,1):0;
+  const compressionPoints=Number.isFinite(compressionRatio)?30*clamp((1.2-compressionRatio)/1.2,0,1):0;
+  const breakoutPoints=Number.isFinite(preBreakoutDistance)&&preBreakoutDistance>=0?25*clamp(1-preBreakoutDistance/8,0,1):0;
+  const volumePoints=Number.isFinite(volumeBuild)?20*clamp((volumeBuild-0.6)/1,0,1):0;
+  const earlyScore=Math.round(trendPoints+compressionPoints+breakoutPoints+volumePoints);
   const earlyState=trend<45?'SENSE TENDÈNCIA':compression&&nearBreakout&&positiveVolume?'PRE-RUPTURA':compression&&nearBreakout?'COMPRESSIÓ PROP RUPTURA':compression?'COMPRESSIÓ':nearBreakout?'VIGILAR RESISTÈNCIA':'SENSE PATRÓ';
   // Decision-grade diagnostic: a setup score alone is not an entry authorization.
   const incompleteChecks=pineChecks.filter(c=>!c.pass).map(c=>c.name);
