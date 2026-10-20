@@ -7,14 +7,14 @@ const json=async(res)=>{const data=await res.json();if(!res.ok)throw Error(data.
 async function getResults(origin,path){const r=await fetch(origin+path,{cache:'no-store',headers:{'X-Paper-Internal':process.env.PAPER_INTERNAL_SECRET||''}});return json(r)}
 const n=x=>typeof x==='number'&&Number.isFinite(x)?x:null;
 function cryptoCandidate(r){
- const price=n(r.price),entry=n(r.pineReferenceEntry),stop=n(r.pineReferenceStop),valid=r.pineSignalCandidate===true&&r.operationalDecision==='REVISAR ENTRADA'&&r.planAvailable===true&&r.criticalBlocks?.length===0;
- return {market:'crypto',symbol:r.symbol,price,entry,stop,ready:valid,stamp:r.quoteTime,phase:r.pineState||r.status||'SENSE DADES',accumulationWatch:r.accumulationWatch===true,strongVolumeWatch:r.strongVolumeWatch===true,liquidityTier:r.liquidityTier||null,potential:n(r.anticipationScore),quality:n(r.operationalQuality),reason:r.primaryBlocker||r.operationalDecision};
+ const price=n(r.price),entry=n(r.pineReferenceEntry),stop=n(r.pineReferenceStop),valid=r.pineState==='CANDIDAT CONFIRMAT · WEB'&&r.operationalDecision==='REVISAR ENTRADA'&&r.planAvailable===true&&r.criticalBlocks?.length===0;
+ return {market:'crypto',symbol:r.symbol,price,entry,stop,ready:valid,stamp:r.quoteTime,phase:r.pineState||r.status||'SENSE DADES',accumulationWatch:r.accumulationWatch===true,strongVolumeWatch:r.strongVolumeWatch===true,liquidityTier:r.liquidityTier||null,potential:n(r.anticipationScore),quality:n(r.operationalQuality),reason:valid?'Validat pel motor web':(r.criticalBlocks?.join(' · ')||r.primaryBlocker||r.operationalDecision)};
 }
 function stockCandidate(r,q){
  const price=n(q?.extendedPrice),entry=n(r.trigger),stop=n(r.stop),age=n(q?.extendedAgeMinutes);
  const coherent=price>0&&n(r.technicalPrice)>0&&Math.abs(price/r.technicalPrice-1)<=.05&&r.priceBasis==='SPLIT_ADJUSTED';
  const valid=!!(r.pineEntryConfirmed&&r.pinePlanValid&&r.entryDataReliable!==false&&coherent&&q?.priceStale===false&&q?.extendedRecent===true&&q?.priceKind==='TRADE IEX'&&age!==null&&age>=-2&&age<=15);
- return {market:'stocks',symbol:r.ticker||r.symbol,price,entry,stop,ready:valid,stamp:q?.extendedTimestamp,phase:r.status||'SENSE DADES',potential:n(r.earlyScore),quality:n(r.entryQuality),reason:r.pineBlockedReason||'Pine not confirmed'};
+ return {market:'stocks',symbol:r.ticker||r.symbol,price,entry,stop,ready:valid,stamp:q?.extendedTimestamp,phase:r.status||'SENSE DADES',potential:n(r.earlyScore),quality:n(r.entryQuality),reason:valid?'Confirmació i cotització recents':(!coherent?'Preu absent o desajust tècnic':q?.priceStale?'Cotització IEX antiga':!r.pineEntryConfirmed?'Sense confirmació 1H':!r.pinePlanValid?'Pla no vàlid':'No supera filtres d’execució')};
 }
 function update(state,candidates){
  const now=Date.now(),history=state.trades||[];
