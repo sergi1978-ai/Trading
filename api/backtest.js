@@ -47,7 +47,12 @@ function run(bars,mode,costBps=12){
   }
  }
  const wins=trades.filter(t=>t.returnPct>0).length;
- return {trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
+ const positives=trades.filter(t=>t.returnPct>0),negatives=trades.filter(t=>t.returnPct<=0);
+ const avg=a=>a.length?Math.round(a.reduce((n,t)=>n+t.returnPct,0)/a.length*100)/100:null;
+ const barIndex=new Map(bars.map((b,i)=>[b.t,i]));
+ const duration=trades.map(t=>(barIndex.get(t.date)??0)-(barIndex.get(t.entryDate)??0)).filter(n=>n>=0);
+ const averageSessions=duration.length?Math.round(duration.reduce((a,b)=>a+b,0)/duration.length*10)/10:null;
+ return {avgWinPct:avg(positives),avgLossPct:avg(negatives),averageSessions,trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
 }
 async function getBars(symbol){
  const start=new Date(Date.now()-2*366*86400000).toISOString();
@@ -64,9 +69,11 @@ export default async function handler(req,res){
  if(req.method!=='GET')return res.status(405).json({error:'Mètode no permès'});
  if(!process.env.ALPACA_API_KEY||!process.env.ALPACA_API_SECRET)return res.status(503).json({error:'Alpaca no configurat'});
  const symbol=String(req.query.symbol||'').trim().toUpperCase(),mode=String(req.query.mode||'both');
- if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','compare'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
  try{const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
+ const common={symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length};
+ if(mode==='compare')return res.status(200).json({...common,comparisons:['both','breakout','retest','recovery'].map(m=>({mode:m,...run(bars,m)}))});
  const result=run(bars,mode);
- return res.status(200).json({symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length,...result});
+ return res.status(200).json({...common,...result});
  }catch(e){return res.status(502).json({error:String(e.message||e)})}
 }
