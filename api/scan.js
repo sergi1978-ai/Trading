@@ -281,6 +281,13 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   ].filter(x=>Number.isFinite(x.v));
   candidates.sort((a,b)=>Math.abs(h4.c-a.v)-Math.abs(h4.c-b.v));
   const support=candidates[0];
+  // Daily relative volume uses completed daily candles only; exclude latest from baseline.
+  const priorDaily=dBars.slice(-21,-1).filter(b=>Number.isFinite(b.v)&&b.v>0);
+  const currentDaily=dBars.at(-1);
+  const dailyVolBaseline=priorDaily.length>=15?priorDaily.reduce((sum,b)=>sum+b.v,0)/priorDaily.length:null;
+  const dailyRvol=Number.isFinite(dailyVolBaseline)&&dailyVolBaseline>0&&currentDaily?.v>0?currentDaily.v/dailyVolBaseline:null;
+  const rvol1d=Number.isFinite(dailyRvol)&&dailyRvol>=0.05?Math.round(dailyRvol*100)/100:null;
+  const dailyVolumeDirection=currentDaily?(currentDaily.c>currentDaily.o?'ALCISTA':currentDaily.c<currentDaily.o?'BAIXISTA':'NEUTRAL'):'NEUTRAL';
   const volume=volumeReading(h4Bars,support.v,a4);
   const hourlyVolume=hourlySlotRvol(h1Bars);
   let conf=0;
@@ -550,6 +557,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
     dayChange,
     trendScore:trend,
     entryQuality:quality,
+    rvol1d,dailyVolumeDirection,dailyVolumeBarTime:currentDaily?.t||null,
     vwapDiagnostic,
     status,
     authorization:auth,
