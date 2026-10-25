@@ -78,12 +78,15 @@ function run(bars,mode,costBps=12){
 async function getBars(symbol){
  const start=new Date(Date.now()-2*366*86400000).toISOString();
  const url=new URL(ALPACA);
- for(const [k,v] of Object.entries({symbols:symbol,timeframe:'1Day',start,limit:'10000',sort:'asc',adjustment:'split',feed:'iex'}))url.searchParams.set(k,v);
+ for(const [k,v] of Object.entries({symbols:symbol,timeframe:'1Day',start,limit:'10000',sort:'asc',adjustment:'split',feed:'sip'}))url.searchParams.set(k,v);
  const r=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET}});
- if(!r.ok)throw Error('Alpaca HTTP '+r.status);
+ if(!r.ok)throw Error('Alpaca SIP HTTP '+r.status+' (comprova permís d’històric SIP; no se substitueix silenciosament per IEX)');
  const obj=await r.json();const bars=obj.bars?.[symbol]||[];
  if(obj.next_page_token)throw Error('Històric incomplet: paginació pendent');
- return bars.filter(x=>[x.o,x.h,x.l,x.c].every(Number.isFinite)).sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
+ const valid=bars.filter(x=>[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&x.c>0&&x.o>0&&x.h>=Math.max(x.o,x.c,x.l)&&x.l<=Math.min(x.o,x.c)&&x.v>=0&&Number.isFinite(Date.parse(x.t))).sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
+ const unique=[];let duplicates=0;for(const bar of valid){if(unique.length&&unique.at(-1).t===bar.t){duplicates++;continue;}unique.push(bar)}
+ if(duplicates)throw Error('Històric no fiable: '+duplicates+' espelmes duplicades');
+ return unique;
 }
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
@@ -92,7 +95,7 @@ export default async function handler(req,res){
  const symbol=String(req.query.symbol||'').trim().toUpperCase(),mode=String(req.query.mode||'both');
  if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','v4_breakout','v4_retest','v4_recovery','compare'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
  try{const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
- const common={symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length};
+ const common={symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length,dataQuality:{source:'Alpaca SIP',timeframe:'1D',adjustment:'split',bars:bars.length,first:bars[0].t,last:bars.at(-1).t,validatedOHLC:true,duplicates:0,coverageNote:'Dies sense negociació no es compten com a buits'}};
  if(mode==='compare')return res.status(200).json({...common,comparisons:['both','breakout','retest','recovery','v4_breakout','v4_retest','v4_recovery'].map(m=>({mode:m,...run(bars,m)}))});
  const result=run(bars,mode);
  return res.status(200).json({...common,...result});
