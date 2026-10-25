@@ -28,14 +28,23 @@ function run(bars,mode,costBps=12){
   if(!(a>0))continue;
   const previousRsi=rsi(close.slice(0,-1)),currentRsi=rsi(close);
   const recovery=previousRsi!==null&&currentRsi!==null&&previousRsi<35&&currentRsi>=35&&b.c>b.o&&b.c>e20;
-  if(mode!=='recovery'&&!(e20>e50&&b.c>e20))continue;
+  const vPrior=bars.slice(i-20,i).map(z=>z.v).filter(Number.isFinite);
+  const vMean=vPrior.length===20?vPrior.reduce((x,y)=>x+y,0)/20:0;
+  const rvol=vMean>0?b.v/vMean:0;
+  const e200=ema(close,200);
+  const prevClose=bars[i-1].c;
+  const advancedTrend=e200!==null&&e20>e50&&e50>e200&&b.c>e20;
+  const advancedBreakout=advancedTrend&&rvol>=1.2&&b.c>b.o&&b.c>Math.max(...bars.slice(i-20,i).map(z=>z.h))&&(b.c-e20)/a<2.5;
+  const advancedRetest=advancedTrend&&rvol>=0.85&&bars[i-1].l<=ema(close.slice(0,-1),20)&&prevClose>e50&&b.c>bars[i-1].h&&b.c>b.o;
+  const advancedRecovery=advancedTrend&&recovery&&rvol>=1.0;
+  if(!mode.startsWith('v4_')&&mode!=='recovery'&&!(e20>e50&&b.c>e20))continue;
   const prev=bars.slice(i-20,i),high=Math.max(...prev.map(x=>x.h));
   const breakout=b.c>high&&b.c>b.o;
   const retest=b.l<=e20&&b.c>e20&&b.c>b.o;
-  if(!(mode==='recovery'?recovery:mode==='breakout'?breakout:mode==='retest'?retest:(breakout||retest)))continue;
+  if(!(mode==='v4_breakout'?advancedBreakout:mode==='v4_retest'?advancedRetest:mode==='v4_recovery'?advancedRecovery:mode==='recovery'?recovery:mode==='breakout'?breakout:mode==='retest'?retest:(breakout||retest)))continue;
   const entry=next.o,stop=Math.min(b.l,entry-1.5*a),risk=entry-stop;
   if(!(entry>0&&risk>0&&risk/entry<=.08&&risk/entry>=.005))continue;
-  pos={entry,stop,target:entry+2*risk,date:next.t,signalIndex:i};
+  pos={entry,stop,target:entry+(mode.startsWith('v4_')?2.5:2)*risk,date:next.t,signalIndex:i};
   // Evaluate the actual entry-day bar as well, conservatively assigning stop
   // if both boundaries are touched during the same OHLC candle.
   const sameDayExit=next.l<=pos.stop?pos.stop:next.h>=pos.target?pos.target:null;
@@ -69,10 +78,10 @@ export default async function handler(req,res){
  if(req.method!=='GET')return res.status(405).json({error:'Mètode no permès'});
  if(!process.env.ALPACA_API_KEY||!process.env.ALPACA_API_SECRET)return res.status(503).json({error:'Alpaca no configurat'});
  const symbol=String(req.query.symbol||'').trim().toUpperCase(),mode=String(req.query.mode||'both');
- if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','compare'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','v4_breakout','v4_retest','v4_recovery','compare'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
  try{const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
  const common={symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length};
- if(mode==='compare')return res.status(200).json({...common,comparisons:['both','breakout','retest','recovery'].map(m=>({mode:m,...run(bars,m)}))});
+ if(mode==='compare')return res.status(200).json({...common,comparisons:['both','breakout','retest','recovery','v4_breakout','v4_retest','v4_recovery'].map(m=>({mode:m,...run(bars,m)}))});
  const result=run(bars,mode);
  return res.status(200).json({...common,...result});
  }catch(e){return res.status(502).json({error:String(e.message||e)})}
