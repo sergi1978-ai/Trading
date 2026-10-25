@@ -4,7 +4,7 @@ const ALPACA='https://data.alpaca.markets/v2/stocks/bars';
 function ema(values,n){if(values.length<n)return null;let a=values.slice(0,n).reduce((x,y)=>x+y,0)/n;for(let i=n;i<values.length;i++)a+=(values[i]-a)*2/(n+1);return a}
 function rsi(v,n=14){if(v.length<n+1)return null;let gain=0,loss=0;for(let i=v.length-n;i<v.length;i++){const d=v[i]-v[i-1];gain+=Math.max(d,0);loss+=Math.max(-d,0)}return loss===0?100:100-100/(1+gain/loss)}
 function atr(bars,n=14){if(bars.length<n+1)return null;const x=bars.slice(-n-1);return x.slice(1).reduce((sum,b,i)=>sum+Math.max(b.h-b.l,Math.abs(b.h-x[i].c),Math.abs(b.l-x[i].c)),0)/n}
-function run(bars,mode,costBps=12){
+function run(bars,mode,costBps=12,window={}){
  let trades=[],equity=1,peak=1,maxDD=0,pos=null;
  const riskBudget=0.01,capitalInitial=1;
  let portfolioLow=1;
@@ -32,6 +32,9 @@ function run(bars,mode,costBps=12){
   }
   // Never use an earlier opening price after an exit determined later in the same session.
   if(pos||exitedThisBar)continue;
+  // Out-of-sample guard: compute indicators with preceding history, but never open
+  // positions outside the designated entry window. Includes 200-bar EMA warmup.
+  if(i+1<(window.startEntry??0)||i+1>(window.endEntry??bars.length-1))continue;
   const e20=ema(close,20),e50=ema(close,50),a=atr(known);
   if(!(a>0))continue;
   const previousRsi=rsi(close.slice(0,-1)),currentRsi=rsi(close);
@@ -79,12 +82,16 @@ function run(bars,mode,costBps=12){
   }
  }
  const wins=trades.filter(t=>t.returnPct>0).length;
+ const posReturns=trades.filter(t=>t.returnPct>0).reduce((n,t)=>n+t.returnPct,0);
+ const negReturns=trades.filter(t=>t.returnPct<0).reduce((n,t)=>n-t.returnPct,0);
+ const profitFactor=negReturns>0?Math.round(posReturns/negReturns*100)/100:null;
+ const expectancyPct=trades.length?Math.round(trades.reduce((n,t)=>n+t.returnPct,0)/trades.length*100)/100:null;
  const positives=trades.filter(t=>t.returnPct>0),negatives=trades.filter(t=>t.returnPct<=0);
  const avg=a=>a.length?Math.round(a.reduce((n,t)=>n+t.returnPct,0)/a.length*100)/100:null;
  const barIndex=new Map(bars.map((b,i)=>[b.t,i]));
  const duration=trades.map(t=>(barIndex.get(t.date)??0)-(barIndex.get(t.entryDate)??0)).filter(n=>n>=0);
  const averageSessions=duration.length?Math.round(duration.reduce((a,b)=>a+b,0)/duration.length*10)/10:null;
- return {simulationVersion:'phase2-risk-chronology',riskBudgetPct:1,openAtEnd:pos?{entry:pos.entry,entryDate:pos.date,stop:pos.stop,target:pos.target}:null,funnel:mode.startsWith('v4_')?funnel:null,avgWinPct:avg(positives),avgLossPct:avg(negatives),averageSessions,trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Fase 2: risc objectiu 1% del capital per stop, exposició màxima 100%; sense reentrada després de sortida en mateixa barra; mark-to-low OHLC conservador per drawdown; gaps a obertura; posicions obertes no liquidades al final. Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
+ return {simulationVersion:'phase2-risk-chronology',riskBudgetPct:1,profitFactor,expectancyPct,openAtEnd:pos?{entry:pos.entry,entryDate:pos.date,stop:pos.stop,target:pos.target}:null,funnel:mode.startsWith('v4_')?funnel:null,avgWinPct:avg(positives),avgLossPct:avg(negatives),averageSessions,trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Fase 2: risc objectiu 1% del capital per stop, exposició màxima 100%; sense reentrada després de sortida en mateixa barra; mark-to-low OHLC conservador per drawdown; gaps a obertura; posicions obertes no liquidades al final. Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
 }
 async function getBars(symbol){
  const start=new Date(Date.now()-2*366*86400000).toISOString();
@@ -106,8 +113,13 @@ export default async function handler(req,res){
  const symbol=String(req.query.symbol||'').trim().toUpperCase(),mode=String(req.query.mode||'both');
  if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','v4_breakout','v4_retest','v4_recovery','compare'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
  try{const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
- const common={symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length,dataQuality:{source:'Alpaca SIP',timeframe:'1D',adjustment:'split',bars:bars.length,first:bars[0].t,last:bars.at(-1).t,validatedOHLC:true,duplicates:0,coverageNote:'Dies sense negociació no es compten com a buits'}};
- if(mode==='compare')return res.status(200).json({...common,comparisons:['both','breakout','retest','recovery','v4_breakout','v4_retest','v4_recovery'].map(m=>({mode:m,...run(bars,m)}))});
+ const common={symbol,mode,parity:{status:'NOT_EQUIVALENT_TO_PINE',reference:'LONG AI 6.6.56',backtestTimeframes:['1D'],missing:['4H setup and indicator context','1H closed-candle confirmation','Pine READY gating','volume/relative-strength feed parity'],liveOrdersAuthorized:false},firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length,dataQuality:{source:'Alpaca SIP',timeframe:'1D',adjustment:'split',bars:bars.length,first:bars[0].t,last:bars.at(-1).t,validatedOHLC:true,duplicates:0,coverageNote:'Dies sense negociació no es compten com a buits'}};
+ if(mode==='compare'){
+  const modes=['both','breakout','retest','recovery','v4_breakout','v4_retest','v4_recovery'];
+  const split=Math.floor(bars.length*.7);
+  const train={startEntry:200,endEntry:split-1},test={startEntry:split,endEntry:bars.length-1};
+  return res.status(200).json({...common,validation:{method:'chronological 70/30 with 200-bar indicator warmup',splitTime:bars[split]?.t,trainEntryBars:Math.max(0,split-200),testEntryBars:bars.length-split,noParameterFitting:true,caution:'Descriptive holdout, not walk-forward; trades opened before split cannot carry into test and open trades are disclosed; small samples are inconclusive.'},comparisons:modes.map(m=>({mode:m,...run(bars,m),train:run(bars,m,12,train),test:run(bars,m,12,test)}))});
+ }
  const result=run(bars,mode);
  return res.status(200).json({...common,...result});
  }catch(e){return res.status(502).json({error:String(e.message||e)})}
