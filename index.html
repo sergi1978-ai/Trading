@@ -1315,7 +1315,7 @@ document.getElementById('histRun').onclick=async()=>{
   const modes=Array.isArray(d.modes)?d.modes:[];
   histResults.innerHTML='<h4>'+safe(symbol)+' · Kraken 1H · '+d.bars+' espelmes</h4><div class="tablebox"><table style="min-width:550px"><thead><tr><th>Estratègia</th><th>Operacions</th><th>Encerts</th><th>Retorn</th><th>Drawdown</th></tr></thead><tbody>'+modes.map(m=>'<tr><td>'+safe(m.mode)+'</td><td>'+m.count+'</td><td>'+(m.winRatePct??'—')+'%</td><td>'+m.returnPct+'%</td><td>'+m.maxDrawdownPct+'%</td></tr>').join('')+'</tbody></table></div><p class="muted">'+safe(d.warning||'Exploratori; no replica el Pine.')+'</p>';
  }else{
-  const labels={both:'Ruptura o retrocés · base',breakout:'Ruptura · base',retest:'Retrocés · base',recovery:'Recuperació RSI · base',v4_breakout:'Ruptura confirmada · v4',v4_retest:'Retrocés confirmat · v4',v4_recovery:'RSI amb tendència · v4'};
+  const labels={both:'Ruptura o retrocés · base',breakout:'Ruptura · base',retest:'Retrocés · base',recovery:'Recuperació RSI · base',v4_breakout:'Ruptura confirmada · v4.1',v4_retest:'Retrocés confirmat · v4.1',v4_recovery:'RSI amb tendència · v4.1'};
   const comparisons=Array.isArray(d.comparisons)?d.comparisons:[];
   const funnelRows=comparisons.filter(x=>x.mode.startsWith('v4_')).map(x=>'<tr><td>'+safe(labels[x.mode])+'</td><td>'+x.funnel?.barsChecked+'</td><td>'+x.funnel?.trendPassed+'</td><td>'+x.funnel?.patternPassed+'</td><td>'+x.funnel?.volumePassed+'</td><td>'+x.funnel?.riskPassed+'</td></tr>').join('');
   const pct=v=>Number.isFinite(v)?fmt(v,1)+'%':'—';
