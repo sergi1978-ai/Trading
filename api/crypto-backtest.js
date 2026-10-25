@@ -45,7 +45,11 @@ export default async function handler(req,res){
   if(data.error?.length)throw Error(data.error.join(', '));
   const key=Object.keys(data.result||{}).find(k=>k!=='last'),now=Date.now();
   const bars=(data.result?.[key]||[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[6]})).filter(x=>(x.t+3600)*1000<=now&&[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&x.c>0).sort((a,b)=>a.t-b.t);
+  const timestamps=new Set(bars.map(x=>x.t));const duplicateCount=bars.length-timestamps.size;
+  const gaps=bars.slice(1).filter((x,i)=>x.t-bars[i].t!==3600).length;
+  const invalidOHLC=bars.filter(x=>!(x.o>0&&x.h>=Math.max(x.o,x.c,x.l)&&x.l<=Math.min(x.o,x.c))).length;
+  if(duplicateCount||invalidOHLC)return res.status(422).json({error:'Espelmes duplicades o OHLC invàlid',duplicateCount,invalidOHLC});
   if(bars.length<125)return res.status(422).json({error:'Mostra insuficient',bars:bars.length});
-  return res.status(200).json({symbol,source:'Kraken OHLC 1H',bars:bars.length,firstBar:new Date(bars[0].t*1000).toISOString(),lastBar:new Date(bars.at(-1).t*1000).toISOString(),modes:['early','balanced','strict','v4_breakout','v4_retest'].map(x=>replay(bars,x)),warning:'Estudi exploratori 1H: NO equival al Pine 1D/4H/1H ni valida READY. Estima 0,4% costos per operació, stop primer quan stop/objectiu coincideixen. No inclou validació fora de mostra.'});
+  return res.status(200).json({symbol,source:'Kraken OHLC 1H',dataQuality:{source:'Kraken',timeframe:'1H',bars:bars.length,gaps,duplicateCount,invalidOHLC,coverageDays:Math.round((bars.at(-1).t-bars[0].t)/86400*10)/10,limitedHistory:true},bars:bars.length,firstBar:new Date(bars[0].t*1000).toISOString(),lastBar:new Date(bars.at(-1).t*1000).toISOString(),modes:['early','balanced','strict','v4_breakout','v4_retest'].map(x=>replay(bars,x)),warning:'Estudi exploratori 1H: NO equival al Pine 1D/4H/1H ni valida READY. Estima 0,4% costos per operació, stop primer quan stop/objectiu coincideixen. No inclou validació fora de mostra.'});
  }catch(e){return res.status(502).json({error:String(e.message||e)})}
 }
