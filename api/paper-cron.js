@@ -52,7 +52,9 @@ export default async function handler(req,res){
   if(state.lastRun&&Date.now()-Date.parse(state.lastRun)<40*60000)return res.status(200).json({ok:true,skipped:'recent run',lastRun:state.lastRun});
   const coinCursor=state.cryptoCursor||0,stockCursor=state.stockCursor||0;
   const coin=rotatingBatch(COINS,coinCursor,CRYPTO_BATCH),stock=rotatingBatch(STOCKS,stockCursor,STOCK_BATCH);
-  const origin='https://'+(process.env.VERCEL_URL||req.headers.host||'radartrading.vercel.app');
+  // Production cron must call the public production domain, not an ephemeral VERCEL_URL
+  // which can be protected by deployment authentication.
+  const origin='https://radartrading.vercel.app';
   const candidates=[],issues=[];
   const results=await Promise.allSettled([
    getResults(origin,'/api/crypto-scan?symbols='+coin.join(',')),
@@ -79,6 +81,8 @@ export default async function handler(req,res){
   if(results[0].status==='fulfilled')state.cryptoCursor=(coinCursor+coin.length)%COINS.length;
   if(results[1].status==='fulfilled'&&results[2].status==='fulfilled')state.stockCursor=(stockCursor+stock.length)%STOCKS.length;
   state.lastRun=new Date().toISOString();state.checks=(state.checks||0)+1;state.lastInvocation='VERCEL_CRON';state.issues=issues.slice(0,12);
+  state.lastCoverage={stocks:results[1].status==='fulfilled'&&results[2].status==='fulfilled',crypto:results[0].status==='fulfilled',checked:candidates.length};
+  state.lastRunHealth=candidates.length===0?'NO_DATA':issues.length?'PARTIAL':'OK';
   await savePaper(state);
   return res.status(200).json({ok:true,checked:candidates.length,coverage:{crypto:coin,stocks:stock},open:state.trades.filter(t=>t.state==='OPEN').length,closed:state.trades.filter(t=>t.state==='CLOSED').length,observations:state.observations.length,issues:state.issues});
  }catch(e){return res.status(500).json({error:String(e.message||e)})}
