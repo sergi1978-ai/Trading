@@ -296,7 +296,10 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const supportSetup = h4.c>h450 && supportDist<=1.15;
 
   const recentHigh=Math.max(...h1Bars.slice(-8).map(x=>x.h));
-  const prevHigh=Math.max(...h1Bars.slice(-9,-1).map(x=>x.h));
+  // Freeze the candidate breakout level for this analysis on COMPLETED prior 4H bars.
+  // A rolling 1H high chases every small intraday rise; the 4H base is less noisy.
+  const base4ForTrigger=h4Bars.slice(-9,-1);
+  const prevHigh=base4ForTrigger.length===8?Math.max(...base4ForTrigger.map(x=>x.h)):Math.max(...h1Bars.slice(-9,-1).map(x=>x.h));
   const bullishCandle=h1.c>h1.o;
   const reclaim=h1.l <= support.v + a4*0.35 && h1.c > support.v && bullishCandle;
   const engulf=h1Bars.length>2 && h1.c>h1.o && h1Bars[h1Bars.length-2].c<h1Bars[h1Bars.length-2].o && h1.c>=h1Bars[h1Bars.length-2].o && h1.o<=h1Bars[h1Bars.length-2].c;
@@ -553,11 +556,15 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
    ...(reconstructed4H?['4H reconstruït, comparar amb TradingView']:[])
   ];
   const entryDataReliable=vol1hReliable&&fourHourVolumeReliable&&!outlier1h;
+  // Single public decision gate. Discovery remains separate from executable entry.
+  const tradeEligible=Boolean(['A','A+'].includes(status)&&auth==='SÍ'&&!riskBlocked&&pineEntryConfirmed&&pinePlanValid&&entryDataReliable);
+  if(!tradeEligible)auth='NO';
+  const decisionStage=tradeEligible?'ENTRADA PER REVISAR':pinePlanValid&&pineContextOK?'PLA PREPARAT':earlyScore>=50?'VIGILÀNCIA ANTICIPADA':'SENSE SETUP';
   const dayChange=pct(d.c, dBars[dBars.length-2].c);
 
   return {
     symbol,momentum:momentumIndicators,
-    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,decisionBlockers,h1AgeHours,
+    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,decisionBlockers,h1AgeHours,tradeEligible,decisionStage,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
     rsiDiagnostic,earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
     fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
