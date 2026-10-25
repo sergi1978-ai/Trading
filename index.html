@@ -1308,7 +1308,7 @@ document.getElementById('mtfRun').onclick=async()=>{
  if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)){el.textContent='Ticker incorrecte';return}
  btn.disabled=true;el.textContent='Consultant 1D, 1H i reconstruint 4H…';
  try{
-  const r=await fetch('/api/mtf-backtest?symbol='+encodeURIComponent(symbol),{cache:'no-store'}),data=await r.json();
+  const r=await fetch('/api/backtest?mode=mtf&symbol='+encodeURIComponent(symbol),{cache:'no-store'}),data=await r.json();
   if(!r.ok)throw Error(data.error||'Error de dades');
   const counts=data.counts||{},blocks=data.rejections||{};
   el.innerHTML='<h4>'+safe(symbol)+' · 1D / 4H / 1H · experimental</h4><p>Operacions tancades: <strong>'+data.closed+'</strong> · Retorn sobre capital: <strong>'+fmt(data.totalReturnPct,2)+'%</strong> · Drawdown OHLC: <strong>'+fmt(data.maxDrawdownPct,2)+'%</strong></p><p class="muted">Cobertura: 1D '+counts.daily+' · 4H '+counts.fourHour+' · 1H '+counts.hourly+' · NO és equivalent al Pine</p><p class="muted">Bloquejos: '+Object.entries(blocks).map(([k,v])=>safe(k)+': '+v).join(' · ')+'</p><div class="tablebox"><table style="min-width:650px"><thead><tr><th>Entrada</th><th>Sortida</th><th>Preu entrada</th><th>Preu sortida</th><th>Motiu</th><th>Retorn capital</th></tr></thead><tbody>'+data.trades.slice(-30).map(t=>'<tr><td>'+safe(t.entryTime)+'</td><td>'+safe(t.exitTime)+'</td><td>'+fmt(t.entry)+'</td><td>'+fmt(t.exit)+'</td><td>'+safe(t.why)+'</td><td>'+fmt(t.capitalReturnPct,2)+'%</td></tr>').join('')+'</tbody></table></div>';
