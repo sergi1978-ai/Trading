@@ -6,11 +6,17 @@ function rsi(v,n=14){if(v.length<n+1)return null;let gain=0,loss=0;for(let i=v.l
 function atr(bars,n=14){if(bars.length<n+1)return null;const x=bars.slice(-n-1);return x.slice(1).reduce((sum,b,i)=>sum+Math.max(b.h-b.l,Math.abs(b.h-x[i].c),Math.abs(b.l-x[i].c)),0)/n}
 function run(bars,mode,costBps=12){
  let trades=[],equity=1,peak=1,maxDD=0,pos=null;
+ const riskBudget=0.01,capitalInitial=1;
+ let portfolioLow=1;
  const funnel={barsChecked:0,trendPassed:0,patternPassed:0,volumePassed:0,riskPassed:0,entries:0};
  for(let i=65;i<bars.length-1;i++){
   const known=bars.slice(0,i+1),b=bars[i],next=bars[i+1],close=known.map(x=>x.c);
+  let exitedThisBar=false;
   if(pos){
    let exit=null,reason='';
+   // Conservative intrabar equity estimate using the next candle low.
+   const lowMark=equity*(1+pos.fraction*(next.l/pos.entry-1-2*costBps/10000));
+   if(Number.isFinite(lowMark))maxDD=Math.max(maxDD,Math.max(0,(peak-lowMark)/peak));
    // Gap-aware, stop first if both target and stop are crossed in same bar.
    if(next.o<=pos.stop){exit=next.o;reason='Stop amb gap'}
    else if(next.o>=pos.target){exit=next.o;reason='Objectiu amb gap'}
@@ -19,12 +25,13 @@ function run(bars,mode,costBps=12){
    else if(i-pos.signalIndex>=10){exit=next.c;reason='Temps màxim'}
    if(exit!==null){
     const ret=(exit/pos.entry-1)-2*costBps/10000;
-    equity*=Math.max(0,1+ret);peak=Math.max(peak,equity);maxDD=Math.max(maxDD,(peak-equity)/peak);
-    trades.push({date:next.t,entryDate:pos.date,entry:pos.entry,stop:pos.stop,target:pos.target,exit,reason,returnPct:Math.round(ret*10000)/100});
-    pos=null;
+    equity*=Math.max(0,1+pos.fraction*ret);peak=Math.max(peak,equity);maxDD=Math.max(maxDD,(peak-equity)/peak);
+    trades.push({date:next.t,entryDate:pos.date,entry:pos.entry,stop:pos.stop,target:pos.target,exit,reason,positionFraction:pos.fraction,returnPct:Math.round(ret*10000)/100});
+    pos=null;exitedThisBar=true;
    }
   }
-  if(pos)continue;
+  // Never use an earlier opening price after an exit determined later in the same session.
+  if(pos||exitedThisBar)continue;
   const e20=ema(close,20),e50=ema(close,50),a=atr(known);
   if(!(a>0))continue;
   const previousRsi=rsi(close.slice(0,-1)),currentRsi=rsi(close);
@@ -56,14 +63,18 @@ function run(bars,mode,costBps=12){
   const entry=next.o,stop=Math.min(b.l,entry-1.5*a),risk=entry-stop;
   if(!(entry>0&&risk>0&&risk/entry<=.08&&risk/entry>=.005))continue;
   if(mode.startsWith('v4_')){funnel.riskPassed++;funnel.entries++;}
-  pos={entry,stop,target:entry+(mode.startsWith('v4_')?2.5:2)*risk,date:next.t,signalIndex:i};
+  const fraction=Math.min(1,riskBudget/(risk/entry));
+  pos={entry,stop,target:entry+(mode.startsWith('v4_')?2.5:2)*risk,date:next.t,signalIndex:i,fraction};
   // Evaluate the actual entry-day bar as well, conservatively assigning stop
   // if both boundaries are touched during the same OHLC candle.
-  const sameDayExit=next.l<=pos.stop?pos.stop:next.h>=pos.target?pos.target:null;
+  // Entry occurs at next open. A stop/target breached on the open fills at the open.
+  const sameDayExit=next.o<=pos.stop?next.o:next.o>=pos.target?next.o:next.l<=pos.stop?pos.stop:next.h>=pos.target?pos.target:null;
   if(sameDayExit!==null){
    const ret=(sameDayExit/pos.entry-1)-2*costBps/10000;
-   equity*=Math.max(0,1+ret);peak=Math.max(peak,equity);maxDD=Math.max(maxDD,(peak-equity)/peak);
-   trades.push({date:next.t,entryDate:pos.date,entry:pos.entry,stop:pos.stop,target:pos.target,exit:sameDayExit,reason:next.l<=pos.stop?'Stop dia entrada':'Objectiu dia entrada',returnPct:Math.round(ret*10000)/100});
+   const lowMark=equity*(1+pos.fraction*(next.l/entry-1-2*costBps/10000));
+   if(Number.isFinite(lowMark))maxDD=Math.max(maxDD,Math.max(0,(peak-lowMark)/peak));
+   equity*=Math.max(0,1+pos.fraction*ret);peak=Math.max(peak,equity);maxDD=Math.max(maxDD,(peak-equity)/peak);
+   trades.push({date:next.t,entryDate:pos.date,entry:pos.entry,stop:pos.stop,target:pos.target,exit:sameDayExit,positionFraction:pos.fraction,reason:next.o<=pos.stop?'Stop gap dia entrada':next.o>=pos.target?'Objectiu gap dia entrada':next.l<=pos.stop?'Stop dia entrada':'Objectiu dia entrada',returnPct:Math.round(ret*10000)/100});
    pos=null;
   }
  }
@@ -73,7 +84,7 @@ function run(bars,mode,costBps=12){
  const barIndex=new Map(bars.map((b,i)=>[b.t,i]));
  const duration=trades.map(t=>(barIndex.get(t.date)??0)-(barIndex.get(t.entryDate)??0)).filter(n=>n>=0);
  const averageSessions=duration.length?Math.round(duration.reduce((a,b)=>a+b,0)/duration.length*10)/10:null;
- return {funnel:mode.startsWith('v4_')?funnel:null,avgWinPct:avg(positives),avgLossPct:avg(negatives),averageSessions,trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
+ return {simulationVersion:'phase2-risk-chronology',riskBudgetPct:1,openAtEnd:pos?{entry:pos.entry,entryDate:pos.date,stop:pos.stop,target:pos.target}:null,funnel:mode.startsWith('v4_')?funnel:null,avgWinPct:avg(positives),avgLossPct:avg(negatives),averageSessions,trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Fase 2: risc objectiu 1% del capital per stop, exposició màxima 100%; sense reentrada després de sortida en mateixa barra; mark-to-low OHLC conservador per drawdown; gaps a obertura; posicions obertes no liquidades al final. Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
 }
 async function getBars(symbol){
  const start=new Date(Date.now()-2*366*86400000).toISOString();
