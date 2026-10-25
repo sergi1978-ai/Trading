@@ -560,11 +560,16 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const tradeEligible=Boolean(['A','A+'].includes(status)&&auth==='SÍ'&&!riskBlocked&&pineEntryConfirmed&&pinePlanValid&&entryDataReliable);
   if(!tradeEligible)auth='NO';
   const decisionStage=tradeEligible?'ENTRADA PER REVISAR':pinePlanValid&&pineContextOK?'PLA PREPARAT':earlyScore>=50?'VIGILÀNCIA ANTICIPADA':'SENSE SETUP';
+  // An executable plan must be near the market and independently confirmed.
+  // Keep far-away breakouts on the watch radar, never label as an immediate trade.
+  const executionDistanceOK=Number.isFinite(distToTrigger)&&distToTrigger<=2.5&&distToTrigger>=-1;
+  const executionReady=tradeEligible&&executionDistanceOK;
+  const executionBlockers=[...new Set([...decisionBlockers,...(!executionDistanceOK?['Trigger fora de la finestra executable (-1% a +2,5%)']:[])])];
   const dayChange=pct(d.c, dBars[dBars.length-2].c);
 
   return {
     symbol,momentum:momentumIndicators,
-    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,decisionBlockers,h1AgeHours,tradeEligible,decisionStage,
+    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,decisionBlockers,h1AgeHours,tradeEligible:executionReady,decisionStage:executionReady?'ENTRADA PER REVISAR':decisionStage==='ENTRADA PER REVISAR'?'VIGILÀNCIA ANTICIPADA':decisionStage,executionBlockers,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
     rsiDiagnostic,earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
     fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
