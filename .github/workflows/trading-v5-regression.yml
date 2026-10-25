@@ -1,0 +1,21 @@
+name: Trading v5 regression
+on:
+  push:
+    branches:
+      - feature/trading-v5-experimental
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'tests/**'
+      - 'api/backtest.js'
+      - 'package.json'
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npm test
