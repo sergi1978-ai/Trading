@@ -6,6 +6,7 @@ function rsi(v,n=14){if(v.length<n+1)return null;let gain=0,loss=0;for(let i=v.l
 function atr(bars,n=14){if(bars.length<n+1)return null;const x=bars.slice(-n-1);return x.slice(1).reduce((sum,b,i)=>sum+Math.max(b.h-b.l,Math.abs(b.h-x[i].c),Math.abs(b.l-x[i].c)),0)/n}
 function run(bars,mode,costBps=12){
  let trades=[],equity=1,peak=1,maxDD=0,pos=null;
+ const funnel={barsChecked:0,trendPassed:0,patternPassed:0,volumePassed:0,riskPassed:0,entries:0};
  for(let i=65;i<bars.length-1;i++){
   const known=bars.slice(0,i+1),b=bars[i],next=bars[i+1],close=known.map(x=>x.c);
   if(pos){
@@ -28,15 +29,21 @@ function run(bars,mode,costBps=12){
   if(!(a>0))continue;
   const previousRsi=rsi(close.slice(0,-1)),currentRsi=rsi(close);
   const recovery=previousRsi!==null&&currentRsi!==null&&previousRsi<35&&currentRsi>=35&&b.c>b.o&&b.c>e20;
+  if(mode.startsWith('v4_'))funnel.barsChecked++;
   const vPrior=bars.slice(i-20,i).map(z=>z.v).filter(Number.isFinite);
   const vMean=vPrior.length===20?vPrior.reduce((x,y)=>x+y,0)/20:0;
   const rvol=vMean>0?b.v/vMean:0;
   const e200=ema(close,200);
   const prevClose=bars[i-1].c;
   const advancedTrend=e200!==null&&e20>e50&&e50>e200&&b.c>e20;
+  if(mode.startsWith('v4_')&&advancedTrend)funnel.trendPassed++;
   const advancedBreakout=advancedTrend&&rvol>=1.2&&b.c>b.o&&b.c>Math.max(...bars.slice(i-20,i).map(z=>z.h))&&(b.c-e20)/a<2.5;
   const advancedRetest=advancedTrend&&rvol>=0.85&&bars[i-1].l<=ema(close.slice(0,-1),20)&&prevClose>e50&&b.c>bars[i-1].h&&b.c>b.o;
   const advancedRecovery=advancedTrend&&recovery&&rvol>=1.0;
+  const advancedPattern=mode==='v4_breakout'?breakout:mode==='v4_retest'?(bars[i-1].l<=ema(close.slice(0,-1),20)&&prevClose>e50&&b.c>bars[i-1].h&&b.c>b.o):recovery;
+  const advancedVolume=mode==='v4_breakout'?rvol>=1.2:mode==='v4_retest'?rvol>=0.85:rvol>=1;
+  if(mode.startsWith('v4_')&&advancedTrend&&advancedPattern)funnel.patternPassed++;
+  if(mode.startsWith('v4_')&&advancedTrend&&advancedPattern&&advancedVolume)funnel.volumePassed++;
   if(!mode.startsWith('v4_')&&mode!=='recovery'&&!(e20>e50&&b.c>e20))continue;
   const prev=bars.slice(i-20,i),high=Math.max(...prev.map(x=>x.h));
   const breakout=b.c>high&&b.c>b.o;
@@ -44,6 +51,7 @@ function run(bars,mode,costBps=12){
   if(!(mode==='v4_breakout'?advancedBreakout:mode==='v4_retest'?advancedRetest:mode==='v4_recovery'?advancedRecovery:mode==='recovery'?recovery:mode==='breakout'?breakout:mode==='retest'?retest:(breakout||retest)))continue;
   const entry=next.o,stop=Math.min(b.l,entry-1.5*a),risk=entry-stop;
   if(!(entry>0&&risk>0&&risk/entry<=.08&&risk/entry>=.005))continue;
+  if(mode.startsWith('v4_')){funnel.riskPassed++;funnel.entries++;}
   pos={entry,stop,target:entry+(mode.startsWith('v4_')?2.5:2)*risk,date:next.t,signalIndex:i};
   // Evaluate the actual entry-day bar as well, conservatively assigning stop
   // if both boundaries are touched during the same OHLC candle.
@@ -61,7 +69,7 @@ function run(bars,mode,costBps=12){
  const barIndex=new Map(bars.map((b,i)=>[b.t,i]));
  const duration=trades.map(t=>(barIndex.get(t.date)??0)-(barIndex.get(t.entryDate)??0)).filter(n=>n>=0);
  const averageSessions=duration.length?Math.round(duration.reduce((a,b)=>a+b,0)/duration.length*10)/10:null;
- return {avgWinPct:avg(positives),avgLossPct:avg(negatives),averageSessions,trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
+ return {funnel:mode.startsWith('v4_')?funnel:null,avgWinPct:avg(positives),avgLossPct:avg(negatives),averageSessions,trades:trades.slice(-250),total:trades.length,winRate:trades.length?Math.round(wins/trades.length*1000)/10:null,totalReturnPct:Math.round((equity-1)*10000)/100,maxDrawdownPct:Math.round(maxDD*10000)/100,assumptions:'Proxy 1D EMA20/50 + ruptura màxim 20 dies, retest EMA20 o recovery RSI14 (<35 → >=35); entrada obertura següent sessió; stop ATR; objectiu 2R; màx 10 sessions; stop prioritzat en barra amb toc simultani; 12 punts bàsics per costat. No replica Pine 1D/4H/1H.'};
 }
 async function getBars(symbol){
  const start=new Date(Date.now()-2*366*86400000).toISOString();
