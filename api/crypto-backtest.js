@@ -8,7 +8,11 @@ function replay(bars,mode){
   const obv=x=>x.slice(1).reduce((s,c,j)=>s+(c.c>x[j].c?c.v:c.c<x[j].c?-c.v:0),0);
   const accum=b.c>base&&rvol>=.35&&rvol<1.8&&obv(bars.slice(i-5,i+1))>Math.max(0,obv(bars.slice(i-11,i-5)));
   const breakout=b.c>high&&b.c>b.o&&rvol>=1.3,retest=b.c>base&&b.l<=base&&b.c>b.o&&rvol>=.9;
-  const signal=mode==='early'?accum:mode==='balanced'?((breakout||retest)&&rvol>=1.1):breakout&&rvol>=1.8;
+  const slowBase=average(bars.slice(i-50,i).map(x=>x.c));
+  const v4Trend=base>slowBase&&b.c>base&&bars[i-1].c>slowBase;
+  const v4Breakout=v4Trend&&breakout&&rvol>=1.5&&(b.c-base)/Math.max(0.00000001,average(prior.map(x=>x.h-x.l)))<3;
+  const v4Retest=v4Trend&&retest&&b.c>bars[i-1].h&&rvol>=1.1;
+  const signal=mode==='v4_breakout'?v4Breakout:mode==='v4_retest'?v4Retest:mode==='early'?accum:mode==='balanced'?((breakout||retest)&&rvol>=1.1):breakout&&rvol>=1.8;
   if(!signal){i++;continue;}
   const entry=bars[i+1].o,atr=average(prior.map(x=>x.h-x.l)),stop=entry-1.5*atr,target=entry+3*atr;
   if(!(entry>0&&atr>0&&1.5*atr/entry>=.005&&1.5*atr/entry<=.08)){i++;continue;}
@@ -42,6 +46,6 @@ export default async function handler(req,res){
   const key=Object.keys(data.result||{}).find(k=>k!=='last'),now=Date.now();
   const bars=(data.result?.[key]||[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[6]})).filter(x=>(x.t+3600)*1000<=now&&[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&x.c>0).sort((a,b)=>a.t-b.t);
   if(bars.length<125)return res.status(422).json({error:'Mostra insuficient',bars:bars.length});
-  return res.status(200).json({symbol,source:'Kraken OHLC 1H',bars:bars.length,firstBar:new Date(bars[0].t*1000).toISOString(),lastBar:new Date(bars.at(-1).t*1000).toISOString(),modes:['early','balanced','strict'].map(x=>replay(bars,x)),warning:'Estudi exploratori 1H: NO equival al Pine 1D/4H/1H ni valida READY. Estima 0,4% costos per operació, stop primer quan stop/objectiu coincideixen. No inclou validació fora de mostra.'});
+  return res.status(200).json({symbol,source:'Kraken OHLC 1H',bars:bars.length,firstBar:new Date(bars[0].t*1000).toISOString(),lastBar:new Date(bars.at(-1).t*1000).toISOString(),modes:['early','balanced','strict','v4_breakout','v4_retest'].map(x=>replay(bars,x)),warning:'Estudi exploratori 1H: NO equival al Pine 1D/4H/1H ni valida READY. Estima 0,4% costos per operació, stop primer quan stop/objectiu coincideixen. No inclou validació fora de mostra.'});
  }catch(e){return res.status(502).json({error:String(e.message||e)})}
 }
