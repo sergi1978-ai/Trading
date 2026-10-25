@@ -17,7 +17,7 @@ export default async function handler(req,res){
    rejected:observations.filter(o=>!o.signalApproved).length,
    open:(s.trades||[]).filter(t=>t.state==='OPEN').length,
    closed:(s.trades||[]).filter(t=>t.state==='CLOSED').length,
-   errors:(s.issues||[]).length,issues:(s.issues||[]).slice(0,8),averageClosedNetPct:averageNetPct,
+   errors:(s.issues||[]).length,issues:(s.issues||[]).slice(0,8),lastCoverage:s.lastCoverage||null,lastRunHealth:s.lastRunHealth||null,cronExpected:'0 19 * * *',averageClosedNetPct:averageNetPct,
    explanation:'Mostres del servidor; no representen ordres reals ni seguiment continu.'});
  }catch(_){return res.status(200).json({state:'ERROR_LECTURA',lastRun:null,explanation:'No es pot verificar el registre del servidor'})}
 }
