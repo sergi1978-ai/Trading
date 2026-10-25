@@ -333,8 +333,10 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   // INVALIDAT queda reservat per una ruptura estructural real.
   let status='WATCH', auth='NO';
 
-  const structuralInvalidation =
-    (Number.isFinite(stop) && (h1.c < stop || h4.c < stop));
+  // A dynamically calculated stop is NOT evidence that a previously armed setup failed.
+  // Without a persisted setup/stop history, only report a structural loss when a
+  // confirmed support setup exists and BOTH completed 1H and 4H closes break the level.
+  const structuralInvalidation = Boolean(supportSetup && Number.isFinite(stop) && h1.c < stop && h4.c < stop);
 
   const noValidPlan =
     !Number.isFinite(stop) || !Number.isFinite(trigger) || stop >= trigger;
@@ -531,6 +533,14 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
   const earlyState=trend<45?'SENSE TENDÈNCIA':compression&&nearBreakout&&positiveVolume?'PRE-RUPTURA':compression&&nearBreakout?'COMPRESSIÓ PROP RUPTURA':compression?'COMPRESSIÓ':nearBreakout?'VIGILAR RESISTÈNCIA':'SENSE PATRÓ';
   // Decision-grade diagnostic: a setup score alone is not an entry authorization.
   const incompleteChecks=pineChecks.filter(c=>!c.pass).map(c=>c.name);
+  const decisionBlockers=[
+    ...(structuralInvalidation?['Suport 4H i stop vulnerats']:[]),
+    ...(weakStructure?['Tendència 4H feble']:[]),
+    ...(!h1Confirm?['Falta confirmació 1H']:[]),
+    ...(riskBlocked?['Risc, sobreextensió o resistència desfavorables']:[]),
+    ...(!pinePlanValid?['Pla Pine R:R net mínim 2 no vàlid']:[]),
+    ...(!pineEntryConfirmed?['Falta senyal d’execució Pine']:[])
+  ];
   const barTimestamp=Date.parse(h1.t);
   const h1AgeHours=Number.isFinite(barTimestamp)?Math.max(0,(Date.now()-barTimestamp)/3600000):null;
   const vol1hReliable=Number.isFinite(rvol)&&rvol>=0.05&&rvol<=30;
@@ -547,7 +557,7 @@ function compute(symbol, dBarsRaw, h4BarsRaw, h1BarsRaw, benchH1Raw=[], m30Raw=[
 
   return {
     symbol,momentum:momentumIndicators,
-    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,h1AgeHours,
+    pineEntryConfirmed,pinePlanValid,pineBlockedReason,pineParity,pineChecks,entryCautions,entryDataReliable,incompleteChecks,decisionBlockers,h1AgeHours,
     pineReferenceVersion:'6.6.18',pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.target??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,
     rsiDiagnostic,earlyScore,earlyState,compressionRatio,preBreakoutLevel,preBreakoutDistance,volumeBuild,
     fourHourSource:reconstructed4H?'1H agregades (aproximació)':'4H Alpaca',
