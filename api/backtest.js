@@ -1,3 +1,4 @@
+import {multiTimeframeHandler} from '../lib/multitimeframe.js';
 // Trading 2026 backtesting pilot. DAILY proxy only, NOT a replay of Pine 1D/4H/1H.
 // Signals use only previously CLOSED candles and are entered at the next daily open.
 const ALPACA='https://data.alpaca.markets/v2/stocks/bars';
@@ -108,6 +109,7 @@ async function getBars(symbol){
 }
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
+ if(req.query.mode==='mtf')return multiTimeframeHandler(req,res);
  if(req.method!=='GET')return res.status(405).json({error:'Mètode no permès'});
  if(!process.env.ALPACA_API_KEY||!process.env.ALPACA_API_SECRET)return res.status(503).json({error:'Alpaca no configurat'});
  const symbol=String(req.query.symbol||'').trim().toUpperCase(),mode=String(req.query.mode||'both');
