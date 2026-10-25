@@ -40,14 +40,16 @@ function run(bars,mode,costBps=12){
   const advancedBreakout=advancedTrend&&rvol>=1.2&&b.c>b.o&&b.c>Math.max(...bars.slice(i-20,i).map(z=>z.h))&&(b.c-e20)/a<2.5;
   const advancedRetest=advancedTrend&&rvol>=0.85&&bars[i-1].l<=ema(close.slice(0,-1),20)&&prevClose>e50&&b.c>bars[i-1].h&&b.c>b.o;
   const advancedRecovery=advancedTrend&&recovery&&rvol>=1.0;
-  const advancedPattern=mode==='v4_breakout'?breakout:mode==='v4_retest'?(bars[i-1].l<=ema(close.slice(0,-1),20)&&prevClose>e50&&b.c>bars[i-1].h&&b.c>b.o):recovery;
+
   const advancedVolume=mode==='v4_breakout'?rvol>=1.2:mode==='v4_retest'?rvol>=0.85:rvol>=1;
-  if(mode.startsWith('v4_')&&advancedTrend&&advancedPattern)funnel.patternPassed++;
-  if(mode.startsWith('v4_')&&advancedTrend&&advancedPattern&&advancedVolume)funnel.volumePassed++;
   if(!mode.startsWith('v4_')&&mode!=='recovery'&&!(e20>e50&&b.c>e20))continue;
   const prev=bars.slice(i-20,i),high=Math.max(...prev.map(x=>x.h));
   const breakout=b.c>high&&b.c>b.o;
+  const advancedPattern=mode==='v4_breakout'?breakout:mode==='v4_retest'?(bars[i-1].l<=ema(close.slice(0,-1),20)&&prevClose>e50&&b.c>bars[i-1].h&&b.c>b.o):recovery;
   const retest=b.l<=e20&&b.c>e20&&b.c>b.o;
+  if(mode.startsWith('v4_')&&advancedTrend&&advancedPattern)funnel.patternPassed++;
+  if(mode.startsWith('v4_')&&advancedTrend&&advancedPattern&&advancedVolume)funnel.volumePassed++;
+
   if(!(mode==='v4_breakout'?advancedBreakout:mode==='v4_retest'?advancedRetest:mode==='v4_recovery'?advancedRecovery:mode==='recovery'?recovery:mode==='breakout'?breakout:mode==='retest'?retest:(breakout||retest)))continue;
   const entry=next.o,stop=Math.min(b.l,entry-1.5*a),risk=entry-stop;
   if(!(entry>0&&risk>0&&risk/entry<=.08&&risk/entry>=.005))continue;
