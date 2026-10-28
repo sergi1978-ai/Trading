@@ -1,0 +1,160 @@
+//@version=6
+strategy("LONG AI PROFIT v1.0 LAB | 1H | A/B/C", overlay=true, initial_capital=10000,
+ pyramiding=0, default_qty_type=strategy.fixed, commission_type=strategy.commission.percent,
+ commission_value=0.05, slippage=2, process_orders_on_close=false, calc_on_every_tick=false,
+ max_labels_count=50)
+// EXPERIMENTAL research strategy. Does not transmit orders to the broker.
+// KEEP original LONG AI ASSISTANT v6.6.27 as reference. NOT READY signal equivalence.
+// Each test runs one engine at a time, preventing misleading combined backtests.
+// Coinbase BTCUSD is preferred for cryptocurrency volume parity. Different symbols/feeds differ.
+// Backtest only on NORMAL 1H candles. Use standard regular hours for stocks.
+g = "01 | Estrategia"
+engine = input.string("A · PULLBACK", "Motor independent", options=["A · PULLBACK", "B · BREAKOUT RETEST", "C · EARLY EXPANSION"], group=g)
+riskPct = input.float(0.5, "Risc sobre equity (%)", minval=0.1, maxval=1.0, step=0.1, group=g) / 100
+maxAllocation = input.float(25.0, "Assignacio maxima equity (%)", minval=1, maxval=100, step=1, group=g) / 100
+entryValidBars = input.int(3, "Caducitat entrada (1H)", minval=1, maxval=12, group=g)
+maxHoldDays = input.int(7, "Sortida temporal (dies naturals)", minval=2, maxval=14, group=g)
+noImpulseDays = input.int(3, "Sortida si no avanca 0.5R (dies)", minval=1, maxval=7, group=g)
+bufferATR = input.float(0.2, "Coixi stop (ATR 4H)", minval=0.05, maxval=1, step=.05, group=g)
+feeRiskReserve = input.float(0.10, "Reserva anada+tornada (%)", minval=0, maxval=2, step=.05, group=g)/100
+maxChaseATR = input.float(.20, "Maxima distancia entrada sobre trigger (ATR 4H)", minval=.05, maxval=1, step=.05, group=g)
+tradeOnlyRTH = input.bool(true, "Accions: nomes sessio regular", group=g)
+showDiagnostics = input.bool(true, "Mostrar diagnostics", group=g)
+if barstate.isfirst
+    if timeframe.in_seconds() != 3600 or not chart.is_standard
+        runtime.error("LAB v1.0 necessita grafic 1H d'espelmes estandard.")
+isCrypto = syminfo.type == "crypto"
+tickerContext = isCrypto ? syminfo.tickerid : ticker.modify(syminfo.tickerid, session=session.regular)
+rthOK = isCrypto or not tradeOnlyRTH or session.ismarket
+// request.security: offset [1] on higher TF + lookahead_on => last completed bar
+[dClose, dE20, dE50, dE50Prev, dRsi, dAvgVol] = request.security(tickerContext,"D",
+ [close[1],ta.ema(close,20)[1],ta.ema(close,50)[1],ta.ema(close,50)[2],ta.rsi(close,14)[1],ta.sma(close*volume,20)[1]],
+ lookahead=barmerge.lookahead_on)
+[c4,e20_4,e50_4,atr4,low6_4,low3_4,high20_4,low6Previous_4,low6Recent_4,bbWidth_4,bbPercentile_4] =
+ request.security(tickerContext,"240",
+ [close[1],ta.ema(close,20)[1],ta.ema(close,50)[1],ta.atr(14)[1],
+ ta.lowest(low,6)[1],ta.lowest(low,3)[1],ta.highest(high,20)[2],
+ ta.lowest(low,6)[7],ta.lowest(low,6)[1],
+ (4*ta.stdev(close,20)/ta.sma(close,20))[1],
+ ta.percentile_nearest_rank(4*ta.stdev(close,20)/ta.sma(close,20),120,20)[1]],
+ lookahead=barmerge.lookahead_on)
+rvolBaseline = ta.sma(volume,20)[1]
+rvol = rvolBaseline>0 ? volume/rvolBaseline : na
+rsi1 = ta.rsi(close,14)
+ema20_1 = ta.ema(close,20)
+atr1 = ta.atr(14)
+// Ensure a fully defined context; never pretend partial history is complete.
+hasHistory = not na(dE50Prev) and not na(atr4) and atr4>0 and not na(e50_4) and not na(rvol)
+dailyUp = dClose>dE50 and dE50>dE50Prev and dE20>dE50
+fourUp = c4>e50_4 and e20_4>e50_4
+liquidityOK = isCrypto ? dAvgVol>1000000 : dAvgVol>1000000
+extensionOK = close<=e20_4+2*atr4
+baseContext = barstate.isconfirmed and rthOK and hasHistory and liquidityOK and extensionOK
+// A: buy recovery after EMA20/50 zone pullback in previous completed 4H candles.
+touchZone = low6_4<=e20_4+.25*atr4 and low6_4>=e50_4-.5*atr4
+aSetup=baseContext and dailyUp and fourUp and touchZone and close>ema20_1 and close>high[1] and rsi1>50 and rvol>=1.1
+aTrigger=high+syminfo.mintick
+aStop=math.min(low,low6_4)-bufferATR*atr4
+// B: 4H closes above preceding 20-bar resistance, then tests breakout level.
+[bBreakClose,bRes,bRecentLow] = request.security(tickerContext,"240",
+ [close[1],ta.highest(high,20)[2],ta.lowest(low,6)[1]],lookahead=barmerge.lookahead_on)
+bWasBreak=bBreakClose>bRes
+bRetest=low<=bRes+.35*atr4 and low>=bRes-.35*atr4 and close>bRes and close>open
+bSetup=baseContext and dClose>dE50 and fourUp and bWasBreak and bRetest and close>high[1] and rvol>=1.1
+bTrigger=high+syminfo.mintick
+bStop=math.min(bRecentLow,low)-bufferATR*atr4
+// C: volatility compression from past, first hourly expansion, early research only.
+cCompressed=bbWidth_4<bbPercentile_4 and low6Recent_4>=low6Previous_4
+cFirstImpulse=close>ta.highest(high,8)[1] and close>open and rsi1>=50 and rsi1<=72 and rvol>=1.5
+cSetup=baseContext and cCompressed and cFirstImpulse and dClose>dE50*.94 and c4>e50_4*.97
+cTrigger=high+syminfo.mintick
+cStop=math.min(low6Recent_4,ta.lowest(low,8))-bufferATR*atr4
+selected=engine=="A · PULLBACK" ? aSetup : engine=="B · BREAKOUT RETEST" ? bSetup : cSetup
+trigger=engine=="A · PULLBACK" ? aTrigger : engine=="B · BREAKOUT RETEST" ? bTrigger : cTrigger
+sl=engine=="A · PULLBACK" ? aStop : engine=="B · BREAKOUT RETEST" ? bStop : cStop
+// Order is stop-entry, created only after closed 1H candle.
+// Pine strategy fill engine has its own bar magnifier and intrabar limitations.
+var float candidateTrigger=na
+var float candidateStop=na
+var float candidateAtr=na
+var float candidateQty=na
+var int signalBar=na
+var float highestSinceEntry=na
+var int openedTime=na
+var float priorPos=0.0
+var float hardStop=na
+var float riskUnit=na
+var float startingQty=na
+var bool afterTP1=false
+hasCandidate=not na(signalBar)
+freshCandidate=selected and strategy.position_size==0 and not hasCandidate and
+ not na(sl) and sl>0 and trigger>sl and (trigger-sl)/trigger<=.10
+if freshCandidate
+    float estimatedLossPerUnit=(trigger-sl)+trigger*feeRiskReserve+syminfo.mintick*4
+    float maxRiskQty=strategy.equity*riskPct/estimatedLossPerUnit
+    float maxExposureQty=strategy.equity*maxAllocation/trigger
+    float qty=math.min(maxRiskQty,maxExposureQty)
+    if qty>0
+        candidateTrigger:=trigger
+        candidateStop:=sl
+        candidateAtr:=atr4
+        candidateQty:=qty
+        signalBar:=bar_index
+        strategy.entry("LONG",strategy.long,qty=qty,stop=trigger,comment=engine)
+// Brackets submitted with entry to reduce unprotected entry-bar time.
+// Each leg 50%, stop active as protective order even before next calculation.
+if hasCandidate and strategy.position_size==0
+    float riskDistance=candidateTrigger-candidateStop
+    strategy.exit("TP1","LONG",qty_percent=50,stop=candidateStop,limit=candidateTrigger+1.5*riskDistance)
+    strategy.exit("TP2","LONG",qty_percent=50,stop=candidateStop,limit=candidateTrigger+3*riskDistance)
+if hasCandidate and strategy.position_size==0 and bar_index-signalBar>entryValidBars
+    strategy.cancel("LONG")
+    strategy.cancel("TP1")
+    strategy.cancel("TP2")
+    candidateTrigger:=na
+    candidateStop:=na
+    candidateAtr:=na
+    candidateQty:=na
+    signalBar:=na
+// Tracking only after confirmed position transition.
+newPosition = strategy.position_size>0 and priorPos<=0
+if newPosition
+    openedTime:=time
+    highestSinceEntry:=high
+    hardStop:=candidateStop
+    riskUnit:=strategy.position_avg_price-hardStop
+    startingQty:=math.abs(strategy.position_size)
+    afterTP1:=false
+// Pine broker emulator controls fills; update trailing stop only once bar closes.
+if strategy.position_size>0
+    highestSinceEntry:=math.max(nz(highestSinceEntry,high),high)
+    if math.abs(strategy.position_size)<nz(startingQty,math.abs(strategy.position_size))-.00000001
+        afterTP1:=true
+    if afterTP1 and barstate.isconfirmed
+        hardStop:=math.max(hardStop,close-2*nz(candidateAtr,atr4))
+    float avg=strategy.position_avg_price
+    float perUnit=math.max(syminfo.mintick,nz(riskUnit,avg-hardStop))
+    strategy.exit("TP1","LONG",qty_percent=50,stop=hardStop,limit=avg+1.5*perUnit)
+    strategy.exit("TP2","LONG",qty_percent=50,stop=hardStop,limit=avg+3*perUnit)
+    bool timedOut=time>=openedTime+maxHoldDays*86400000
+    bool noImpulse=time>=openedTime+noImpulseDays*86400000 and
+     highestSinceEntry<avg+.5*perUnit
+    if barstate.isconfirmed and (timedOut or noImpulse)
+        strategy.close("LONG",comment=timedOut?"TIME_7D":"NO_IMPULSE_3D")
+if strategy.position_size==0 and priorPos>0
+    candidateTrigger:=na
+    candidateStop:=na
+    candidateAtr:=na
+    candidateQty:=na
+    signalBar:=na
+    openedTime:=na
+    highestSinceEntry:=na
+    hardStop:=na
+    riskUnit:=na
+    startingQty:=na
+    afterTP1:=false
+priorPos:=strategy.position_size
+plot(showDiagnostics?e20_4:na,"EMA20 4H confirmada",color.orange)
+plot(showDiagnostics?e50_4:na,"EMA50 4H confirmada",color.blue)
+plotshape(freshCandidate,title="Setup tancat (NO fill)",style=shape.triangleup,color=color.aqua,size=size.tiny,location=location.belowbar)
+plot(strategy.position_size>0?hardStop:na,title="Stop actiu",color=color.red,style=plot.style_linebr)
