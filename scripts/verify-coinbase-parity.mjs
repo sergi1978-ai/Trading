@@ -4,7 +4,7 @@
 // Public endpoint returns [time, low, high, open, close, volume], reverse order.
 const product='BTC-USD';
 const from=process.env.COINBASE_FROM||'2026-10-23T00:00:00Z';
-const to=process.env.COINBASE_TO||'2026-10-29T00:00:00Z';
+const to=process.env.COINBASE_TO||'2026-10-28T00:00:00Z';
 const t0=Date.parse(from),t1=Date.parse(to);
 if(!Number.isFinite(t0)||!Number.isFinite(t1)||t1<=t0||
   (t1-t0)>12*86400000||t0%86400000!==0||t1%86400000!==0)
