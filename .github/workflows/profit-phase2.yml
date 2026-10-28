@@ -7,6 +7,7 @@ on:
     paths:
       - 'lib/profit-simulator.js'
       - 'lib/profit-signals.js'
+      - 'scripts/run-profit-lab.mjs'
       - 'test/profit-simulator.test.js'
       - 'test/profit-signals.test.js'
       - 'pine/LONG_AI_PROFIT_v1_0_LAB.pine'
@@ -20,3 +21,6 @@ jobs:
         with:
           node-version: '22'
       - run: node --test test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
+      - name: Real BTC historical feasibility (does not place orders)
+        timeout-minutes: 6
+        run: node scripts/run-profit-lab.mjs
