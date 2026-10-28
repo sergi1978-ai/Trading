@@ -44,3 +44,10 @@ test('4H and 1D history withheld until enough complete candles available',()=>{
  const result=pineV6627Core({...d,hourOpen:'2026-10-30T04:00:00Z'});
  assert.equal(result.ready,false);assert.equal(result.reason,'INSUFFICIENT_HISTORY');
 });
+
+test('Pine READY gate refuses an open 1H candle at screenshot time',()=>{
+ const d=fixture();
+ assert.throws(()=>pineV6627Core({...d,hourOpen:'2026-10-30T03:00:00Z',asOf:'2026-10-30T03:39:00Z'}),/not confirmed/);
+ const closed=pineV6627Core({...d,hourOpen:'2026-10-30T03:00:00Z',asOf:'2026-10-30T04:00:00Z'});
+ assert.ok(closed.at.fourEnd==='2026-10-30T00:00:00.000Z');
+});
