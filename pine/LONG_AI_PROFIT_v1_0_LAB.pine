@@ -27,8 +27,8 @@ isCrypto = syminfo.type == "crypto"
 tickerContext = isCrypto ? syminfo.tickerid : ticker.modify(syminfo.tickerid, session=session.regular)
 rthOK = isCrypto or not tradeOnlyRTH or session.ismarket
 // request.security: offset [1] on higher TF + lookahead_on => last completed bar
-[dClose, dE20, dE50, dE50Prev, dRsi, dAvgVol] = request.security(tickerContext,"D",
- [close[1],ta.ema(close,20)[1],ta.ema(close,50)[1],ta.ema(close,50)[2],ta.rsi(close,14)[1],ta.sma(close*volume,20)[1]],
+[dClose, dE20, dE50, dE50Prev, dRsi, dAvgVol, dResistance60] = request.security(tickerContext,"D",
+ [close[1],ta.ema(close,20)[1],ta.ema(close,50)[1],ta.ema(close,50)[2],ta.rsi(close,14)[1],ta.sma(close*volume,20)[1],ta.highest(high,60)[1]],
  lookahead=barmerge.lookahead_on)
 [c4,e20_4,e50_4,atr4,low6_4,low3_4,high20_4,low6Previous_4,low6Recent_4,bbWidth_4,bbPercentile_4] =
  request.security(tickerContext,"240",
@@ -87,8 +87,15 @@ var float riskUnit=na
 var float startingQty=na
 var bool afterTP1=false
 hasCandidate=not na(signalBar)
+// Same cost-aware >=2R overhead gate as the experimental JS signal generator.
+// Overhead resistance is previous completed 1D, never the current live daily bar.
+float plannedRisk=trigger-sl
+float costsPlanned=trigger*0.002
+float rrOverhead=plannedRisk>0 and not na(dResistance60) and dResistance60>trigger+syminfo.mintick ?
+ (dResistance60-trigger-costsPlanned)/(plannedRisk+costsPlanned) : 3.0
+bool costAwareRiskOK=not na(dResistance60) and rrOverhead>=2.0
 freshCandidate=selected and strategy.position_size==0 and not hasCandidate and
- not na(sl) and sl>0 and trigger>sl and (trigger-sl)/trigger<=.10
+ not na(sl) and sl>0 and trigger>sl and (trigger-sl)/trigger<=.10 and costAwareRiskOK
 if freshCandidate
     float estimatedLossPerUnit=(trigger-sl)+trigger*feeRiskReserve+syminfo.mintick*4
     float maxRiskQty=strategy.equity*riskPct/estimatedLossPerUnit
