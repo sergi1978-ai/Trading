@@ -21,9 +21,9 @@ jobs:
           node-version: '22'
       - name: Test new strategy and existing simulation invariants
         run: node --test test/trend-pullback-v11.test.js test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
-      - name: Historical Coinbase 2025 comparison (same fixed six markets)
+      - name: Historical Coinbase Mar-Sep 2025 comparison (same fixed six markets)
         timeout-minutes: 11
         env:
-          PROFIT_FROM: 2025-06-01T00:00:00Z
-          PROFIT_TO: 2026-01-01T00:00:00Z
+          PROFIT_FROM: 2025-03-01T00:00:00Z
+          PROFIT_TO: 2025-10-01T00:00:00Z
         run: node scripts/run-profit-universe.mjs
