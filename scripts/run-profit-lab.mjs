@@ -33,7 +33,28 @@ async function download() {
   await new Promise(ok=>setTimeout(ok,120));
  }
  const sorted=[...output.values()].sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
- for(let t=start;t<end;t+=H)if(!output.has(t))throw Error('Missing Coinbase 1H '+new Date(t).toISOString()+' — fail closed');
+ const missing=[];
+ for(let t=start;t<end;t+=H)if(!output.has(t))missing.push(t);
+ // Requery missing hourly intervals once from the SAME exchange; never synthesize candles.
+ for(const t of missing){
+  const u=new URL('https://api.exchange.coinbase.com/products/BTC-USD/candles');
+  u.searchParams.set('start',new Date(t).toISOString());
+  u.searchParams.set('end',new Date(t+H).toISOString());
+  u.searchParams.set('granularity','3600');
+  const response=await fetch(u,{headers:{Accept:'application/json','User-Agent':'LONG-AI-PROFIT-Lab/1.0'},signal:AbortSignal.timeout(30000)});
+  if(!response.ok)throw Error('Coinbase gap retry HTTP '+response.status);
+  const result=await response.json();
+  if(!Array.isArray(result))throw Error('Malformed gap response');
+  const bar=result.find(x=>Array.isArray(x)&&x[0]*1000===t);
+  if(bar){
+   const [,l,h,o,c,v]=bar;
+   if(![l,h,o,c,v].every(Number.isFinite)||l>Math.min(o,c)||h<Math.max(o,c,l))throw Error('Bad retry OHLCV');
+   output.set(t,{t:new Date(t).toISOString(),endExclusive:new Date(t+H).toISOString(),o,h,l,c,v});
+  }
+  await new Promise(ok=>setTimeout(ok,120));
+ }
+ const unresolved=missing.filter(t=>!output.has(t));
+ if(unresolved.length)throw Error('Incomplete Coinbase 1H: '+unresolved.length+' missing hours, first '+new Date(unresolved[0]).toISOString()+' — fail closed');
  return sorted;
 }
 function agg(b){
