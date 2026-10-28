@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {trendPullbackV11,PULLBACK_V11} from '../lib/trend-pullback-v11.js';
+import {trendPullbackV12,V12_REGIME} from '../lib/trend-pullback-v12.js';
 import {simulateProfit} from '../lib/profit-simulator.js';
 const START=Date.parse('2026-01-01T00:00:00Z'),H=3600000;
 const bar=(i,step,p,vol)=>({
@@ -81,4 +82,38 @@ test('equity stock strategy cannot claim validated 4H parity without exchange se
  const result=trendPullbackV11({...f,market:'STOCK'});
  assert.equal(result.blocked,'STOCK_4H_SESSION_PARITY_NOT_VERIFIED');
  assert.equal(result.signals.length,0);
+});
+
+test('v1.2 is a subset of v1.1 with exactly one frozen trend-continuation gate',()=>{
+ const f=fixture(),prior=trendPullbackV11(f),newest=trendPullbackV12(f);
+ const original=new Set(prior.signals.map(x=>x.signalTime+'|'+x.symbol));
+ assert.ok(newest.signals.every(x=>original.has(x.signalTime+'|'+x.symbol)));
+ assert.equal(newest.version,V12_REGIME.version);
+ assert.equal(newest.baselineSignals,prior.signals.length);
+ assert.equal(newest.baselineSignals,newest.signals.length+newest.v12Filtered);
+});
+test('v1.2 never accesses 1D/4H bars closing after the current H1 opens',()=>{
+ const f=fixture(),r=trendPullbackV12(f);
+ for(const x of r.v12Diagnostics){
+   const signalTime=Date.parse(x.signalTime);
+   if(x.lastClosed1D)assert.ok(Date.parse(x.lastClosed1D)<=signalTime-3600000);
+   if(x.lastClosed4H)assert.ok(Date.parse(x.lastClosed4H)<=signalTime-3600000);
+ }
+});
+test('v1.2 fails closed on invalid stocks and unknown volume source',()=>{
+ const f=fixture();
+ assert.equal(trendPullbackV12({...f,volumeApproved:false}).blocked,'VOLUME_NOT_APPROVED');
+ assert.equal(trendPullbackV12({...f,market:'STOCK'}).blocked,'STOCK_4H_SESSION_PARITY_NOT_VERIFIED');
+});
+test('v1.2 only uses closed candles and preserves 0.5 percent risk sizing',()=>{
+ const f=fixture(),last=f.hourly.at(-1),asOf=new Date(Date.parse(last.endExclusive)-1).toISOString();
+ const r=trendPullbackV12({...f,asOf});
+ assert.ok(r.signals.every(s=>Date.parse(s.signalTime)<=Date.parse(asOf)));
+ assert.equal(r.version,'1.2.0-research');
+ const output=simulateProfit({barsBySymbol:{[f.symbol]:f.hourly},signals:r.signals});
+ assert.ok(output.accepted.every(e=>e.riskBudget<=e.capitalAtEntry*.005+1e-7));
+});
+test('v1.2 remains deterministic on identical historical candles',()=>{
+ const f=fixture();
+ assert.deepEqual(trendPullbackV12(f),trendPullbackV12(f));
 });
