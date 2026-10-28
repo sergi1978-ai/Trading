@@ -4,7 +4,7 @@ Status as of **2026-10-28**: **BLOCKED · LAB ONLY**. User has requested notific
 
 | Gate | Current evidence | Status |
 |---|---|---|
-| JavaScript unit/regression tests | 57/57 PASS on 2026-10-28 (before RTH suite); CI must remain green after all changes | PASS provisional |
+| JavaScript unit/regression tests | 62/62 PASS on 2026-10-28, including RTH/DST/early-close/missing-minute tests; CI must remain green after all changes | PASS provisional |
 | Six crypto symbols and frozen historical replay | 2025-03–09, 6 accepted Coinbase pairs; 23 closed A v1.1 trades | PASS for historical feasibility only |
 | Robust net expected return | v1.1 PF 1.1066 (required >=1.2), mean R -0.0045, cost 10bps each side return -0.2159%, 23 trades | **FAIL** |
 | Fully out-of-sample / walk-forward | No >=100 OOS closed trades; 2025 results have now been inspected | **MISSING** |
@@ -31,3 +31,7 @@ Status as of **2026-10-28**: **BLOCKED · LAB ONLY**. User has requested notific
 - Fixed-hypothesis report: `docs/PHASE2_1_V11_PARITY_AND_VALIDATION.md`
 - Pine: `pine/LONG_AI_PROFIT_v1_1_A_LAB.pine`
 - Reconstructed stock sessions: `lib/stock-rth-rebuild.js`; tests: `test/stock-rth-rebuild.test.js`
+
+## Latest implementation hardening
+
+The Pine source now includes the same research warmup thresholds (70 closed daily/60 closed 4H) and a bounded stop-limit entry. This improves the declared contract but **still does not establish actual fill parity**: TradingView stop-limit order execution can differ from the JS reject-on-gap logic. Pine compile/Strategy Tester trade comparison is still a manual gate.
