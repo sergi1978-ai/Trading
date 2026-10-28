@@ -2,7 +2,7 @@
 // COINBASE_FROM=2026-05-01T00:00:00Z COINBASE_TO=2026-10-28T00:00:00Z node scripts/run-profit-lab.mjs
 import {generateProfitSignals} from '../lib/profit-signals.js';
 import {simulateProfit,PROFIT_STRATEGIES} from '../lib/profit-simulator.js';
-const symbol='BTC-USD',from=process.env.COINBASE_FROM||'2026-05-01T00:00:00Z';
+const symbol='BTC-USD',from=process.env.COINBASE_FROM||'2026-07-01T00:00:00Z';
 const to=process.env.COINBASE_TO||'2026-10-28T00:00:00Z';
 const start=Date.parse(from),end=Date.parse(to),H=3600000;
 if(!Number.isFinite(start)||!Number.isFinite(end)||start%H!==0||end%H!==0||
@@ -71,7 +71,7 @@ async function download() {
   await new Promise(ok=>setTimeout(ok,120));
  }
  const unresolved=missing.filter(t=>!output.has(t));
- if(unresolved.length)throw Error('Incomplete Coinbase 1H: '+unresolved.length+' missing hours, first '+new Date(unresolved[0]).toISOString()+' — fail closed');
+ if(unresolved.length)throw Error('Incomplete Coinbase 1H: '+unresolved.length+' missing hours '+unresolved.slice(0,12).map(x=>new Date(x).toISOString()).join(', ')+' — fail closed');
  console.log(JSON.stringify({audit:'Source hourly holes',missingFromNative:missing.length,correctedWithReal5Min:sorted.filter(x=>x.provenance==='COINBASE_5MIN_AGGREGATED').length}));
  return sorted;
 }
