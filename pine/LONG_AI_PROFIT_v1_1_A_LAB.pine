@@ -1,0 +1,131 @@
+//@version=6
+strategy("LONG AI PROFIT v1.1 LAB | A Pullback Reclaim",overlay=true,
+ pyramiding=0,initial_capital=10000,default_qty_type=strategy.fixed,
+ commission_type=strategy.commission.percent,commission_value=0.05,slippage=2,
+ process_orders_on_close=false,calc_on_every_tick=false)
+// RESEARCH ONLY. This is NOT the original LONG AI ASSISTANT v6.6.27.
+// Chart: standard 1H, same symbol and source as JS for signal comparison.
+// Fill mechanics differ from JS until Pine strategy trades are reconciled.
+// Configuration LOCKED to lib/trend-pullback-v11.js (not optimized).
+if barstate.isfirst and (not chart.is_standard or timeframe.in_seconds()!=3600)
+    runtime.error("Experiment v1.1: utilitza 1H amb espelmes normals.")
+isCrypto=syminfo.type=="crypto"
+contextTicker=isCrypto?syminfo.tickerid:ticker.modify(syminfo.tickerid,session=session.regular)
+sessionOK=isCrypto or session.ismarket
+[dClose,d50,d50prev5,dDollarTurnover,dHigh60,dBarIndex]=request.security(contextTicker,"D",
+ [close[1],ta.ema(close,50)[1],ta.ema(close,50)[6],ta.sma(close*volume,20)[1],ta.highest(high,60)[1],bar_index[1]],
+ lookahead=barmerge.lookahead_on)
+[fClose,f20,f20old3,f50,atr4,fLow3,fEnd,fBarIndex]=request.security(contextTicker,"240",
+ [close[1],ta.ema(close,20)[1],ta.ema(close,20)[4],ta.ema(close,50)[1],
+ ta.atr(14)[1],ta.lowest(low,3)[1],time_close[1],bar_index[1]],
+ lookahead=barmerge.lookahead_on)
+hourEMA20=ta.ema(close,20)
+rsi1=ta.rsi(close,14)
+rvolBase=ta.sma(volume,20)[1]
+rvol=rvolBase>0?volume/rvolBase:na
+priorFourLow=ta.lowest(low[1],4)
+recentlyDipped=priorFourLow<hourEMA20
+trendOK=dClose>d50 and d50>d50prev5 and fClose>f50 and f20>f50 and f20>f20old3
+zoneOK=fLow3<=f20+.25*atr4 and fLow3>=f50-.5*atr4
+reclaimOK=close>hourEMA20 and close>open and close>high[1] and recentlyDipped
+rsiOK=rsi1>=52 and rsi1<=70
+volumeOK=rvol>=1.2 and dDollarTurnover>=1000000
+extensionOK=close<=f20+1.5*atr4
+// Match JS conservative minimum closed HTF warm-up: >=70 daily and >=60 4H bars.
+historyOK=bar_index>=50 and not na(dBarIndex) and dBarIndex>=69 and not na(fBarIndex) and fBarIndex>=59 and not na(f20old3) and not na(d50prev5) and not na(fLow3) and atr4>0 and not na(rvol)
+entryTrigger=high+syminfo.mintick
+stopPrice=math.min(fLow3,math.min(priorFourLow,low))-.2*atr4
+riskDistance=entryTrigger-stopPrice
+cost=entryTrigger*.002
+overheadRR=dHigh60>entryTrigger+syminfo.mintick?(dHigh60-entryTrigger-cost)/(riskDistance+cost):1000.0
+riskOK=stopPrice>0 and riskDistance>syminfo.mintick and riskDistance/entryTrigger<=.10 and overheadRR>=2
+confirmed=barstate.isconfirmed and historyOK and sessionOK and trendOK and zoneOK and reclaimOK and rsiOK and volumeOK and extensionOK and riskOK
+var float trigger=na
+var float sl=na
+var float atrOnSignal=na
+var int setupBar=na
+var int entryTime=na
+var float initialSize=na
+var float initialEntry=na
+var float riskAtEntry=na
+var float peakSince=na
+var bool partialTaken=false
+var float activeStop=na
+bool awaiting=not na(setupBar) and strategy.position_size==0
+if confirmed and strategy.position_size==0 and not awaiting
+    float lossUnit=entryTrigger-stopPrice+entryTrigger*.002
+    float quantity=math.min(strategy.equity*.005/lossUnit,strategy.equity*.25/entryTrigger)
+    if quantity>0
+        trigger:=entryTrigger
+        sl:=stopPrice
+        atrOnSignal:=atr4
+        setupBar:=bar_index
+        // Pine stop-limit is a bounded entry. Intrabar fill differs from JS when a gap overshoots.
+        strategy.entry("A11",strategy.long,qty=quantity,stop=trigger,limit=trigger+.2*atr4,comment="PULLBACK_V11")
+if not na(setupBar) and strategy.position_size==0 and bar_index-setupBar>=3
+    strategy.cancel("A11")
+    strategy.cancel("TP1")
+    strategy.cancel("TP2")
+    setupBar:=na
+    trigger:=na
+    sl:=na
+// Submit protective bracket immediately against pending entry; emulator may differ from JS intrabar.
+if not na(setupBar) and strategy.position_size==0 and not na(trigger)
+    float r=trigger-sl
+    strategy.exit("TP1","A11",qty_percent=50,stop=sl,limit=trigger+1.5*r)
+    strategy.exit("TP2","A11",qty_percent=50,stop=sl,limit=trigger+3*r)
+bool opened=strategy.position_size>0 and strategy.position_size[1]==0
+if opened
+    entryTime:=time
+    initialSize:=strategy.position_size
+    initialEntry:=strategy.position_avg_price
+    riskAtEntry:=initialEntry-sl
+    peakSince:=high
+    activeStop:=sl
+    partialTaken:=false
+if strategy.position_size>0
+    peakSince:=math.max(nz(peakSince,high),high)
+    if strategy.position_size<nz(initialSize,strategy.position_size)-0.00000001
+        partialTaken:=true
+    if partialTaken and barstate.isconfirmed
+        activeStop:=math.max(activeStop,close-2*atrOnSignal)
+    if not partialTaken
+        strategy.exit("TP1","A11",qty_percent=50,stop=activeStop,limit=initialEntry+1.5*riskAtEntry)
+        strategy.exit("TP2","A11",qty_percent=50,stop=activeStop,limit=initialEntry+3*riskAtEntry)
+    else
+        strategy.cancel("TP1")
+        strategy.exit("TP2","A11",qty_percent=100,stop=activeStop,limit=initialEntry+3*riskAtEntry)
+    bool timeExit=time>=entryTime+7*86400000
+    bool noImpulse=time>=entryTime+3*86400000 and peakSince<initialEntry+.5*riskAtEntry
+    if barstate.isconfirmed and (timeExit or noImpulse)
+        strategy.close("A11",comment=timeExit?"TIME_7D":"NO_IMPULSE_3D")
+if strategy.position_size==0 and strategy.position_size[1]>0
+    setupBar:=na
+    trigger:=na
+    sl:=na
+    entryTime:=na
+    initialSize:=na
+    initialEntry:=na
+    riskAtEntry:=na
+    peakSince:=na
+    partialTaken:=false
+    activeStop:=na
+string reason=not sessionOK?"FORA SESSIO":not historyOK?"HISTORIAL INSUFICIENT":not trendOK?"TENDENCIA":not zoneOK?"NO TOCA ZONA 4H":not reclaimOK?"FALTA RECUPERACIO 1H":not rsiOK?"RSI":not volumeOK?"VOLUM":not extensionOK?"MASSA ESTESA":not riskOK?"STOP/RR":not barstate.isconfirmed?"1H OBERTA":"SENYAL"
+var table board=table.new(position.top_right,2,6,border_width=1)
+if barstate.islast
+    table.cell(board,0,0,"LONG AI PROFIT v1.1 LAB",bgcolor=color.rgb(35,56,86),text_color=color.white)
+    table.cell(board,1,0,"A · NO ORDRES REALS",bgcolor=color.rgb(35,56,86),text_color=color.white)
+    table.cell(board,0,1,"ESTAT")
+    table.cell(board,1,1,confirmed?"SENYAL CONFIRMAT":reason)
+    table.cell(board,0,2,"VOLUM 1H")
+    table.cell(board,1,2,na(rvol)?"SENSE DADES":str.tostring(rvol,"#.##")+"x")
+    table.cell(board,0,3,"CONTEXT 4H")
+    table.cell(board,1,3,trendOK?"ALCISTA":"PENDENT")
+    table.cell(board,0,4,"R/R RESISTENCIA")
+    table.cell(board,1,4,not riskOK?"NO VALID":str.tostring(overheadRR,"#.##")+"R")
+    table.cell(board,0,5,"SENYAL / FILL")
+    table.cell(board,1,5,"NO EQUIVALEN A ORDRE REAL")
+plot(f20,"EMA20 4H tancada",color.orange)
+plot(f50,"EMA50 4H tancada",color.blue)
+plotshape(confirmed,title="A11 trigger confirmed",style=shape.triangleup,
+ location=location.belowbar,color=color.teal,size=size.small)
