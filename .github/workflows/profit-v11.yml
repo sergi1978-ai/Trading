@@ -39,3 +39,15 @@ jobs:
           PROFIT_FROM: 2024-09-01T00:00:00Z
           PROFIT_TO: 2025-03-01T00:00:00Z
         run: node scripts/run-profit-universe.mjs
+      - name: Previously inspected 2026 Q1 regime (not OOS)
+        timeout-minutes: 12
+        env:
+          PROFIT_FROM: 2026-01-01T00:00:00Z
+          PROFIT_TO: 2026-05-01T00:00:00Z
+        run: node scripts/run-profit-universe.mjs
+      - name: Previously inspected 2026 Q3 regime (not OOS)
+        timeout-minutes: 12
+        env:
+          PROFIT_FROM: 2026-07-01T00:00:00Z
+          PROFIT_TO: 2026-10-28T00:00:00Z
+        run: node scripts/run-profit-universe.mjs
