@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {pineEma,pineAtr,pineV6627Core} from '../lib/pine-v6627-parity.js';
+import {pineEma,pineAtr,pineV6627Core,confirmedReadyDecision} from '../lib/pine-v6627-parity.js';
 const base=Date.parse('2026-10-30T00:00:00Z');
 function fixture(hoursCount=120,fourCount=120,daysCount=150){
  const mk=(step,count,finish)=>{
@@ -50,4 +50,17 @@ test('Pine READY gate refuses an open 1H candle at screenshot time',()=>{
  assert.throws(()=>pineV6627Core({...d,hourOpen:'2026-10-30T03:00:00Z',asOf:'2026-10-30T03:39:00Z'}),/not confirmed/);
  const closed=pineV6627Core({...d,hourOpen:'2026-10-30T03:00:00Z',asOf:'2026-10-30T04:00:00Z'});
  assert.ok(closed.at.fourEnd==='2026-10-30T00:00:00.000Z');
+});
+
+test('READY is based on confirmed close-route RR, regardless of pending plan RR',()=>{
+ const d=confirmedReadyDecision({buyBreak:true,breakAtClose:{rr:2.15},pullAtClose:{rr:1.2},minRR:2});
+ assert.deepEqual(d,{state:'READY_A',confirmedRR:2.15});
+});
+test('a prospective pending plan never becomes READY without closed buy signal',()=>{
+ const d=confirmedReadyDecision({buyBreak:false,buyPull:false,breakAtClose:{rr:3.0}});
+ assert.deepEqual(d,{state:'WAIT',confirmedRR:null});
+});
+test('confirmed close route below minimum cannot be labelled READY',()=>{
+ const d=confirmedReadyDecision({buyPull:true,pullAtClose:{rr:1.9},minRR:2});
+ assert.equal(d.state,'NO_CHASE');
 });
