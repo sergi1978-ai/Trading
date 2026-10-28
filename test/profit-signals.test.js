@@ -36,3 +36,13 @@ test('signal generation is stable with identical data and settings',()=>{
  const b=generateProfitSignals({...f,volumeApproved:true});
  assert.deepEqual(a,b);
 });
+
+test('breakout funnel counts ordered stages but does not generate fictitious READY',()=>{
+ const r=generateProfitSignals({...fixture(),volumeApproved:true});
+ const d=r.diagnostics.breakoutFunnel;
+ assert.ok(d.eligibleHourBars>=d.hasBreakoutInPrevious6FourHour);
+ assert.ok(d.hasBreakoutInPrevious6FourHour>=d.favorableDailyAndFourHour);
+ assert.ok(d.favorableDailyAndFourHour>=d.retestZoneTouched);
+ assert.ok(d.retestZoneTouched>=d.bullishHourAndVolume);
+ assert.equal(d.riskQualifiedSignals,r.counts.BREAKOUT_RETEST);
+});
