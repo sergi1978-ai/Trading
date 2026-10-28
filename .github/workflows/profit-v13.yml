@@ -1,0 +1,23 @@
+name: LONG AI PROFIT v1.3 - Pine LAB safeguards
+on:
+  push:
+    branches:
+      - feat/long-ai-profit-v1-3-lab-20261029
+  pull_request:
+    paths:
+      - 'pine/LONG_AI_PROFIT_v1_3_LAB.pine'
+      - 'test/pine-v13-safety.test.js'
+      - '.github/workflows/profit-v13.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Pine v1.3 source invariants (NOT a Pine compile)
+        run: node --test test/pine-v13-safety.test.js
+      - name: Verify existing signal/simulation/4H RTH regressions
+        run: node --test test/trend-pullback-v11.test.js test/pine-v12-safety.test.js test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/stock-rth-rebuild.test.js test/minute-parity.test.js test/crypto-parity.test.js
