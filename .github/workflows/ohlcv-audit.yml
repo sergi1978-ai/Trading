@@ -1,0 +1,19 @@
+name: Phase 1 OHLCV audit tests
+on:
+  push:
+    branches:
+      - audit/long-ai-profit-phase1-20261028
+  pull_request:
+    paths:
+      - 'lib/ohlcv-audit.js'
+      - 'test/ohlcv-audit.test.js'
+      - '.github/workflows/ohlcv-audit.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/ohlcv-audit.test.js
