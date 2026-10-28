@@ -7,9 +7,11 @@ on:
     paths:
       - 'lib/ohlcv-audit.js'
       - 'lib/minute-parity.js'
+      - 'lib/pine-v6627-parity.js'
       - 'test/ohlcv-audit.test.js'
       - 'test/minute-parity.test.js'
       - 'test/crypto-parity.test.js'
+      - 'test/pine-v6627-parity.test.js'
       - '.github/workflows/ohlcv-audit.yml'
 jobs:
   test:
@@ -19,4 +21,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test test/ohlcv-audit.test.js test/minute-parity.test.js test/crypto-parity.test.js
+      - run: node --test test/ohlcv-audit.test.js test/minute-parity.test.js test/crypto-parity.test.js test/pine-v6627-parity.test.js
