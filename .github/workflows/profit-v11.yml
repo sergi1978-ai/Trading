@@ -3,11 +3,15 @@ on:
   push:
     branches:
       - feat/long-ai-profit-v1-1-parity-20261028
+      - feat/long-ai-profit-v1-2-execution-20261029
   pull_request:
     paths:
       - 'lib/trend-pullback-v11.js'
+      - 'lib/trend-pullback-v12.js'
       - 'lib/stock-rth-rebuild.js'
       - 'test/trend-pullback-v11.test.js'
+      - 'test/pine-v12-safety.test.js'
+      - 'pine/LONG_AI_PROFIT_v1_2_LAB.pine'
       - 'test/stock-rth-rebuild.test.js'
       - 'scripts/run-profit-universe.mjs'
       - 'pine/LONG_AI_PROFIT_v1_1_A_LAB.pine'
@@ -22,10 +26,28 @@ jobs:
         with:
           node-version: '22'
       - name: Test new strategy and existing simulation invariants
-        run: node --test test/stock-rth-rebuild.test.js test/trend-pullback-v11.test.js test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
+        run: node --test test/pine-v12-safety.test.js test/stock-rth-rebuild.test.js test/trend-pullback-v11.test.js test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
       - name: Historical Coinbase Mar-Sep 2025 comparison (same fixed six markets)
         timeout-minutes: 11
         env:
           PROFIT_FROM: 2025-03-01T00:00:00Z
           PROFIT_TO: 2025-10-01T00:00:00Z
+        run: node scripts/run-profit-universe.mjs
+      - name: Chronological 2024-09 to 2025-02 registered v1.2 check
+        timeout-minutes: 12
+        env:
+          PROFIT_FROM: 2024-09-01T00:00:00Z
+          PROFIT_TO: 2025-03-01T00:00:00Z
+        run: node scripts/run-profit-universe.mjs
+      - name: Previously inspected 2026 Q1 regime (not OOS)
+        timeout-minutes: 12
+        env:
+          PROFIT_FROM: 2026-01-01T00:00:00Z
+          PROFIT_TO: 2026-05-01T00:00:00Z
+        run: node scripts/run-profit-universe.mjs
+      - name: Previously inspected 2026 Q3 regime (not OOS)
+        timeout-minutes: 12
+        env:
+          PROFIT_FROM: 2026-07-01T00:00:00Z
+          PROFIT_TO: 2026-10-28T00:00:00Z
         run: node scripts/run-profit-universe.mjs

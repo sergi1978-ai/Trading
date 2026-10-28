@@ -3,6 +3,7 @@
 // Fixed asset universe selected BEFORE viewing outcomes, all failures reported.
 import {generateProfitSignals} from '../lib/profit-signals.js';
 import {trendPullbackV11} from '../lib/trend-pullback-v11.js';
+import {trendPullbackV12} from '../lib/trend-pullback-v12.js';
 import {simulateProfit,PROFIT_STRATEGIES} from '../lib/profit-simulator.js';
 const H=3600000,DAY=24*H;
 const FROM=process.env.PROFIT_FROM||'2026-07-01T00:00:00Z';
@@ -88,7 +89,7 @@ function summary(x){return {signals:x.signals.length,filled:x.accepted.length,
  returnPct:x.summary.totalReturnPct,drawdownPct:x.summary.markToMarketMaxDrawdownPct,
  profitFactor:x.summary.profitFactor,meanR:x.summary.meanR,
  rejections:x.rejected.reduce((a,b)=>(a[b.reason]=(a[b.reason]||0)+1,a),{})};}
-const data={},excluded=[],diagnostics=[],events=[],candidateEvents=[],candidateDiagnostics=[];
+const data={},excluded=[],diagnostics=[],events=[],candidateEvents=[],candidateDiagnostics=[],v12Events=[],v12Diagnostics=[];
 for(const symbol of UNIVERSE){
  try{
   const product=await request(new URL(base+'/products/'+symbol));
@@ -122,6 +123,11 @@ for(const symbol of UNIVERSE){
   // Parallel reference with identical candles and costs. NEVER replace v1.0 events.
   const v11=trendPullbackV11({symbol,market:'CRYPTO',hourly,fourHour,daily,
    tickSize:tick,volumeApproved:true});
+  const v12=trendPullbackV12({symbol,market:'CRYPTO',hourly,fourHour,daily,
+   tickSize:tick,volumeApproved:true});
+  v12Events.push(...v12.signals);
+  v12Diagnostics.push({symbol,signals:v12.signals.length,
+    filtered:v12.v12Filtered,baselineSignals:v12.baselineSignals});
   candidateEvents.push(...v11.signals);
   candidateDiagnostics.push({symbol,signals:v11.signals.length,gates:v11.gates,
     version:v11.version,blocked:v11.blocked});
@@ -145,7 +151,7 @@ for(const strategy of PROFIT_STRATEGIES){
  const r=simulateProfit({barsBySymbol:data,signals:list});
  perStrategy[strategy]=summary({...r,signals:list});
 }
-let combined=null,executionCostStress={},candidateA11=null;
+let combined=null,executionCostStress={},candidateA11=null,candidateA12=null;
 if(Object.keys(data).length){
  const baseA=events.filter(s=>s.strategyId==='TREND_PULLBACK');
  candidateA11={};
@@ -155,6 +161,10 @@ if(Object.keys(data).length){
   const reference=simulateProfit({barsBySymbol:data,signals:baseA,commissionBps,slippageBps});
   candidateA11[key]={v11:summary({...candidate,signals:candidateEvents}),
     v10A:summary({...reference,signals:baseA})};
+  const v12=simulateProfit({barsBySymbol:data,signals:v12Events,commissionBps,slippageBps});
+  if(!candidateA12)candidateA12={};
+  candidateA12[key]={v12:summary({...v12,signals:v12Events}),
+    v11:summary({...candidate,signals:candidateEvents})};
  }
 }
 
@@ -180,7 +190,7 @@ console.log('MULTI_ASSET_AUDIT_JSON '+JSON.stringify({
  preliminary:true,notWalkForward:true,
  notes:['Fixed configs, no optimized selection','Coinbase USD spot crypto only, no US equities',
  '119 days total including 65+ days indicator warmup','Per-symbol simulations independent; combined uses shared cash and 3 position limit'],
- diagnostics,perSymbol,perStrategy,combined,executionCostStress,candidateA11,candidateDiagnostics
+ diagnostics,perSymbol,perStrategy,combined,executionCostStress,candidateA11,candidateDiagnostics,candidateA12,v12Diagnostics
 }));
 if(excluded.length)console.error('NOT A COMPLETE UNIVERSE: '+excluded.length+' Coinbase markets excluded due to source failures');
 if(!Object.keys(data).length)process.exitCode=2;
