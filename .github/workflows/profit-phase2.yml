@@ -6,10 +6,12 @@ on:
   pull_request:
     paths:
       - 'lib/profit-simulator.js'
+      - 'lib/profit-readiness.js'
       - 'lib/profit-signals.js'
       - 'scripts/run-profit-lab.mjs'
       - 'scripts/run-profit-universe.mjs'
       - 'test/profit-simulator.test.js'
+      - 'test/profit-readiness.test.js'
       - 'test/profit-signals.test.js'
       - 'pine/LONG_AI_PROFIT_v1_0_LAB.pine'
       - '.github/workflows/profit-phase2.yml'
@@ -21,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
+      - run: node --test test/profit-readiness.test.js test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
       - name: Real BTC historical feasibility (does not place orders)
         timeout-minutes: 6
         run: node scripts/run-profit-lab.mjs
