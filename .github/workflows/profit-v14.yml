@@ -2,6 +2,11 @@ name: LONG AI PROFIT v1.4 Research checks
 on:
   push:
     branches: [feat/long-ai-profit-v1-4-three-routes-20261029]
+  pull_request:
+    paths:
+      - 'pine/LONG_AI_PROFIT_v1_4_LAB.pine'
+      - 'test/pine-v14-safety.test.js'
+      - '.github/workflows/profit-v14.yml'
   workflow_dispatch:
 jobs:
   validate:
