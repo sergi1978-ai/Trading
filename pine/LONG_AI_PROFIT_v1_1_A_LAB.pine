@@ -12,12 +12,12 @@ if barstate.isfirst and (not chart.is_standard or timeframe.in_seconds()!=3600)
 isCrypto=syminfo.type=="crypto"
 contextTicker=isCrypto?syminfo.tickerid:ticker.modify(syminfo.tickerid,session=session.regular)
 sessionOK=isCrypto or session.ismarket
-[dClose,d50,d50prev5,dDollarTurnover,dHigh60]=request.security(contextTicker,"D",
- [close[1],ta.ema(close,50)[1],ta.ema(close,50)[6],ta.sma(close*volume,20)[1],ta.highest(high,60)[1]],
+[dClose,d50,d50prev5,dDollarTurnover,dHigh60,dBarIndex]=request.security(contextTicker,"D",
+ [close[1],ta.ema(close,50)[1],ta.ema(close,50)[6],ta.sma(close*volume,20)[1],ta.highest(high,60)[1],bar_index[1]],
  lookahead=barmerge.lookahead_on)
-[fClose,f20,f20old3,f50,atr4,fLow3,fEnd]=request.security(contextTicker,"240",
+[fClose,f20,f20old3,f50,atr4,fLow3,fEnd,fBarIndex]=request.security(contextTicker,"240",
  [close[1],ta.ema(close,20)[1],ta.ema(close,20)[4],ta.ema(close,50)[1],
- ta.atr(14)[1],ta.lowest(low,3)[1],time_close[1]],
+ ta.atr(14)[1],ta.lowest(low,3)[1],time_close[1],bar_index[1]],
  lookahead=barmerge.lookahead_on)
 hourEMA20=ta.ema(close,20)
 rsi1=ta.rsi(close,14)
@@ -31,7 +31,8 @@ reclaimOK=close>hourEMA20 and close>open and close>high[1] and recentlyDipped
 rsiOK=rsi1>=52 and rsi1<=70
 volumeOK=rvol>=1.2 and dDollarTurnover>=1000000
 extensionOK=close<=f20+1.5*atr4
-historyOK=not na(f20old3) and not na(d50prev5) and not na(fLow3) and atr4>0 and not na(rvol)
+// Match JS conservative minimum closed HTF warm-up: >=70 daily and >=60 4H bars.
+historyOK=bar_index>=50 and not na(dBarIndex) and dBarIndex>=69 and not na(fBarIndex) and fBarIndex>=59 and not na(f20old3) and not na(d50prev5) and not na(fLow3) and atr4>0 and not na(rvol)
 entryTrigger=high+syminfo.mintick
 stopPrice=math.min(fLow3,math.min(priorFourLow,low))-.2*atr4
 riskDistance=entryTrigger-stopPrice
@@ -59,7 +60,8 @@ if confirmed and strategy.position_size==0 and not awaiting
         sl:=stopPrice
         atrOnSignal:=atr4
         setupBar:=bar_index
-        strategy.entry("A11",strategy.long,qty=quantity,stop=trigger,comment="PULLBACK_V11")
+        // Pine stop-limit is a bounded entry. Intrabar fill differs from JS when a gap overshoots.
+        strategy.entry("A11",strategy.long,qty=quantity,stop=trigger,limit=trigger+.2*atr4,comment="PULLBACK_V11")
 if not na(setupBar) and strategy.position_size==0 and bar_index-setupBar>=3
     strategy.cancel("A11")
     strategy.cancel("TP1")
