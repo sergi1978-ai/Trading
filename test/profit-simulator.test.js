@@ -72,3 +72,31 @@ test('no fabricated closed trade at final bar; open position marked to market',(
  assert.equal(r.trades.length,0);assert.equal(r.openPositions.length,1);
  assert.ok(r.openPositions[0].unrealizedPnL<0);
 });
+
+test('resting TP1 gap at opening fills before a later low crosses stop',()=>{
+ const bars=[candle(0),candle(1,{o:100,h:101,l:99,c:100}),
+   candle(2,{o:105,h:106,l:97,c:98})];
+ const r=run(bars);
+ assert.equal(r.trades.length,1);
+ const leg=r.trades[0].executions;
+ assert.equal(leg[1].reason,'TP1_OPEN');
+ assert.equal(leg[2].reason,'STOP');
+ assert.ok(leg[1].price>103);
+});
+test('resting TP2 gap at opening fills both halves before later intrabar stop',()=>{
+ const bars=[candle(0),candle(1,{o:100,h:101,l:99,c:100}),
+   candle(2,{o:109,h:112,l:96,c:97})];
+ const r=run(bars);
+ assert.equal(r.trades.length,1);
+ assert.deepEqual(r.trades[0].executions.slice(1).map(x=>x.reason),['TP1_OPEN','TP2_OPEN']);
+ assert.ok(r.trades[0].netPnL>0);
+});
+test('all-bar same timestamp symbols must keep cash and portfolio risk bounded',()=>{
+ const bars=[candle(0),candle(1,{o:100,h:101,l:99,c:100})];
+ const syms=['A','B','C','D','E','F'];
+ const r=simulateProfit({barsBySymbol:Object.fromEntries(syms.map(s=>[s,bars])),
+   signals:syms.map(s=>signal(s)),maxPositions:3});
+ assert.equal(r.accepted.length,3);
+ assert.ok(r.equityCurve.every(e=>e.openRisk<=150.01));
+ assert.ok(r.equityCurve.every(e=>e.cash>=-1e-7));
+});
