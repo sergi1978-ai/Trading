@@ -44,3 +44,20 @@ test('daily comparison requires matching prices and volume tolerance',()=>{
  assert.equal(compareDaily(x,{...x,v:10020}).valid,true);
  assert.equal(compareDaily(x,{...x,o:101}).valid,false);
 });
+
+test('missing exchange calendar is blocked for stocks',()=>{
+ assert.throws(()=>reconstructFromMinuteBars(data(Date.parse('2026-10-20T13:30Z'),390),{market:'STOCK'}),/calendar required/);
+});
+test('intraday 1H bar is available only once completed',()=>{
+ const r=reconstructFromMinuteBars(data(Date.parse('2026-10-20T13:30Z'),390),{calendar:session('2026-10-20','09:30','16:00'),asOf:'2026-10-20T17:00Z'});
+ assert.equal(r.hourly.length,3);assert.equal(r.fourHour.length,0);assert.equal(r.daily.length,0);
+});
+test('crypto UTC 24h -> 24 hourly, six 4h, one daily',()=>{
+ const r=reconstructFromMinuteBars(data(Date.parse('2026-10-20T00:00Z'),1440),{market:'CRYPTO'});
+ assert.equal(r.safeForSignals,true);assert.equal(r.hourly.length,24);assert.equal(r.fourHour.length,6);assert.equal(r.daily.length,1);
+});
+test('duplicate minute rejects the session',()=>{
+ const m=data(Date.parse('2026-10-20T13:30Z'),390);
+ const r=reconstructFromMinuteBars([...m,m[10]],{calendar:session('2026-10-20','09:30','16:00')});
+ assert.equal(r.safeForSignals,false);assert.ok(r.errors.some(e=>e.code==='DUPLICATE'));
+});
