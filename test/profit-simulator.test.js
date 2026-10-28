@@ -100,3 +100,26 @@ test('all-bar same timestamp symbols must keep cash and portfolio risk bounded',
  assert.ok(r.equityCurve.every(e=>e.openRisk<=150.01));
  assert.ok(r.equityCurve.every(e=>e.cash>=-1e-7));
 });
+
+test('second asset entry sizes against 1H OPEN not unknown simultaneous CLOSE',()=>{
+ const a=[candle(0),candle(1,{o:100,h:101,l:99,c:100}),
+   candle(2,{o:100,h:1000,l:99,c:1000})];
+ const b=[candle(0),candle(1),candle(2,{o:100,h:102,l:99,c:100})];
+ const r=simulateProfit({barsBySymbol:{AAA:a,BBB:b},
+   signals:[signal('AAA'),{...signal('BBB'),signalTime:candle(1).endExclusive}]});
+ const second=r.accepted.find(x=>x.symbol==='BBB');
+ assert.ok(second,'BBB should fill');
+ assert.ok(second.capitalAtEntry<=10001);
+ assert.ok(second.riskBudget<=51);
+});
+test('intrabar exit cannot free a MAX_POSITIONS slot for another same-hour entry',()=>{
+ const baseBars=[candle(0),candle(1,{o:100,h:101,l:99,c:100}),
+   candle(2,{o:100,h:102,l:97,c:99})];
+ const other=[candle(0),candle(1),candle(2)];
+ const r=simulateProfit({
+  barsBySymbol:{AAA:baseBars,BBB:baseBars,CCC:baseBars,DDD:other},
+  signals:[signal('AAA'),signal('BBB'),signal('CCC'),
+    {...signal('DDD'),signalTime:candle(1).endExclusive}],maxPositions:3});
+ assert.equal(r.accepted.length,3);
+ assert.ok(r.rejected.some(x=>x.symbol==='DDD'&&x.reason==='MAX_POSITIONS'));
+});
