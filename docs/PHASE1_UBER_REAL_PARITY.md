@@ -108,3 +108,16 @@ Source: connected Alpaca get_stock_bars calls for 1Min, 1Hour, 1Day; IEX feed. D
 ```
 
 **Decision: Not deployed.**
+
+## Additional native 4Hour check (Alpaca IEX)
+- Alpaca returned eight native 4Hour UBER candles for 20–23 October: two per session, with UTC starts at **12:00 and 16:00** (08:00 and 12:00 ET).
+- For **20 October**, Alpaca's first native 4Hour bar starts at 12:00 UTC, opens at **$69.29**, and closes at **$68.835**.
+- Our session-anchored first 240-minute block starts at **13:30 UTC** (09:30 ET), opens at **$69.15** and closes at **$68.985**.
+- These are different time windows, not a numerical computation error. Never compare them as if they described the same interval.
+- The 4Hour construction intended for TradingView Pine is still **unverified**; TradingView symbol/feed/chart session settings and its exact 4H boundaries must be captured for true parity.
+
+## Automated executable implementation
+- `lib/minute-parity.js`: calendar-anchored session reconstruction from 1Min and per-session coverage diagnostics.
+- `test/minute-parity.test.js`: offline deterministic test suite, with 12 tests passing locally using Node 22.
+- `scripts/verify-live-ohlcv.mjs`: repeatable read-only Alpaca test requiring ALPACA_API_KEY and ALPACA_API_SECRET; this script was **not run** here because the credentials are held by the connected service, not the local runtime.
+- GitHub CI status not confirmed as passing. Branch/PR still experimental; no production merge.
