@@ -44,3 +44,17 @@ test('partial NY trading session is rejected until exchange calendar is supporte
  const bars=Array.from({length:4},(_,i)=>candle(new Date(start+i*3600000).toISOString()));
  assert.equal(reconstructClosedTimeframes(bars,{market:'STOCK'}).safeForSignals,false);
 });
+
+test('explicit half-day NY session closes at 13:00 and yields only one 4H bucket',()=>{
+ const start=Date.parse('2026-11-27T14:30:00Z');
+ const bars=Array.from({length:4},(_,i)=>candle(new Date(start+i*3600000).toISOString()));
+ const r=reconstructClosedTimeframes(bars,{market:'STOCK',earlyCloseDates:['2026-11-27'],asOf:'2026-11-27T18:00:00Z'});
+ assert.equal(r.safeForSignals,true);assert.equal(r.daily.length,1);assert.equal(r.fourHour.length,1);
+ assert.equal(r.daily[0].endExclusive,Date.parse('2026-11-27T18:00:00Z'));
+ assert.equal(r.fourHour[0].endExclusive,Date.parse('2026-11-27T18:00:00Z'));
+});
+test('unexpected bars cannot silently enter a half-day',()=>{
+ const start=Date.parse('2026-11-27T14:30:00Z');
+ const bars=Array.from({length:5},(_,i)=>candle(new Date(start+i*3600000).toISOString()));
+ assert.equal(auditHourlyBars(bars,{market:'STOCK',earlyCloseDates:['2026-11-27']}).valid,false);
+});
