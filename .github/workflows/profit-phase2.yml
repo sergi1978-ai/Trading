@@ -8,6 +8,7 @@ on:
       - 'lib/profit-simulator.js'
       - 'lib/profit-signals.js'
       - 'scripts/run-profit-lab.mjs'
+      - 'scripts/run-profit-universe.mjs'
       - 'test/profit-simulator.test.js'
       - 'test/profit-signals.test.js'
       - 'pine/LONG_AI_PROFIT_v1_0_LAB.pine'
@@ -24,3 +25,6 @@ jobs:
       - name: Real BTC historical feasibility (does not place orders)
         timeout-minutes: 6
         run: node scripts/run-profit-lab.mjs
+      - name: Fixed six-asset Coinbase audit (read-only)
+        timeout-minutes: 10
+        run: node scripts/run-profit-universe.mjs
