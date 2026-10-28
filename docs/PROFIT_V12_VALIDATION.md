@@ -70,3 +70,25 @@ The new filter is **not unconditionally better**: older window return falls vs v
 - CI: `.github/workflows/profit-v11.yml` (inherited suite) and `.github/workflows/profit-v12.yml`
 
 **Release status: BLOCKED.** Pending Pine compilation, matched signal/fill parity, real stock session data, larger cost-robust sample, app UI integration and controlled paper test.
+
+## Additional frozen 2026 regimes — already known periods, NOT independent OOS
+
+The same previously fixed 1D/4H rule was evaluated **without parameter adjustment** in two 2026 windows already inspected during v1.0/v1.1 development. Both have all six markets accepted with Coinbase 1H→native 1D checks.
+
+| Window | v1.1 closed entries | v1.1 5bps/side return | v1.2 closed entries | v1.2 5bps/side return | v1.2 10bps/side return | v1.2 20bps/side return |
+|---|---:|---:|---:|---:|---:|---:|
+| Jan 1 – Apr 30, 2026 | 3 | -0.6327% | **1** | -0.5000% | -0.5000% | -0.5000% |
+| Jul 1 – Oct 27, 2026 | 7 | +1.1788% | **6** | +1.7288% | +1.2698% | +0.8693% |
+
+This is **not conclusive performance evidence**. The January–April v1.2 result is a single losing position. July–October is six completed positions, and those historical candles are already known. This does not justify raising capital or promoting to live.
+
+### Across all four periods
+
+- 2024-09 to 2025-02: v1.1 +1.5008%, v1.2 +0.9341%, 5 of 6 valid assets, only 4 v1.2 closed trades.
+- 2025-03 to 2025-09: v1.1 +0.5920%, v1.2 +0.7275%, all six markets, 14 v1.2 closed trades.
+- 2026-01 to 2026-04: v1.1 -0.6327%, v1.2 -0.5000%, all six markets, 1 v1.2 closed trade.
+- 2026-07 to 2026-10: v1.1 +1.1788%, v1.2 +1.7288%, all six markets, 6 v1.2 closed trades.
+
+**Decision:** one hypothesis appears to make some measured periods less vulnerable to weak rebounds, but samples are too small, one older window is incomplete, and none establishes fresh live out-of-sample expectancy. No claim of successful Pine fill-parity or eliminated dust. The audit notification watch now includes PR #15 while preserving existing schedule.
+
+GitHub Actions run `40786823666` passed all 70 tests and four Coinbase replay windows. Keep as **LAB ONLY** until separate Pine compile, no-residual validation and app UI integration.
