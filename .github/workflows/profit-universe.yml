@@ -1,0 +1,19 @@
+name: Phase 2 fixed Coinbase multi-asset validation
+on:
+  push:
+    branches: [feat/long-ai-profit-phase2-20261028]
+    paths:
+      - 'scripts/run-profit-universe.mjs'
+      - '.github/workflows/profit-universe.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only six asset historical validation
+        run: node scripts/run-profit-universe.mjs
