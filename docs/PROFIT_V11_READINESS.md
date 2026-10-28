@@ -8,8 +8,8 @@ Status as of **2026-10-28**: **BLOCKED · LAB ONLY**. User has requested notific
 | Six crypto symbols and frozen historical replay | 2025-03–09, 6 accepted Coinbase pairs; 23 closed A v1.1 trades | PASS for historical feasibility only |
 | Robust net expected return | v1.1 PF 1.1066 (required >=1.2), mean R -0.0045, cost 10bps each side return -0.2159%, 23 trades | **FAIL** |
 | Fully out-of-sample / walk-forward | No >=100 OOS closed trades; 2025 results have now been inspected | **MISSING** |
-| Pine compiled inside TradingView and order list reviewed | Pine v1.1 file present, compiler/emulator output not available in GitHub connector | **MISSING** |
-| Pine↔JavaScript same-source signal-by-signal parity | No timestamped list of Pine v1.1 signals compared with JS on same Coinbase bars | **MISSING** |
+| Pine v1.1 runs inside TradingView | User screenshot 2026-10-28 23:58 Europe/Madrid shows Coinbase BTCUSD 1H with v1.1 Strategy Tester trading history and successful report refresh; partial exits TP1/TP2 visible | **USER-VERIFIED EXECUTION** |
+| Pine↔JavaScript same-source signal-by-signal parity | Pine BTCUSD Coinbase confirmed in screenshot; Strategy Tester trade CSV not yet supplied, no identical-interval Pine-to-JS pairwise reconciliation | **MISSING** |
 | Stock 1H/4H session reconstruction parity | Alpaca IEX raw 4H includes 12:00 UTC premarket and 20:00 UTC after-hours bars; 1H includes 12:00 UTC premarket. Added RTH 1m reconstruction with DST + partial days but NOT verified against TradingView stock 4H | **MISSING** |
 | App integration | `api/backtest.js` still states **DAILY proxy only, NOT a replay of Pine 1D/4H/1H**. `index.html` and `api/scan.js` do **not** import `trend-pullback-v11.js`, `profit-signals.js` or `profit-simulator.js` | **MISSING** |
 | Vercel deployment | Latest branch deployments are previews (`target=null`), not a release of the v1.1 module integrated in Trading 2026 | **PREVIEW ONLY** |
@@ -35,3 +35,16 @@ Status as of **2026-10-28**: **BLOCKED · LAB ONLY**. User has requested notific
 ## Latest implementation hardening
 
 The Pine source now includes the same research warmup thresholds (70 closed daily/60 closed 4H) and a bounded stop-limit entry. This improves the declared contract but **still does not establish actual fill parity**: TradingView stop-limit order execution can differ from the JS reject-on-gap logic. Pine compile/Strategy Tester trade comparison is still a manual gate.
+
+## User-provided TradingView evidence (2026-10-28 23:58 Madrid)
+
+- User has run **LONG AI PROFIT v1.1 LAB | A Pullback Reclaim** in a standard **1H Coinbase BTCUSD** TradingView chart with Strategy Report period **2026-01-01 through 2026-10-28**, initial capital **10,000 USD**.
+- Strategy Report shows trades and successful recalculation; this demonstrates execution/compilation in the TradingView UI and advances the previous missing-compile gate. **Not evidence of a profitable strategy or JS parity.**
+- In the Trades list, rows #10 and #11 have the same entry **Oct 3 2026 at 18:00** (USD 85,000.01) but different exits (Oct 4 and Oct 5); rows #8/#9 have the same entry **Sep 27 2026 at 19:00** (USD 84,817.92) and exit at 22:00. These look consistent with partial TP1/TP2 legs, **not separate position-opening events**; interpret with the full CSV before counting actual entries.
+- One tiny quantity around **0.000001 BTC** is reported on the Sept 5 position. Investigate TP order reservation, Pine exit resizing, rounding and commission rounding. Not yet proven an implementation bug.
+- The user has left **Calculate on bar close** enabled; the '1' next to **Ejecución de scripts** reflects one checked setting, **not an error count**.
+- Keep 4 ticks/bar default simulation setting fixed for comparison; optional higher intrabar detail should be a separate experiment.
+- The download icon at the upper right of **Lista de operaciones** should export CSV in TradingView Strategy Tester even if paid chart OHLC export is unavailable. Request this CSV and the **Metrics** export to group partial exits by identical entry and reconcile Pine signals with JS by UTC timestamps.
+- Evidence is from screenshots supplied to ChatGPT; screenshots have not been uploaded to this public repository.
+
+**Immediate next gate:** CSV list of trades + key metrics for Coinbase BTCUSD 1H, and Pine-vs-JS per-entry comparison. No live/paper approval.
