@@ -48,3 +48,27 @@ The Pine source now includes the same research warmup thresholds (70 closed dail
 - Evidence is from screenshots supplied to ChatGPT; screenshots have not been uploaded to this public repository.
 
 **Immediate next gate:** CSV list of trades + key metrics for Coinbase BTCUSD 1H, and Pine-vs-JS per-entry comparison. No live/paper approval.
+
+## No-Premium alternative: visually audit partial exits (screenshot 2026-10-29 00:03 Madrid)
+
+The user confirmed the TradingView trade-list download is unavailable to their free subscription. **Do not require paid CSV or ask them to upgrade.** The current screenshots show:
+
+| Entry shown by TradingView | Exit reason label | Exit date/time shown | Exit price | Per-leg shown result |
+|---|---|---|---:|---:|
+| Oct 3 2026 18:00, $85,000.01 | TP1 | Oct 4 21:00 | $86,007.52 | +$13.44 |
+| same entry | TP2 | Oct 5 16:00 | $85,041.11 | -$0.64 |
+| Sep 27 2026 19:00, $84,817.92 | TP1 | Sep 27 22:00 | $84,128.54 | -$11.33 |
+| same entry | TP2 | Sep 27 22:00 | $84,128.54 | -$11.33 |
+| Sep 5 2026 16:00, $79,826.47 | TP1 | Sep 6 14:00 | $79,280.77 | -$9.75 |
+| same entry | TP2 | Sep 6 14:00 | $79,280.77 | -$9.75 |
+| same entry | TIME_7D | Sep 12 17:00 | $77,337.94 | -$0.003 (0.000001 BTC residual) |
+
+Prices/date/times copied visually from the screenshot (UI timezone unspecified). These are **exit legs**, not separate fresh entries. A `strategy.exit("TP1", ..., stop=..., limit=...)` order can close at the STOP, even though the ID is TP1. This explains negative PnL under TP1 and TP2; it does not by itself establish a strategy bug. Partial exit reservation and tiny residual are known concerns that warrant review, not proof of rounding error.
+
+### Audit-only Pine variant
+
+`pine/LONG_AI_PROFIT_v1_1_1_AUDIT.pine` is a separate candidate based on the v1.1 strategy. It changes **only the exit reason comments and adds a small trade table** for the latest 8 exit legs (UTC timestamps, actual exit reason, account-currency profit). It counts distinct entry times, allowing comparisons from screenshots without a subscription or CSV export.
+
+**Not compiled in TradingView yet**. Before trusting the diagnostic, the user should load it as a separate script, verify compilation, and keep the original v1.1 unchanged. No strategy improvements, cash orders, live execution or risk control changes are claimed.
+
+The measured Sep/Oct screenshot results cannot substitute for the still missing same-date-and-time **JS vs Pine** entry parity and holdout performance tests.
