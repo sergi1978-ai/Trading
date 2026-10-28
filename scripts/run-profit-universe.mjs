@@ -138,10 +138,22 @@ for(const strategy of PROFIT_STRATEGIES){
  const r=simulateProfit({barsBySymbol:data,signals:list});
  perStrategy[strategy]=summary({...r,signals:list});
 }
-let combined=null;
+let combined=null,executionCostStress={};
 if(Object.keys(data).length){
  const r=simulateProfit({barsBySymbol:data,signals:events});
  combined=summary({...r,signals:events});
+ // Prespecified cost shocks; not entry-threshold optimization.
+ for(const [label,bps] of [['base_5bps_each',5],['double_10bps_each',10],['severe_20bps_each',20]]){
+   const all=simulateProfit({barsBySymbol:data,signals:events,
+      commissionBps:bps,slippageBps:bps});
+   const aSignals=events.filter(x=>x.strategyId==='TREND_PULLBACK');
+   const a=simulateProfit({barsBySymbol:data,signals:aSignals,
+      commissionBps:bps,slippageBps:bps});
+   executionCostStress[label]={combinedReturnPct:all.summary.totalReturnPct,
+     combinedClosedTrades:all.summary.closedTrades,
+     trendPullbackReturnPct:a.summary.totalReturnPct,
+     trendPullbackClosedTrades:a.summary.closedTrades};
+ }
 }
 console.log('MULTI_ASSET_AUDIT_JSON '+JSON.stringify({
  date:'2026-10-28',window:[FROM,THROUGH],intendedUniverse:UNIVERSE,
@@ -149,7 +161,7 @@ console.log('MULTI_ASSET_AUDIT_JSON '+JSON.stringify({
  preliminary:true,notWalkForward:true,
  notes:['Fixed configs, no optimized selection','Coinbase USD spot crypto only, no US equities',
  '119 days total including 65+ days indicator warmup','Per-symbol simulations independent; combined uses shared cash and 3 position limit'],
- diagnostics,perSymbol,perStrategy,combined
+ diagnostics,perSymbol,perStrategy,combined,executionCostStress
 }));
 if(excluded.length)console.error('NOT A COMPLETE UNIVERSE: '+excluded.length+' Coinbase markets excluded due to source failures');
 if(!Object.keys(data).length)process.exitCode=2;
