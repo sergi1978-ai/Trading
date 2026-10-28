@@ -1,0 +1,28 @@
+name: Phase 1 OHLCV audit tests
+on:
+  push:
+    branches:
+      - audit/long-ai-profit-phase1-20261028
+  pull_request:
+    paths:
+      - 'lib/ohlcv-audit.js'
+      - 'lib/minute-parity.js'
+      - 'lib/pine-v6627-parity.js'
+      - 'scripts/verify-coinbase-parity.mjs'
+      - 'test/ohlcv-audit.test.js'
+      - 'test/minute-parity.test.js'
+      - 'test/crypto-parity.test.js'
+      - 'test/pine-v6627-parity.test.js'
+      - '.github/workflows/ohlcv-audit.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/ohlcv-audit.test.js test/minute-parity.test.js test/crypto-parity.test.js test/pine-v6627-parity.test.js
+      - name: Coinbase public real-data diagnostic (non-blocking)
+        continue-on-error: true
+        run: node scripts/verify-coinbase-parity.mjs

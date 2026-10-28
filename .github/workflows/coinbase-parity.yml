@@ -1,0 +1,19 @@
+name: Phase 1 Coinbase BTC live parity diagnostic
+on:
+  push:
+    branches:
+      - audit/long-ai-profit-phase1-20261028
+    paths:
+      - 'scripts/verify-coinbase-parity.mjs'
+      - '.github/workflows/coinbase-parity.yml'
+  workflow_dispatch:
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/verify-coinbase-parity.mjs
