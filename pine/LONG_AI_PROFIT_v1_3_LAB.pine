@@ -1,0 +1,283 @@
+//@version=6
+strategy("LONG AI PROFIT v1.3 LAB | A/B separats", overlay=true,
+     pyramiding=0, initial_capital=10000, default_qty_type=strategy.fixed,
+     commission_type=strategy.commission.percent, commission_value=0.05, slippage=2,
+     process_orders_on_close=false, calc_on_every_tick=false, calc_on_order_fills=false,
+     max_labels_count=100)
+// LABORATORI: cap ordre al broker. Una sola estrategia A o B per prova.
+// Espelmes estandard 1H; dades 4H/1D confirmades; no ajustar al periode de prova.
+// Limitacions: stops/gaps intrabar, broker emulator, spread i comissions reals.
+
+gMarket = "01 | Mercat i motor"
+engine = input.string("A · PULLBACK", "Motor per provar", options=["A · PULLBACK", "B · BREAKOUT RETEST"], group=gMarket)
+allowStocks = input.bool(false,"Permetre accions (RTH; paritat 4H no validada)",group=gMarket)
+btcMode = input.string("INFORMATIU","Context BTC per altcoins",options=["INFORMATIU","OBLIGATORI","DESACTIVAT"],group=gMarket)
+
+gRisk = "02 | Risc conservador (fixat)"
+showLevels = input.bool(true,"Nivells del pla",group=gRisk)
+showAudit = input.bool(true,"Auditoria de les darreres sortides",group=gRisk)
+// Les constants no son inputs afinables al Strategy Tester.
+float riskFraction = 0.005
+float maxAllocation = 0.25
+float rrRequired = 2.0
+float stopATR = 0.20
+float maxStopPercent = 0.10
+float entryChaseATR = 0.20
+float costReserve = 0.002
+int maxPendingBars = 3
+
+bool crypto = syminfo.type == "crypto"
+if barstate.isfirst
+    if not chart.is_standard or timeframe.in_seconds() != 3600
+        runtime.error("Cal grafic estandard 1H per al LAB v1.3")
+string tickerCtx = crypto ? syminfo.tickerid : ticker.modify(syminfo.tickerid, session=session.regular)
+bool inSession = crypto or session.ismarket
+bool marketAllowed = crypto or allowStocks
+
+// Totes les expressions 1D/4H referencien com a minim [1].
+[dC,dE20,dE50,dE50prior,dE200,dRSI,dDollar,dHigh60,dBarNum] = request.security(tickerCtx,"D",
+ [close[1], ta.ema(close,20)[1],ta.ema(close,50)[1],ta.ema(close,50)[6],
+  ta.ema(close,200)[1],ta.rsi(close,14)[1],ta.sma(close*volume,20)[1],
+  ta.highest(high,60)[1],bar_index[1]],lookahead=barmerge.lookahead_on)
+[fC,fCprev,fE20,fE20prior,fE50,fATR,fLow3,fHigh20,fVol,fVolAvg,fBarNum] = request.security(tickerCtx,"240",
+ [close[1],close[2],ta.ema(close,20)[1],ta.ema(close,20)[4],
+  ta.ema(close,50)[1],ta.atr(14)[1],ta.lowest(low,3)[1],
+  ta.highest(high,20)[1],volume[1],ta.sma(volume,20)[2],bar_index[1]],lookahead=barmerge.lookahead_on)
+
+f_dmi() =>
+    [diP,diM,adx] = ta.dmi(14,14)
+    [diP[1],diM[1],adx[1]]
+[diP4,diM4,adx4] = request.security(tickerCtx,"240",f_dmi(),lookahead=barmerge.lookahead_on)
+f_hist() =>
+    [m,s,h] = ta.macd(close,12,26,9)
+    [h[1],h[2]]
+[hist4,hist4prior] = request.security(tickerCtx,"240",f_hist(),lookahead=barmerge.lookahead_on)
+[btcClose,btcEMA50] = request.security("COINBASE:BTCUSD","240",[close[1],ta.ema(close,50)[1]],lookahead=barmerge.lookahead_on)
+
+float ema1 = ta.ema(close,20)
+float rsi1 = ta.rsi(close,14)
+[m1,s1,h1] = ta.macd(close,12,26,9)
+float rvBase = ta.sma(volume,20)[1]
+float rvol1 = rvBase>0 ? volume/rvBase : na
+float rvol4 = fVolAvg>0 ? fVol/fVolAvg : na
+float atr1 = ta.atr(14)
+// Diagnostics add independent structure/price participation information; not optimization gates.
+float vwap1 = ta.vwap(hlc3)
+float bbMid = ta.sma(close,20)
+float bbWidth1 = bbMid>0 ? 4.0*ta.stdev(close,20)/bbMid : na
+float bbWidthAvg = ta.sma(bbWidth1,40)
+bool compressed1 = not na(bbWidthAvg) and bbWidth1<bbWidthAvg*.85
+float lowPrior4 = ta.lowest(low[1],4)
+float lowPrior6 = ta.lowest(low[1],6)
+float highPrior20 = ta.highest(high[1],20)
+
+bool available = not na(dBarNum) and dBarNum>=69 and not na(fBarNum) and fBarNum>=59 and
+    not na(dE50prior) and not na(fATR) and fATR>0 and not na(rvol1) and not na(adx4)
+bool btcFavorable = not na(btcClose) and not na(btcEMA50) and btcClose>btcEMA50
+bool btcPermitted = btcMode!="OBLIGATORI" or not crypto or syminfo.basecurrency=="BTC" or btcFavorable
+bool dailyRegime = dC>dE20 and dE20>dE50 and dE50>dE50prior and dRSI>=48
+bool fourRegime = fC>fE20 and fE20>fE50 and fE20>fE20prior and
+    fC>fCprev and diP4>diM4 and adx4>=17
+bool momentum4 = hist4>hist4prior
+bool momentum1 = h1>0 and rsi1>=51 and rsi1<=72
+bool liquid = dDollar>=1000000 and rvol1>=1.10 and volume>0
+bool extension = close<=fE20+1.5*fATR
+bool gateCommon = available and marketAllowed and inSession and btcPermitted and
+    dailyRegime and fourRegime and momentum4 and extension and liquid
+
+// Motor A: retroces recent cap a EMA20 4H i recuperacio confirmada en 1H.
+bool aZone = fLow3<=fE20+0.35*fATR and fLow3>=fE50-0.50*fATR
+bool aDip = lowPrior4<ema1
+bool aReclaim = close>ema1 and close>open and close>high[1] and momentum1
+bool setupA = gateCommon and aZone and aDip and aReclaim
+
+// Motor B: ruptura 1H, seguiment del nivell i retest posterior.
+// Sense barrejar senyals amb A dins del mateix Strategy Tester.
+var float bLevel = na
+var int bBreakBar = na
+bool bBreak = barstate.isconfirmed and gateCommon and close>highPrior20 and
+    close[1]<=highPrior20 and close>open and rvol1>=1.25 and momentum1
+if bBreak and strategy.position_size==0
+    bLevel:=highPrior20
+    bBreakBar:=bar_index
+bool bActive = not na(bBreakBar) and bar_index>bBreakBar and bar_index-bBreakBar<=10
+bool bRetest = bActive and low<=bLevel+fATR*0.20 and low>=bLevel-fATR*0.45 and
+    close>bLevel and close>open and close>high[1] and rsi1>=50 and h1>0 and rvol1>=0.90
+bool setupB = gateCommon and bRetest
+if not na(bBreakBar) and (bar_index-bBreakBar>10 or close<bLevel-fATR*.60)
+    bBreakBar:=na
+    bLevel:=na
+
+bool selected = engine=="A · PULLBACK" ? setupA : setupB
+float proposedTrigger = high+syminfo.mintick
+float proposedStop = engine=="A · PULLBACK" ?
+    math.min(fLow3,math.min(lowPrior4,low))-stopATR*fATR :
+    math.min(lowPrior6,math.min(low,bLevel-fATR*0.20))-stopATR*fATR
+float proposedRisk = proposedTrigger-proposedStop
+float costs = proposedTrigger*costReserve
+float overheadR = not na(dHigh60) and dHigh60>proposedTrigger+syminfo.mintick and proposedRisk>0 ?
+    (dHigh60-proposedTrigger-costs)/(proposedRisk+costs) : 3.0
+bool planOK = proposedStop>0 and proposedRisk>syminfo.mintick and
+    proposedRisk/proposedTrigger<=maxStopPercent and overheadR>=rrRequired
+
+// Ordre stop-limit de durada limitada: NO perseguir obertures massa altes.
+var int orderBar = na
+var float entryTrigger = na
+var float stopPrice = na
+var float tp1Price = na
+var float tp2Price = na
+var float halfQty = na
+var float otherQty = na
+var float capturedATR = na
+var int openMs = na
+var float actualEntry = na
+var float initialQuantity = na
+var float initialRisk = na
+var float highestInPosition = na
+var float activeStop = na
+var bool tookPartial = false
+bool pending = not na(orderBar) and strategy.position_size==0
+bool newSetup = barstate.isconfirmed and selected and planOK and strategy.position_size==0 and not pending
+if newSetup
+    float costPerUnit = proposedRisk+proposedTrigger*0.002
+    float sizeByRisk = strategy.equity*riskFraction/costPerUnit
+    float sizeByCash = strategy.equity*maxAllocation/proposedTrigger
+    float amount = math.min(sizeByRisk,sizeByCash)
+    if amount>syminfo.mincontract
+        orderBar:=bar_index
+        entryTrigger:=proposedTrigger
+        stopPrice:=proposedStop
+        capturedATR:=fATR
+        tp1Price:=entryTrigger+1.5*proposedRisk
+        tp2Price:=entryTrigger+3.0*proposedRisk
+        halfQty:=amount*.5
+        otherQty:=amount-halfQty
+        strategy.entry("LONG",strategy.long,qty=amount,stop=entryTrigger,
+             limit=entryTrigger+entryChaseATR*fATR,comment=engine)
+// Ordres protectores disponibles quan es prepara l'entrada.
+if not na(orderBar) and strategy.position_size==0 and not na(stopPrice)
+    strategy.exit("TP1","LONG",qty=halfQty,stop=stopPrice,limit=tp1Price,
+        comment_profit="OBJECTIU_1",comment_loss="STOP_1")
+    strategy.exit("TP2","LONG",qty=otherQty,stop=stopPrice,limit=tp2Price,
+        comment_profit="OBJECTIU_2",comment_loss="STOP_2")
+if pending and bar_index-orderBar>=maxPendingBars
+    strategy.cancel("LONG")
+    strategy.cancel("TP1")
+    strategy.cancel("TP2")
+    orderBar:=na
+    entryTrigger:=na
+    stopPrice:=na
+    halfQty:=na
+    otherQty:=na
+
+bool justOpened = strategy.position_size>0 and strategy.position_size[1]<=0
+if justOpened
+    openMs:=time
+    actualEntry:=strategy.position_avg_price
+    initialQuantity:=strategy.position_size
+    initialRisk:=math.max(actualEntry-stopPrice,syminfo.mintick)
+    highestInPosition:=high
+    activeStop:=stopPrice
+    tookPartial:=false
+
+if strategy.position_size>0
+    highestInPosition:=math.max(nz(highestInPosition,high),high)
+    if not tookPartial and not na(initialQuantity) and strategy.position_size<initialQuantity*.75
+        tookPartial:=true
+        strategy.cancel("TP1")
+    if tookPartial and barstate.isconfirmed
+        activeStop:=math.max(activeStop,close-2*capturedATR)
+    if not tookPartial
+        strategy.exit("TP1","LONG",qty=halfQty,stop=activeStop,limit=tp1Price,
+            comment_profit="OBJECTIU_1",comment_loss="STOP_1")
+        strategy.exit("TP2","LONG",qty=otherQty,stop=activeStop,limit=tp2Price,
+            comment_profit="OBJECTIU_2",comment_loss="STOP_2")
+    else
+        strategy.exit("TP2","LONG",qty=strategy.position_size,stop=activeStop,limit=tp2Price,
+            comment_profit="OBJECTIU_2",comment_loss="STOP_2")
+    bool outOfTime = time>=openMs+7*86400000
+    bool lacksImpulse = time>=openMs+3*86400000 and highestInPosition<actualEntry+.5*initialRisk
+    bool dust = strategy.position_size*close<1
+    if barstate.isconfirmed and (outOfTime or lacksImpulse or dust)
+        strategy.cancel("TP1")
+        strategy.cancel("TP2")
+        strategy.close("LONG",comment=dust?"RESIDU":outOfTime?"TEMPS_7D":"SENSE_IMPULS_3D")
+if strategy.position_size==0 and strategy.position_size[1]>0
+    strategy.cancel("TP1")
+    strategy.cancel("TP2")
+    orderBar:=na
+    entryTrigger:=na
+    stopPrice:=na
+    tp1Price:=na
+    tp2Price:=na
+    halfQty:=na
+    otherQty:=na
+    capturedATR:=na
+    openMs:=na
+    actualEntry:=na
+    initialQuantity:=na
+    initialRisk:=na
+    highestInPosition:=na
+    activeStop:=na
+    tookPartial:=false
+
+// Panell compacta: separa potencial, confirmacio i execucio real.
+string why = not marketAllowed?"ACCIONS BLOQUEJADES PER DEFECTE":not inSession?"FORA SESSIO":not available?"HISTORIAL INSUFICIENT":
+    not btcPermitted?"BTC NO ACOMPANYA":not dailyRegime?"TENDENCIA 1D FEBLE":not fourRegime?"TENDENCIA/ADX 4H FEBLE":
+    not momentum4?"MACD 4H NO MILLORA":not liquid?"VOLUM/LIQUIDITAT":not extension?"PREU MASSA ESTES":
+    engine=="A · PULLBACK" and not aZone?"NO RETROCES A EMA 4H":engine=="A · PULLBACK" and not aReclaim?"NO RECUPERACIO 1H":
+    engine=="B · BREAKOUT RETEST" and not bActive?"ESPERAR RUPTURA 1H":engine=="B · BREAKOUT RETEST" and not bRetest?"ESPERAR RETEST":
+    not planOK?"STOP / RESISTENCIA":not barstate.isconfirmed?"1H OBERTA":"VALIDAR EXECUCIO"
+string currentState = strategy.position_size>0?"EN POSICIO SIMULADA":pending?"ORDRE PENDENT SIMULADA":newSetup?"SENYAL AL TANCAMENT":why
+var table board = table.new(position.top_right,2,11,border_width=1)
+if barstate.islast
+    color navy=color.rgb(35,56,86)
+    table.cell(board,0,0,"LONG AI PROFIT",bgcolor=navy,text_color=color.white)
+    table.cell(board,1,0,"v1.3 LAB",bgcolor=navy,text_color=color.white)
+    table.cell(board,0,1,"MOTOR")
+    table.cell(board,1,1,engine)
+    table.cell(board,0,2,"ESTAT")
+    table.cell(board,1,2,currentState)
+    table.cell(board,0,3,"TENDENCIA 1D/4H")
+    table.cell(board,1,3,(dailyRegime?"1D OK":"1D NO")+" | "+(fourRegime?"4H OK":"4H NO"))
+    table.cell(board,0,4,"FORCA ADX4 / DI")
+    table.cell(board,1,4,str.tostring(adx4,"#.0")+" | "+(diP4>diM4?"+DI":"-DI"))
+    table.cell(board,0,5,"MOMENTUM RSI/MACD")
+    table.cell(board,1,5,str.tostring(rsi1,"#.0")+" | "+(momentum4?"4H MILLORA":"4H DEBIL"))
+    table.cell(board,0,6,"VOLUM 1H / 4H")
+    table.cell(board,1,6,str.tostring(rvol1,"#.00")+"x / "+str.tostring(rvol4,"#.00")+"x")
+    table.cell(board,0,7,"R/R RESISTENCIA")
+    table.cell(board,1,7,str.tostring(overheadR,"#.00")+"R TEORIC")
+    table.cell(board,0,8,"BTC")
+    table.cell(board,1,8,btcMode=="DESACTIVAT"?"OFF":btcFavorable?"FAVORABLE":"FEBLE / SENSE DADES")
+    table.cell(board,0,9,"VWAP / COMPRESSIO")
+    table.cell(board,1,9,(not na(vwap1) and close>vwap1?"SOBRE VWAP":"SOTA VWAP")+" | "+(compressed1?"BB COMP":"BB NORMAL"))
+    table.cell(board,0,10,"OPERATIVA")
+    table.cell(board,1,10,"STRATEGY TESTER · NO BROKER")
+plot(fE20,"EMA20 4H confirmada",color.orange)
+plot(fE50,"EMA50 4H confirmada",color.blue)
+plot(showLevels and (pending or strategy.position_size>0)?entryTrigger:na,"Trigger",color.aqua,style=plot.style_linebr)
+plot(showLevels and strategy.position_size>0?activeStop:na,"Stop",color.red,style=plot.style_linebr)
+plot(showLevels and strategy.position_size>0?tp1Price:na,"TP1",color.lime,style=plot.style_linebr)
+plot(showLevels and strategy.position_size>0?tp2Price:na,"TP2",color.green,style=plot.style_linebr)
+plotshape(newSetup,title="Senyal tancat",style=shape.triangleup,location=location.belowbar,color=color.teal,size=size.tiny)
+
+// Auditoria sense exportacio Premium. Les sortides parcials son files separades.
+var table audit = table.new(position.bottom_right,4,8,border_width=1)
+if barstate.islast and showAudit
+    table.cell(audit,0,0,"ENTRADA UTC",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    table.cell(audit,1,0,"SORTIDA UTC",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    table.cell(audit,2,0,"MOTIU",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    table.cell(audit,3,0,"PNL USD",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    for n=0 to 6
+        int idx=strategy.closedtrades-1-n
+        int row=n+1
+        if idx>=0
+            float profit=strategy.closedtrades.profit(idx)
+            table.cell(audit,0,row,str.format_time(strategy.closedtrades.entry_time(idx),"MM-dd HH:mm","UTC"),text_size=size.tiny)
+            table.cell(audit,1,row,str.format_time(strategy.closedtrades.exit_time(idx),"MM-dd HH:mm","UTC"),text_size=size.tiny)
+            table.cell(audit,2,row,strategy.closedtrades.exit_comment(idx),text_size=size.tiny)
+            table.cell(audit,3,row,str.tostring(profit,"#.##"),bgcolor=profit>=0?color.rgb(220,243,226):color.rgb(252,225,224),text_size=size.tiny)
+        else
+            for col=0 to 3
+                table.cell(audit,col,row,"",text_size=size.tiny)
