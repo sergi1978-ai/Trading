@@ -40,7 +40,7 @@ const audit=reconstructFromMinuteBars(minute.map(b=>({...b,t:b.t})),{market:'STO
 const results=audit.daily.map(r=>{
  const date=r.t.slice(0,10);
  // A native daily stock bar timestamp is local midnight; in DST it can be 04:00 UTC.
- const native=daily.find(b=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(b.t))===date);
+ const native=daily.find(b=>{const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(b.t)).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return parts.year+'-'+parts.month+'-'+parts.day===date;});
  return {date,observedMinutes:r.observedMinutes,...compareDaily(r,native)};
 });
 console.log(JSON.stringify({symbol,feed:'iex',from:start,to:end,safeForSignals:audit.safeForSignals,
