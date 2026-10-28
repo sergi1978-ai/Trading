@@ -91,8 +91,9 @@ hasCandidate=not na(signalBar)
 // Overhead resistance is previous completed 1D, never the current live daily bar.
 float plannedRisk=trigger-sl
 float costsPlanned=trigger*0.002
-float rrOverhead=plannedRisk>0 and not na(dResistance60) and dResistance60>trigger+syminfo.mintick ?
- (dResistance60-trigger-costsPlanned)/(plannedRisk+costsPlanned) : 3.0
+float rrOverhead=3.0
+if plannedRisk>0 and not na(dResistance60) and dResistance60>trigger+syminfo.mintick
+    rrOverhead:=(dResistance60-trigger-costsPlanned)/(plannedRisk+costsPlanned)
 bool costAwareRiskOK=not na(dResistance60) and rrOverhead>=2.0
 freshCandidate=selected and strategy.position_size==0 and not hasCandidate and
  not na(sl) and sl>0 and trigger>sl and (trigger-sl)/trigger<=.10 and costAwareRiskOK
