@@ -47,3 +47,28 @@ The three AVAX candidates were rejected by **one invalid stop/risk** and **two i
 GitHub Actions runs for branch `feat/long-ai-profit-phase2-20261028` with scripts `run-profit-lab.mjs`, `run-profit-universe.mjs` and automated tests. The 2026-01–04 and 2026-07–10 combined results and breakout counters were confirmed via workflow run `40777789384`, no symbol excluded.
 
 No brokerage orders were placed, and no production deployment was made.
+
+## Cost-stress results — no parameter optimization
+
+Return %, strategy A only:
+
+| Historical window | 5bps comm + 5bps slippage each side | 10bps comm + 10bps slippage | 20bps comm + 20bps slippage |
+|---|---:|---:|---:|
+| Jan–Apr 2026 | -0.1850% | -0.2636% | -0.3226% |
+| Jul–Oct 2026 | +0.6682% | -0.2840% | -0.9356% |
+
+Combined A+B+C under the same cost stresses:
+
+| Historical window | 5bps each | 10bps each | 20bps each |
+|---|---:|---:|---:|
+| Jan–Apr 2026 | -1.7305% | -1.9535% | -2.2969% |
+| Jul–Oct 2026 | -0.1223% | -1.1042% | -1.8874% |
+
+**This destroys any near-term approval claim:** even A, which was marginally positive in the second window at optimistic costs, goes negative at doubled costs. There is no validated edge. Do not respond by optimizing these very windows.
+
+## Pine and experimental workflow update
+
+- `pine/LONG_AI_PROFIT_v1_0_LAB.pine` now includes the same experimental >=2R net resistance gate as `lib/profit-signals.js`, using prior completed daily high(60) and a 0.2% cost reserve in the RR check.
+- The Pine backtest has **not been compiled or executed in TradingView** in this environment. Treat any claims of exact Pine–JS order parity as unverified.
+- `lib/profit-readiness.js` blocks paper trading if data/parity/out-of-sample/stress criteria are missing; **never authorizes live orders**.
+- Costs here are synthetic; exact Coinbase trading fee tiers, spread, stop execution and broker fills vary by account and liquidity.
