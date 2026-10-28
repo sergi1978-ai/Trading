@@ -30,3 +30,17 @@ test('New York regular session aggregation handles 16:00 close (EDT)',()=>{
  assert.equal(r.daily[0].endExclusive,Date.parse('2026-10-20T20:00:00Z'));
  assert.equal(r.fourHour[1].endExclusive,Date.parse('2026-10-20T20:00:00Z'));
 });
+
+test('New York regular session follows standard-time UTC offset',()=>{
+ const start=Date.parse('2026-11-03T14:30:00Z');
+ const bars=Array.from({length:7},(_,i)=>candle(new Date(start+i*3600000).toISOString()));
+ const r=reconstructClosedTimeframes(bars,{market:'STOCK',asOf:'2026-11-03T21:00:00Z'});
+ assert.equal(r.safeForSignals,true);
+ assert.equal(r.daily.length,1);
+ assert.equal(r.daily[0].endExclusive,Date.parse('2026-11-03T21:00:00Z'));
+});
+test('partial NY trading session is rejected until exchange calendar is supported',()=>{
+ const start=Date.parse('2026-11-27T14:30:00Z');
+ const bars=Array.from({length:4},(_,i)=>candle(new Date(start+i*3600000).toISOString()));
+ assert.equal(reconstructClosedTimeframes(bars,{market:'STOCK'}).safeForSignals,false);
+});
