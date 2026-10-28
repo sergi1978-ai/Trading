@@ -68,3 +68,17 @@ test('v1.1 new signals depend only on past data, not future appended candles',()
  const a=trendPullbackV11(truncated);
  assert.deepEqual(a.signals,whole.signals.filter(x=>Date.parse(x.signalTime)<=Date.parse(truncated.hourly.at(-1).endExclusive)));
 });
+
+test('live asOf excludes incomplete current 1H and blocks its signal',()=>{
+ const f=fixture(),last=f.hourly.at(-1);
+ const cutoff=new Date(Date.parse(last.endExclusive)-30000).toISOString();
+ const result=trendPullbackV11({...f,asOf:cutoff});
+ assert.equal(result.traces.length,f.hourly.length-1);
+ assert.ok(result.signals.every(s=>Date.parse(s.signalTime)<=Date.parse(cutoff)));
+});
+test('equity stock strategy cannot claim validated 4H parity without exchange session proof',()=>{
+ const f=fixture();
+ const result=trendPullbackV11({...f,market:'STOCK'});
+ assert.equal(result.blocked,'STOCK_4H_SESSION_PARITY_NOT_VERIFIED');
+ assert.equal(result.signals.length,0);
+});
