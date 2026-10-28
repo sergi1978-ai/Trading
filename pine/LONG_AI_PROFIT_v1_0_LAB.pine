@@ -103,7 +103,7 @@ if freshCandidate
         strategy.entry("LONG",strategy.long,qty=qty,stop=trigger,comment=engine)
 // Brackets submitted with entry to reduce unprotected entry-bar time.
 // Each leg 50%, stop active as protective order even before next calculation.
-if hasCandidate and strategy.position_size==0
+if (hasCandidate or freshCandidate) and strategy.position_size==0 and not na(candidateTrigger)
     float riskDistance=candidateTrigger-candidateStop
     strategy.exit("TP1","LONG",qty_percent=50,stop=candidateStop,limit=candidateTrigger+1.5*riskDistance)
     strategy.exit("TP2","LONG",qty_percent=50,stop=candidateStop,limit=candidateTrigger+3*riskDistance)
@@ -134,8 +134,12 @@ if strategy.position_size>0
         hardStop:=math.max(hardStop,close-2*nz(candidateAtr,atr4))
     float avg=strategy.position_avg_price
     float perUnit=math.max(syminfo.mintick,nz(riskUnit,avg-hardStop))
-    strategy.exit("TP1","LONG",qty_percent=50,stop=hardStop,limit=avg+1.5*perUnit)
-    strategy.exit("TP2","LONG",qty_percent=50,stop=hardStop,limit=avg+3*perUnit)
+    if not afterTP1
+        strategy.exit("TP1","LONG",qty_percent=50,stop=hardStop,limit=avg+1.5*perUnit)
+        strategy.exit("TP2","LONG",qty_percent=50,stop=hardStop,limit=avg+3*perUnit)
+    else
+        strategy.cancel("TP1")
+        strategy.exit("TP2","LONG",qty_percent=100,stop=hardStop,limit=avg+3*perUnit)
     bool timedOut=time>=openedTime+maxHoldDays*86400000
     bool noImpulse=time>=openedTime+noImpulseDays*86400000 and
      highestSinceEntry<avg+.5*perUnit
