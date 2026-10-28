@@ -51,10 +51,28 @@ async function download() {
    if(![l,h,o,c,v].every(Number.isFinite)||l>Math.min(o,c)||h<Math.max(o,c,l))throw Error('Bad retry OHLCV');
    output.set(t,{t:new Date(t).toISOString(),endExclusive:new Date(t+H).toISOString(),o,h,l,c,v});
   }
+  if(!output.has(t)){
+   // Recover only from 12 genuine Coinbase 5Min OHLCV candles, same exchange.
+   // This is aggregation of historical trades, never an invented/fill-forward hour.
+   const five=new URL('https://api.exchange.coinbase.com/products/BTC-USD/candles');
+   five.searchParams.set('start',new Date(t).toISOString());
+   five.searchParams.set('end',new Date(t+H).toISOString());
+   five.searchParams.set('granularity','300');
+   const detail=await fetch(five,{headers:{Accept:'application/json','User-Agent':'LONG-AI-PROFIT-Lab/1.0'},signal:AbortSignal.timeout(30000)});
+   if(!detail.ok)throw Error('Coinbase 5Min repair HTTP '+detail.status);
+   const rows=(await detail.json()).filter(x=>Array.isArray(x)&&x[0]*1000>=t&&x[0]*1000<t+H)
+     .sort((a,b)=>a[0]-b[0]);
+   if(rows.length===12&&rows.every((x,i)=>x[0]*1000===t+i*300000)){
+    output.set(t,{t:new Date(t).toISOString(),endExclusive:new Date(t+H).toISOString(),
+      o:rows[0][3],h:Math.max(...rows.map(x=>x[2])),l:Math.min(...rows.map(x=>x[1])),
+      c:rows[11][4],v:rows.reduce((a,x)=>a+x[5],0),provenance:'COINBASE_5MIN_AGGREGATED'});
+   }
+  }
   await new Promise(ok=>setTimeout(ok,120));
  }
  const unresolved=missing.filter(t=>!output.has(t));
  if(unresolved.length)throw Error('Incomplete Coinbase 1H: '+unresolved.length+' missing hours, first '+new Date(unresolved[0]).toISOString()+' — fail closed');
+ console.log(JSON.stringify({audit:'Source hourly holes',missingFromNative:missing.length,correctedWithReal5Min:sorted.filter(x=>x.provenance==='COINBASE_5MIN_AGGREGATED').length}));
  return sorted;
 }
 function agg(b){
