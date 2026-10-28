@@ -4,7 +4,13 @@
 import {generateProfitSignals} from '../lib/profit-signals.js';
 import {simulateProfit,PROFIT_STRATEGIES} from '../lib/profit-simulator.js';
 const H=3600000,DAY=24*H;
-const START=Date.parse('2026-07-01T00:00:00Z'),END=Date.parse('2026-10-28T00:00:00Z');
+const FROM=process.env.PROFIT_FROM||'2026-07-01T00:00:00Z';
+const THROUGH=process.env.PROFIT_TO||'2026-10-28T00:00:00Z';
+const START=Date.parse(FROM),END=Date.parse(THROUGH);
+if(!Number.isFinite(START)||!Number.isFinite(END)||START>=END||
+   START%86400000!==0||END%86400000!==0||
+   END-START>240*86400000||END>Date.parse('2026-10-29T00:00:00Z'))
+ throw Error('Invalid UTC date window');
 const UNIVERSE=['BTC-USD','ETH-USD','SOL-USD','LINK-USD','ADA-USD','AVAX-USD'];
 const base='https://api.exchange.coinbase.com';
 const headers={Accept:'application/json','User-Agent':'LONG-AI-PROFIT-Multimarket/1.0'};
@@ -138,7 +144,7 @@ if(Object.keys(data).length){
  combined=summary({...r,signals:events});
 }
 console.log('MULTI_ASSET_AUDIT_JSON '+JSON.stringify({
- date:'2026-10-28',window:['2026-07-01','2026-10-27'],intendedUniverse:UNIVERSE,
+ date:'2026-10-28',window:[FROM,THROUGH],intendedUniverse:UNIVERSE,
  acceptedUniverse:diagnostics.map(x=>x.symbol),excluded,
  preliminary:true,notWalkForward:true,
  notes:['Fixed configs, no optimized selection','Coinbase USD spot crypto only, no US equities',
