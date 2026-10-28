@@ -1,0 +1,20 @@
+name: Phase 2 PROFIT simulator checks
+on:
+  push:
+    branches:
+      - feat/long-ai-profit-phase2-20261028
+  pull_request:
+    paths:
+      - 'lib/profit-simulator.js'
+      - 'test/profit-simulator.test.js'
+      - 'pine/LONG_AI_PROFIT_v1_0_LAB.pine'
+      - '.github/workflows/profit-phase2.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
