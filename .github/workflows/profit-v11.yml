@@ -6,7 +6,9 @@ on:
   pull_request:
     paths:
       - 'lib/trend-pullback-v11.js'
+      - 'lib/stock-rth-rebuild.js'
       - 'test/trend-pullback-v11.test.js'
+      - 'test/stock-rth-rebuild.test.js'
       - 'scripts/run-profit-universe.mjs'
       - 'pine/LONG_AI_PROFIT_v1_1_A_LAB.pine'
       - '.github/workflows/profit-v11.yml'
@@ -20,7 +22,7 @@ jobs:
         with:
           node-version: '22'
       - name: Test new strategy and existing simulation invariants
-        run: node --test test/trend-pullback-v11.test.js test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
+        run: node --test test/stock-rth-rebuild.test.js test/trend-pullback-v11.test.js test/profit-signals.test.js test/profit-simulator.test.js test/pine-v6627-parity.test.js test/minute-parity.test.js test/crypto-parity.test.js
       - name: Historical Coinbase Mar-Sep 2025 comparison (same fixed six markets)
         timeout-minutes: 11
         env:
