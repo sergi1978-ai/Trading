@@ -72,3 +72,23 @@ Prices/date/times copied visually from the screenshot (UI timezone unspecified).
 **Not compiled in TradingView yet**. Before trusting the diagnostic, the user should load it as a separate script, verify compilation, and keep the original v1.1 unchanged. No strategy improvements, cash orders, live execution or risk control changes are claimed.
 
 The measured Sep/Oct screenshot results cannot substitute for the still missing same-date-and-time **JS vs Pine** entry parity and holdout performance tests.
+
+## Screenshot audit: Oct 29 2026 00:12 Madrid (new v1.1.1 AUDIT)
+
+The user sent screenshots of LONG AI PROFIT v1.1.1 AUDIT showing price levels 1,875–2,706 USD, **not BTCUSD-level values**. Symbol header is cropped; do not label these as BTC and do not compare them with the Coinbase BTC backtest without confirming the active ticker.
+
+Exit legs grouped by shared `PULLBACK_V11` entry timestamp (dates/times as shown in Spanish TradingView local UI):
+
+| Entry (price) | Visible exit legs and net P&L (USD) | Combined visible P&L |
+|---|---|---:|
+| Apr 10 2026 12:00 ($2224.72) | Apr 11 TP1_OBJECTIU +33.85; Apr 12 STOP_TP2 +3.65 | +37.50 |
+| Jul 20 2026 00:00 ($1875.85) | Jul 20 STOP_TP1 -21.04; STOP_TP2 -21.04; Jul 27 TIME_7D +0.01 (0.0001 units) | -42.07 |
+| Jul 30 2026 22:00 ($1927.67) | Jul 31 STOP_TP1 -23.80; STOP_TP2 -23.80; Aug 2 NO_IMPULSE_3D -0.005 (0.0001 units) | -47.605 |
+| Aug 9 2026 14:00 ($1924.91) | Aug 9 STOP_TP1 -12.10; STOP_TP2 -12.10; Aug 16 TIME_7D -0.005 | -24.205 |
+| Oct 4 2026 21:00 ($2706.35) | Oct 4 TP1_OBJECTIU +11.93; Oct 5 STOP_TP2 -10.03 | +1.90 |
+
+These are **only examples visible** in the screenshots, not the full strategy summary. They suggest repeated stops after weak follow-through and an insufficient edge. The 0.0001 unit remainders should be checked against TradingView's strategy.exit() OCA quantity reservation and `syminfo.mincontract` rather than assumed to be definitive script errors. At 10,000 USD simulated equity, the July 30 pair -47.60 USD is approximately -0.476% of initial account balance, consistent with the intended 0.5% risk cap before any other fees/gaps.
+
+No-Premium limitation confirmed: user cannot export Strategy Tester trade CSV. Continue with chart diagnostics and screenshots; do not ask to subscribe.
+
+No-go: A v1.1 is the ONLY entry engine implemented in this Pine file. The B breakout-retest and C early expansion engines remain separate research experiments, not tested or merged into A v1.1. Do not promise profitability by activating them. First stabilize exits, then compare A/B/C as independent strategies on matching data.
