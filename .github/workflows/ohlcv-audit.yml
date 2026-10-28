@@ -9,6 +9,7 @@ on:
       - 'lib/minute-parity.js'
       - 'test/ohlcv-audit.test.js'
       - 'test/minute-parity.test.js'
+      - 'test/crypto-parity.test.js'
       - '.github/workflows/ohlcv-audit.yml'
 jobs:
   test:
@@ -18,4 +19,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test test/ohlcv-audit.test.js test/minute-parity.test.js
+      - run: node --test test/ohlcv-audit.test.js test/minute-parity.test.js test/crypto-parity.test.js
