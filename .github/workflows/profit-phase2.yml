@@ -28,3 +28,9 @@ jobs:
       - name: Fixed six-asset Coinbase audit (read-only)
         timeout-minutes: 10
         run: node scripts/run-profit-universe.mjs
+      - name: Independent historical market-regime check, Jan-Apr 2026 (read-only)
+        timeout-minutes: 10
+        env:
+          PROFIT_FROM: 2026-01-01T00:00:00Z
+          PROFIT_TO: 2026-05-01T00:00:00Z
+        run: node scripts/run-profit-universe.mjs
