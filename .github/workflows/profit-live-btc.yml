@@ -1,0 +1,20 @@
+name: Phase 2 BTC Coinbase read-only feasibility
+on:
+  push:
+    branches:
+      - feat/long-ai-profit-phase2-20261028
+    paths:
+      - 'scripts/run-profit-lab.mjs'
+      - '.github/workflows/profit-live-btc.yml'
+  workflow_dispatch:
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Coinbase 1H A/B/C historical simulation — read only
+        run: node scripts/run-profit-lab.mjs
