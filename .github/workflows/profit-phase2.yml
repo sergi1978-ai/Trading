@@ -6,14 +6,17 @@ on:
   pull_request:
     paths:
       - 'lib/profit-simulator.js'
+      - 'lib/pine-v6627-parity.js'
       - 'lib/profit-readiness.js'
       - 'lib/profit-signals.js'
       - 'scripts/run-profit-lab.mjs'
       - 'scripts/run-profit-universe.mjs'
       - 'test/profit-simulator.test.js'
+      - 'test/pine-v6627-parity.test.js'
       - 'test/profit-readiness.test.js'
       - 'test/profit-signals.test.js'
       - 'pine/LONG_AI_PROFIT_v1_0_LAB.pine'
+      - 'pine/LONG_AI_PROFIT_v1_0_1_DIAG_LAB.pine'
       - '.github/workflows/profit-phase2.yml'
 jobs:
   test:
