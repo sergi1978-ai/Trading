@@ -1,0 +1,18 @@
+name: LONG AI PROFIT v1.5 audit-only checks
+on:
+  push:
+    branches: [feat/long-ai-profit-v1-5-diagnostics-only-20261029]
+  pull_request:
+    paths:
+      - 'pine/LONG_AI_PROFIT_v1_5_C_DIAGNOSTIC_NO_RETUNE.pine'
+      - 'test/pine-v15-diagnostics.test.js'
+      - '.github/workflows/profit-v15-diagnostics.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/pine-v15-safety.test.js test/pine-v15-diagnostics.test.js
