@@ -1,0 +1,26 @@
+name: LONG AI PROFIT v1.6 - safety and data regressions
+on:
+  push:
+    branches:
+      - feat/long-ai-profit-v1-6-lab-20261029
+  pull_request:
+    paths:
+      - 'pine/LONG_AI_PROFIT_v1_6_LAB.pine'
+      - 'test/pine-v16-safety.test.js'
+      - '.github/workflows/profit-v16.yml'
+  workflow_dispatch:
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pine v1.6 static invariants (NOT Pine Editor compilation)
+        run: node --test test/pine-v16-safety.test.js
+      - name: Binance 1H/4H/1D independent UTC reconstruction tests
+        run: node --test test/profit-ohlcv.test.mjs
+      - name: Prior engine regressions, not v1.6 signal parity
+        run: node --test test/profit-signals.test.js test/profit-simulator.test.js test/crypto-parity.test.js
