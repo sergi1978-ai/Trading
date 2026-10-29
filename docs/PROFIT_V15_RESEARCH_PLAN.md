@@ -28,3 +28,17 @@ Other restrictions: target 0.5% account risk, 25% account nominal allocation cap
 6. No real orders. No production merge or Vercel promotion without extra independent evidence.
 
 References: https://www.tradingview.com/pine-script-docs/faq/strategies/ and https://www.tradingview.com/pine-script-docs/concepts/strategies/
+
+## 2026-10-29 — NEW USER FEEDBACK: v1.5 trades also negative; NO GO
+
+The user reports that v1.5 operations are also negative. No screenshot, ticker, numerical return or separate C15 EXECUCIO / C15 QUALITAT metric tables accompany this report. **Do not invent returns or assert either variant's exact statistics.** Treat this as a new failed practical check and suspend any push to production. Do not optimize thresholds on the same reviewed chart.
+
+Code-audited causal hypotheses (not yet established empirically):
+
+1. **Changed payoff:** v1.4 C took 50% at 1.5R; C15 sells 100% at 2.25R. A move that reaches 1.5R then reverses may be a winner in v1.4 but a stopped loss in C15. The exit change is not harmless accounting cleanup; it is a distinct unvalidated profit-taking policy.
+2. **Resistance logic mismatch:** C15's actual exit target is 2.25R, while its real overhead resistance gate is only 1.50R. It can accept a plan with structural resistance in the way of its own target. The panel's lack of a higher known resistance is informational, NOT proof of an attainable 2.25R move.
+3. **Not identical candidate set:** C15's net-target-R >=1.80 condition and resistance policy differ from v1.4, despite shared primary continuation setup. Therefore comparing the two results is not a pure exit-only ablation until candidate entry sets are checked timestamp by timestamp.
+4. **Broker emulator conditions:** `strategy.entry(stop=...,limit=...)` is a stop-limit order, not a confirmed market fill. A full-size `strategy.exit(stop=...,limit=...)` is a bracket: the triggered exit decides the result. `process_orders_on_close=false` and `calc_on_order_fills=false` reduce some historical lookahead effects; OHLC intrabar fill assumptions remain. Verify identical Strategy Tester settings before benchmarking.
+5. **Risk vs account returns:** <=25% notional exposure and <=0.5% target per-trade risk can result in small account returns; a few wins cannot justify a full-time system. A trading gap can exceed the 0.5% risk intention.
+
+**Action:** Keep original v1.4 C and C15 frozen as historical baselines. Do not publish C15 as an improvement, do not apply to the Trading 2026 app, and do not make any live/paper-auto orders. Next run must use an independent per-entry comparison, group exit legs, review individual adverse excursions (MAE/MFE) and costs, and test later or untouched periods across BTC/ETH/SOL. If no robust edge remains, reject the hypothesis rather than chase inputs. Any future diagnostic modification requires a separate audit-only file and must preserve the original baseline.
