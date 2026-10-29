@@ -1,0 +1,24 @@
+name: LONG AI PROFIT v1.6.1 | No-orders diagnostic QA
+on:
+  push:
+    branches: [feat/long-ai-profit-v1-6-1-diagnostic-20261029]
+  pull_request:
+    paths:
+      - 'pine/LONG_AI_PROFIT_v1_6_1_DIAGNOSTIC.pine'
+      - 'test/pine-v161-no-orders.test.js'
+      - '.github/workflows/profit-v161.yml'
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: v1.6 and v1.6.1 safety checks — NOT Pine compilation
+        run: node --test test/pine-v16-safety.test.js test/pine-v161-no-orders.test.js
+      - name: UTC Binance OHLCV integrity regression
+        run: node --test test/profit-ohlcv.test.mjs
+      - name: Existing simulator regressions, not signal parity
+        run: node --test test/profit-signals.test.js test/profit-simulator.test.js test/crypto-parity.test.js
