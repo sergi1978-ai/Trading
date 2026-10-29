@@ -1,0 +1,284 @@
+//@version=6
+strategy("LONG AI PROFIT v1.5 LAB | C neta i qualitat", overlay=true,
+     pyramiding=0, initial_capital=10000, default_qty_type=strategy.fixed,
+     commission_type=strategy.commission.percent, commission_value=0.05, slippage=2,
+     process_orders_on_close=false, calc_on_every_tick=false,
+     calc_on_order_fills=false, max_labels_count=100)
+// LAB ONLY. No broker orders. Standard crypto 1H. No stock 4H parity.
+// Compare C15 EXECUCIO vs C15 QUALITAT, using identical history and costs.
+// Compare separately with original C from LONG AI v1.4 (NOT same exits).
+// No claim of profitable edge or exact JavaScript parity.
+
+g1 = "01 | Hipotesi (separar causes)"
+modeC = input.string("C15 · EXECUCIO", "Variant experimental",
+     options=["C15 · EXECUCIO","C15 · QUALITAT"], group=g1)
+btcPolicy = input.string("INFORMATIU", "BTC a altcoins",
+     options=["INFORMATIU","OBLIGATORI","DESACTIVAT"],group=g1)
+showPanel = input.bool(true,"Panell de diagnostics",group=g1)
+showAudit = input.bool(true,"Ultimes posicions tancades",group=g1)
+
+float riskFraction = .005
+float allocationCap = .25
+float costReserve = .002
+float stopBufferATR = .20
+float chaseATR = .20
+float takeProfitR = 2.25
+int pendingBars = 3
+int cooldownBars = 8
+
+if barstate.isfirst
+    if not chart.is_standard or timeframe.in_seconds() != 3600
+        runtime.error("Utilitza espelmes estandard 1H")
+    if syminfo.type != "crypto"
+        runtime.error("C15 LAB: crypto. Sessions RTH d'accions pendents de paritat.")
+
+[dClose,dE20,dE50,dE50Prev,dDollar,dResistance,dIndex] = request.security(
+     syminfo.tickerid,"D",
+     [close[1],ta.ema(close,20)[1],ta.ema(close,50)[1],
+      ta.ema(close,50)[6],ta.sma(close*volume,20)[1],
+      ta.highest(high,60)[1],bar_index[1]],lookahead=barmerge.lookahead_on)
+[fClose,fPrev,fE20,fE50,fATR,fVol,fVolBase,fIndex] = request.security(
+     syminfo.tickerid,"240",
+     [close[1],close[2],ta.ema(close,20)[1],ta.ema(close,50)[1],
+      ta.atr(14)[1],volume[1],ta.sma(volume,20)[2],bar_index[1]],
+     lookahead=barmerge.lookahead_on)
+f_di() =>
+    [p,m,a] = ta.dmi(14,14)
+    [p[1],m[1],a[1]]
+[diP,diM,adx4] = request.security(
+     syminfo.tickerid,"240",f_di(),lookahead=barmerge.lookahead_on)
+f_hist() =>
+    [macdLine,signalLine,hist] = ta.macd(close,12,26,9)
+    [hist[1],hist[2]]
+[h4,h4Prev] = request.security(
+     syminfo.tickerid,"240",f_hist(),lookahead=barmerge.lookahead_on)
+[btcClose,btcEMA] = request.security(
+     "COINBASE:BTCUSD","240",
+     [close[1],ta.ema(close,50)[1]],lookahead=barmerge.lookahead_on)
+
+float ema1h = ta.ema(close,20)
+float rsi1h = ta.rsi(close,14)
+float rvBase = ta.sma(volume,20)[1]
+float rvol1h = rvBase>0 ? volume/rvBase : na
+float rvol4h = fVolBase>0 ? fVol/fVolBase : na
+float prevHigh8 = ta.highest(high[1],8)
+float prevLow8 = ta.lowest(low[1],8)
+float baseWidth = prevHigh8-prevLow8
+float candleRange = high-low
+float candleLocation = candleRange>0 ? (close-low)/candleRange : 0
+float bullishBody = candleRange>0 ? (close-open)/candleRange : 0
+
+bool historyOK = not na(dIndex) and dIndex>=69 and not na(fIndex) and fIndex>=59 and fATR>0 and not na(rvol1h)
+bool dailyOK = dClose>dE50 and (dE20>dE50 or dClose>dE20) and dE50>=dE50Prev
+bool fourOK = fClose>fE50 and fE20>=fE50*.995
+bool sDI = diP>diM and adx4>=16
+bool sMACD = h4>=h4Prev
+bool sSlope = fClose>fPrev
+bool sVolume = not na(rvol4h) and rvol4h>=.80
+int strengthScore = (sDI?1:0)+(sMACD?1:0)+(sSlope?1:0)+(sVolume?1:0)
+bool btcAllowed = btcPolicy!="OBLIGATORI" or syminfo.basecurrency=="BTC" or (not na(btcClose) and btcClose>btcEMA)
+bool contextOK = historyOK and dailyOK and fourOK and btcAllowed and dDollar>=1000000 and strengthScore>=3
+bool baseOK = baseWidth>0 and baseWidth<=1.60*fATR and prevLow8>fE50-.20*fATR
+bool breakoutOK = close>prevHigh8 and close>open and close>ema1h and rvol1h>=1.10 and rsi1h>=52 and rsi1h<=76
+// One preregistered quality hypothesis. Not allowed to tune after reading 2026 results.
+bool candleQuality = candleLocation>=.70 and bullishBody>=.40
+bool testQuality = modeC=="C15 · QUALITAT"
+bool entryCondition = contextOK and baseOK and breakoutOK and close<=fE20+2.0*fATR and (not testQuality or candleQuality)
+
+// Structure: use prior eight bar LOW, never unconfirmed future bars.
+float entryTriggerCandidate = high+syminfo.mintick
+float initialStopCandidate = math.min(prevLow8,low)-.20*fATR
+float riskCandidate = entryTriggerCandidate-initialStopCandidate
+float roundTripReserve = entryTriggerCandidate*costReserve
+float targetCandidate = entryTriggerCandidate+takeProfitR*riskCandidate
+float netTargetR = riskCandidate>0 ? (targetCandidate-entryTriggerCandidate-roundTripReserve)/(riskCandidate+roundTripReserve) : na
+// Known overhead resistance limits room. No resistance ABOVE price means unbounded,
+// not a fabricated 3R probability / historical price target.
+bool resistanceAbove = not na(dResistance) and dResistance>entryTriggerCandidate+syminfo.mintick
+float resistanceRoomR = resistanceAbove and riskCandidate>0 ? (dResistance-entryTriggerCandidate-roundTripReserve)/(riskCandidate+roundTripReserve) : na
+bool resistanceClear = not resistanceAbove or resistanceRoomR>=1.50
+bool validRisk = (initialStopCandidate>0 and riskCandidate>syminfo.mintick and
+     riskCandidate/entryTriggerCandidate<=.10 and netTargetR>=1.80 and
+     resistanceClear and close<=fE20+2.0*fATR)
+
+var int pendingAt = na
+var int lastExitBar = na
+var float trigger = na
+var float stop = na
+var float takeProfit = na
+var float savedAtr = na
+var float actualEntry = na
+var float riskAtFill = na
+var float bestHigh = na
+var int entryMs = na
+var int proposals = 0
+var int rejectedContext = 0
+var int rejectedStructure = 0
+var int rejectedQuality = 0
+var int rejectedRisk = 0
+var int acceptedSetup = 0
+
+bool pending = not na(pendingAt) and strategy.position_size==0
+bool cooling = not na(lastExitBar) and bar_index-lastExitBar<cooldownBars
+bool candidate = barstate.isconfirmed and entryCondition and validRisk
+bool enterNow = candidate and strategy.position_size==0 and not pending and not cooling
+if barstate.isconfirmed
+    if not contextOK
+        rejectedContext+=1
+    else if not baseOK or not breakoutOK
+        rejectedStructure+=1
+    else if testQuality and not candleQuality
+        rejectedQuality+=1
+    else if not validRisk
+        rejectedRisk+=1
+    if entryCondition
+        proposals+=1
+
+if enterNow
+    float riskPerCoin = riskCandidate+roundTripReserve
+    float qty = math.min(strategy.equity*riskFraction/riskPerCoin,
+                         strategy.equity*allocationCap/entryTriggerCandidate)
+    if qty>0 and qty>=syminfo.mincontract
+        pendingAt:=bar_index
+        trigger:=entryTriggerCandidate
+        stop:=initialStopCandidate
+        takeProfit:=targetCandidate
+        savedAtr:=fATR
+        strategy.entry("C15",strategy.long,qty=qty,stop=trigger,
+             limit=trigger+chaseATR*fATR,comment=modeC)
+        acceptedSetup+=1
+
+// Protect pending entry with one full-position protective bracket.
+// On confirmed fill, the target may be adjusted later to real fill price.
+if not na(pendingAt) and strategy.position_size==0 and not na(stop)
+    strategy.exit("C15_FULL","C15",stop=stop,limit=takeProfit,
+         comment_profit="TP_COMPLET",comment_loss="STOP_COMPLET")
+if pending and bar_index-pendingAt>=pendingBars
+    strategy.cancel("C15")
+    strategy.cancel("C15_FULL")
+    pendingAt:=na
+    trigger:=na
+    stop:=na
+    takeProfit:=na
+
+bool justOpened = strategy.position_size>0 and strategy.position_size[1]<=0
+if justOpened
+    actualEntry:=strategy.position_avg_price
+    riskAtFill:=math.max(actualEntry-stop,syminfo.mintick)
+    takeProfit:=actualEntry+takeProfitR*riskAtFill
+    bestHigh:=high
+    entryMs:=time
+
+if strategy.position_size>0
+    bestHigh:=math.max(nz(bestHigh,high),high)
+    // No dynamic trail based on intrabar hindsight; stop is structural and FIXED.
+    strategy.exit("C15_FULL","C15",stop=stop,limit=takeProfit,
+         comment_profit="TP_COMPLET",comment_loss="STOP_COMPLET")
+    bool timeExit = time>=entryMs+7*86400000
+    bool noImpulse = time>=entryMs+3*86400000 and bestHigh<actualEntry+.5*riskAtFill
+    if barstate.isconfirmed and (timeExit or noImpulse)
+        strategy.cancel("C15_FULL")
+        strategy.close("C15",comment=timeExit?"TEMPS_7D":"SENSE_IMPULS_3D")
+
+if strategy.position_size==0 and strategy.position_size[1]>0
+    lastExitBar:=bar_index
+    strategy.cancel("C15_FULL")
+    pendingAt:=na
+    trigger:=na
+    stop:=na
+    takeProfit:=na
+    savedAtr:=na
+    actualEntry:=na
+    riskAtFill:=na
+    bestHigh:=na
+    entryMs:=na
+
+string blocked = not historyOK?"HISTORIAL":not dailyOK?"TENDENCIA 1D":not fourOK?"TENDENCIA 4H":
+     not btcAllowed?"BTC":strengthScore<3?"FORCA 4H":dDollar<1000000?"LIQUIDITAT":
+     not baseOK?"SENSE BASE":not breakoutOK?"FALTA RUPTURA":
+     testQuality and not candleQuality?"QUALITAT VELA":not validRisk?"RISC / RESISTENCIA":"OBSERVAR"
+string stateText = strategy.position_size>0?"POSICIO SIMULADA":pending?"ORDRE PENDENT":
+     cooling?"COOLDOWN":candidate?"PREPARAT":"BLOQUEJAT: "+blocked
+
+var table board = table.new(position.top_right,2,11,border_width=1)
+if barstate.islast and showPanel
+    color header = color.rgb(35,56,86)
+    table.cell(board,0,0,"LONG AI v1.5",bgcolor=header,text_color=color.white)
+    table.cell(board,1,0,modeC,bgcolor=header,text_color=color.white)
+    table.cell(board,0,1,"ESTAT")
+    table.cell(board,1,1,stateText)
+    table.cell(board,0,2,"1D / 4H")
+    table.cell(board,1,2,(dailyOK?"OK":"NO")+" / "+(fourOK?"OK":"NO"))
+    table.cell(board,0,3,"FORCA 4H")
+    table.cell(board,1,3,str.tostring(strengthScore)+"/4")
+    table.cell(board,0,4,"BASE / VOLUM")
+    table.cell(board,1,4,(baseOK?"BASE OK":"SENSE BASE")+" | "+str.tostring(rvol1h,"#.##")+"x")
+    table.cell(board,0,5,"COS / TANCAMENT VELA")
+    table.cell(board,1,5,str.tostring(bullishBody*100,"#.0")+"% / "+str.tostring(candleLocation*100,"#.0")+"%")
+    table.cell(board,0,6,"NET TP ESPERAT")
+    table.cell(board,1,6,str.tostring(netTargetR,"#.##")+"R | NO PROBABILITAT")
+    table.cell(board,0,7,"RESISTENCIA 1D")
+    table.cell(board,1,7,resistanceAbove?str.tostring(resistanceRoomR,"#.##")+"R":"NO IDENTIFICADA")
+    table.cell(board,0,8,"BLOQUEJOS")
+    table.cell(board,1,8,"CONTEXT "+str.tostring(rejectedContext)+" | ESTRUCTURA "+str.tostring(rejectedStructure))
+    table.cell(board,0,9,"BLOQUEJOS / PLANS")
+    table.cell(board,1,9,"VELA "+str.tostring(rejectedQuality)+" RISC "+str.tostring(rejectedRisk)+" / "+str.tostring(acceptedSetup))
+    table.cell(board,0,10,"ESTAT VALIDACIO")
+    table.cell(board,1,10,"LAB: NI PINE/JS PARITAT NI LIVE")
+
+plot(fE20,"EMA20 4H confirmada",color.orange)
+plot(fE50,"EMA50 4H confirmada",color.blue)
+plot(strategy.position_size>0?stop:na,"STOP ESTRUCTURAL",color.red,style=plot.style_linebr)
+plot(strategy.position_size>0?takeProfit:na,"TP FULL 2.25R",color.lime,style=plot.style_linebr)
+plotshape(enterNow,title="Setup C15",style=shape.triangleup,location=location.belowbar,color=color.teal,size=size.tiny)
+
+var table audit = table.new(position.bottom_right,4,8,border_width=1)
+if barstate.islast and showAudit
+    table.cell(audit,0,0,"ENTRADA UTC",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    table.cell(audit,1,0,"SORTIDA UTC",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    table.cell(audit,2,0,"MOTIU",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    table.cell(audit,3,0,"PNL USD",bgcolor=color.rgb(35,56,86),text_color=color.white,text_size=size.tiny)
+    for n=0 to 6
+        int k=strategy.closedtrades-1-n
+        int row=n+1
+        if k>=0
+            float pnl=strategy.closedtrades.profit(k)
+            table.cell(audit,0,row,str.format_time(strategy.closedtrades.entry_time(k),"MM-dd HH:mm","UTC"),text_size=size.tiny)
+            table.cell(audit,1,row,str.format_time(strategy.closedtrades.exit_time(k),"MM-dd HH:mm","UTC"),text_size=size.tiny)
+            table.cell(audit,2,row,strategy.closedtrades.exit_comment(k),text_size=size.tiny)
+            table.cell(audit,3,row,str.tostring(pnl,"#.##"),bgcolor=pnl>=0?color.rgb(220,243,226):color.rgb(252,225,224),text_size=size.tiny)
+        else
+            for col=0 to 3
+                table.cell(audit,col,row,"",text_size=size.tiny)
+
+
+// === DIAGNOSTIC ONLY — DO NOT MODIFY ENTRY/EXIT STRATEGY ===
+// Favorable/adverse excursions are simulated by TradingView's broker emulator.
+// MFE/MAE below are in strategy account currency, NOT percentages/probabilities.
+// Commission printed separately. The Strategy Report is the source of NET P&L.
+var table diag = table.new(position.bottom_left,6,8,border_width=1)
+if barstate.islast and showAudit
+    color head=color.rgb(35,56,86)
+    table.cell(diag,0,0,"ENTRADA UTC",bgcolor=head,text_color=color.white,text_size=size.tiny)
+    table.cell(diag,1,0,"SORTIDA UTC",bgcolor=head,text_color=color.white,text_size=size.tiny)
+    table.cell(diag,2,0,"MOTIU",bgcolor=head,text_color=color.white,text_size=size.tiny)
+    table.cell(diag,3,0,"MFE USD",bgcolor=head,text_color=color.white,text_size=size.tiny)
+    table.cell(diag,4,0,"MAE USD",bgcolor=head,text_color=color.white,text_size=size.tiny)
+    table.cell(diag,5,0,"COST USD",bgcolor=head,text_color=color.white,text_size=size.tiny)
+    for n=0 to 6
+        int k=strategy.closedtrades-1-n
+        int row=n+1
+        if k>=0
+            float mfe=strategy.closedtrades.max_runup(k)
+            float mae=strategy.closedtrades.max_drawdown(k)
+            float fees=strategy.closedtrades.commission(k)
+            string why=strategy.closedtrades.exit_comment(k)
+            table.cell(diag,0,row,str.format_time(strategy.closedtrades.entry_time(k),"MM-dd HH:mm","UTC"),text_size=size.tiny)
+            table.cell(diag,1,row,str.format_time(strategy.closedtrades.exit_time(k),"MM-dd HH:mm","UTC"),text_size=size.tiny)
+            table.cell(diag,2,row,why,text_size=size.tiny)
+            table.cell(diag,3,row,str.tostring(mfe,"#.##"),text_size=size.tiny)
+            table.cell(diag,4,row,str.tostring(mae,"#.##"),text_size=size.tiny)
+            table.cell(diag,5,row,str.tostring(fees,"#.##"),text_size=size.tiny)
+        else
+            for c=0 to 5
+                table.cell(diag,c,row,"",text_size=size.tiny)
