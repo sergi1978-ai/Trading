@@ -1,0 +1,41 @@
+name: LONG AI PROFIT | Binance Spot OHLCV QA
+on:
+  push:
+    branches:
+      - feat/profit-binance-ohlcv-reconstruction-20261029
+  pull_request:
+    paths:
+      - 'lib/profit-ohlcv.mjs'
+      - 'scripts/profit-binance-ohlcv.mjs'
+      - 'test/profit-ohlcv.test.mjs'
+      - '.github/workflows/profit-ohlcv-data.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa:
+    name: Check Binance 1H / 4H / 1D time series
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run offline aggregation and anomaly regression tests
+        run: node --test test/profit-ohlcv.test.mjs
+      - name: Fetch independent native Binance klines and compare
+        run: |
+          node scripts/profit-binance-ohlcv.mjs \
+            --from="2025-01-01" \
+            --to="2026-10-29" \
+            --symbols="BTCUSDT,ETHUSDT,SOLUSDT" \
+            --out="artifacts/profit-ohlcv"
+      - name: Preserve QA manifest and CSV reconstruction (NOT a backtest)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: long-ai-profit-binance-ohlcv-qa
+          path: artifacts/profit-ohlcv/
+          if-no-files-found: warn
+          retention-days: 30
