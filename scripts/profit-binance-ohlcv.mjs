@@ -19,7 +19,7 @@ const to=timestamp(args.to??"2026-08-12");
 const destination=resolve(args.out??"artifacts/profit-ohlcv");
 const symbols=(args.symbols??"BTCUSDT,ETHUSDT,SOLUSDT").split(",").map(x=>x.trim());
 if(from>=to || from%86400000 || to%86400000)throw Error("Expected UTC midnight range, half-open [from,to)");
-if(to>Date.now()-HOUR_MS)throw Error("End date must be historical, not an open candle");
+if(to>Date.now())throw Error("End date must be in the past; final included candle must be closed");
 if(to-from < 30*86400000)throw Error("Require >=30 days for initial data QA");
 if(symbols.length===0 || symbols.some(s=>!/^[A-Z0-9]{5,20}$/.test(s)))throw Error("Invalid symbols");
 const hosts=[
