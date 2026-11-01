@@ -439,7 +439,7 @@ function showDetail(ticker){
  if(!r.pinePlanValid)blockers.push('Pla executable Pine pendent (trigger, stop i R:R)');
  const topBlockers=blockers.length?blockers.slice(0,3):['Confirmar tancament, volum i preu executable'];
  document.getElementById('detailContent').innerHTML=`<div class="detail-head"><div><h2 id="detailTitle">${safe(r.ticker)} <span class="muted">· ${safe(r.theme)}</span></h2><div class="muted">${safe(r.sector)} · ${safe(r.risk)} risc orientatiu</div></div><button type="button" class="btn" id="closeDetail" aria-label="Tanca la fitxa">Tanca ×</button></div>
- <div class="detail-grid"><section class="detail-box detail-wide stock-decision-summary"><div class="stock-decision-top"><div><h3>Resum operatiu · v6.6.56</h3><strong class="stock-decision-banner ${decisionTone}">${safe(decision)}</strong></div><span class="stock-decision-tag ${hasFreshPrice?'positive':'negative'}">${safe(priceState)}</span></div>
+ <div class="detail-grid"><section class="detail-box detail-wide stock-decision-summary"><div class="stock-decision-top"><div><h3>Resum operatiu · v6.6.56 · panell de decisions</h3><strong class="stock-decision-banner ${decisionTone}">${safe(decision)}</strong></div><span class="stock-decision-tag ${hasFreshPrice?'positive':'negative'}">${safe(priceState)}</span></div>
  <p class="small"><strong>${safe(signal)}</strong> · ${safe(diagnostic)}</p>
  <div class="stock-decision-metrics">
  ${toneTag('Qualitat entrada',scoreColor(entryScore),entryScore===null?'Sense dades':fmt(entryScore,0)+'/100 · '+scoreLabel(entryScore))}
@@ -448,6 +448,24 @@ function showDetail(ticker){
  ${toneTag('RSI setmanal · 1W',rsiTone(rsiInfo.weekly),rsiValue(rsiInfo.weekly))}
  ${toneTag('RSI diari · 1D',rsiTone(rsiInfo.daily),rsiValue(rsiInfo.daily))}
  </div><p class="small"><strong>${safe(rsiInfo.state||'RSI pendent')}</strong> · ${safe(rsiNarrative)}</p><p class="small">Puntuacions orientatives, no probabilitats ni autorització READY. Potencial del radar anticipat (0–100), independent de READY.</p>
+ </section>
+ <section class="detail-box detail-wide" aria-label="Decisions i motors LONG AI">
+ <h3>Decisió operativa · lectura clara</h3>
+ <div class="stock-decision-metrics">
+ ${toneTag('Estat actual',decisionTone,safe(decision))}
+ ${toneTag('Motor confirmat','neutral','Pendent de sincronització Pine A/C/E/F')}
+ </div>
+ <div class="stock-decision-metrics">
+ ${toneTag('Entrada / trigger',hasPlan?'positive':'neutral',hasPlan?fmt(r.trigger):'Sense pla validat')}
+ ${toneTag('Stop',hasPlan?'negative':'neutral',hasPlan?fmt(r.stop):'—')}
+ ${toneTag('Objectiu 1',hasPlan&&Number.isFinite(r.target1)?'positive':'neutral',hasPlan&&Number.isFinite(r.target1)?fmt(r.target1):'—')}
+ ${toneTag('Risc / benefici',rrValue!==null?'neutral':'negative',rrValue!==null?fmt(rrValue,2)+' R':'No calculable')}
+ </div>
+ <div class="stock-decision-metrics">
+ ${(['A','C','E','F']).map(m=>toneTag('Motor '+m,'neutral','— / 100 · pendent')).join('')}
+ </div>
+ <p class="small"><strong>Confluència A/C/E/F:</strong> no disponible fins que els quatre motors tinguin càlculs independents i espelmes 1D/4H/1H contrastades amb TradingView. Les puntuacions existents del radar no són scores Pine i no s'han reetiquetat.</p>
+ <p class="small">Aquesta fitxa mostra nivells del radar actual, no ordres executades. Les simulacions i el laboratori es consulten a la seva secció específica.</p>
  </section>
  <section class="detail-box detail-wide"><h3>Què falta per entrar?</h3><div class="stock-blocker-list">${topBlockers.map(x=>'<p>• '+safe(x)+'</p>').join('')}</div><div class="stock-decision-metrics">
  ${toneTag('RVOL 4H / 1D',volumeInterpretationTone,(Number.isFinite(r.rvol4h)?fmt(r.rvol4h,1)+'×':'—')+' / '+(Number.isFinite(r.rvol1d)?fmt(r.rvol1d,1)+'×':'—'))}
