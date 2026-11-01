@@ -1,3 +1,4 @@
+import {snapshot as paritySnapshot} from '../lib/long-ai-515-parity.js';
 import {momentumDiagnostic,weeklyDiagnostic,momentumPhase,momentumContext,earlyMomentumTurn} from './_momentum.js';
 
 const ALPACA = 'https://data.alpaca.markets/v2/stocks/bars';
@@ -581,6 +582,14 @@ export { compute, volumeReading };
 
 export default async function handler(req,res){
   try{
+    if(String(req.query.parity||'')==='1'){
+      const symbol=String(req.query.symbol||'').toUpperCase(),frame=String(req.query.tf||'1H').toUpperCase(),tf={'1H':'1Hour','4H':'4Hour','1D':'1Day'}[frame],ms={'1H':3600000,'4H':14400000,'1D':86400000}[frame];
+      if(!/^[A-Z0-9]{2,12}$/.test(symbol)||!tf)return res.status(400).json({error:'Símbol o temporalitat invàlids'});
+      if(!process.env.ALPACA_API_KEY||!process.env.ALPACA_API_SECRET)return res.status(503).json({error:'Credencials Alpaca no configurades'});
+      const feed=await chooseHistoricalFeed(),start=addDays(new Date(),frame==='1D'?-400:-70),found=await fetchBars([symbol],tf,start,10000,feed.feed,feed.cutoff);
+      const bars=(found[symbol]||[]).map(b=>({...b,t:Date.parse(b.t)})).filter(b=>Number.isFinite(b.t)&&b.t+ms<=Date.now());
+      return res.status(200).json({symbol,kind:'stocks',frame,source:'Alpaca '+feed.feed,barCount:bars.length,barTime:bars.at(-1)?.t??null,diagnostics:paritySnapshot(bars),verifiedPine:false,warning:'Sessions i ajustaments Alpaca poden diferir de TradingView.'});
+    }
     if(!process.env.ALPACA_API_KEY || !process.env.ALPACA_API_SECRET){
       return res.status(500).json({error:'Falten ALPACA_API_KEY / ALPACA_API_SECRET a Vercel'});
     }
