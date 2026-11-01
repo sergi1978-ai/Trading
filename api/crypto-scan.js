@@ -257,3 +257,5 @@ function scanOne(symbol,pack){
 }
 async function single(s,btcHour){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half,btcHour:s==='BTC'?hour.rows:btcHour})}
 export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];let btcHour=null;try{btcHour=(await candles('BTC',3600)).rows}catch(_){}for(let i=0;i<syms.length;i++){const symbol=syms[i];try{result.push(await single(symbol,btcHour))}catch(e){errors.push({symbol,message:String(e.message||e)})}if(i<syms.length-1)await wait(250)}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
+
+export { candles as parityCandles };
