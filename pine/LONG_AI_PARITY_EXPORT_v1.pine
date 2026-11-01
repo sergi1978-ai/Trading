@@ -1,0 +1,19 @@
+//@version=6
+indicator("LONG AI · EXPORT PARITAT (laboratori)", overlay=false, max_labels_count=1)
+// Aquest script auxiliar NO substitueix LONG AI SWING v5.15 ni exporta els motors A/C/E originals.
+// Executa'l sobre el mateix símbol i temporalitat que el laboratori web.
+groupExport="Exportació"
+enabled=input.bool(true,"Activar registre",group=groupExport)
+onlyLast=input.bool(true,"Només última espelma tancada",group=groupExport)
+lenVol=input.int(20,"Període volum relatiu",minval=2,group=groupExport)
+fmt(float x)=>na(x)?"null":str.tostring(x,"#.########")
+j(string k,string v)=>'"'+k+'":'+v
+q(string s)=>'"'+s+'"'
+[plusDI,minusDI,adx14]=ta.dmi(14,14)
+[macdLine,signalLine,histLine]=ta.macd(close,12,26,9)
+volBase=ta.sma(volume,lenVol)
+rvol20=volBase>0?volume/volBase:na
+payload="{"+j("symbol",q(syminfo.tickerid))+","+j("tf",q(timeframe.period))+","+j("time",str.tostring(time))+","+j("close",fmt(close))+","+j("ema20",fmt(ta.ema(close,20)))+","+j("ema50",fmt(ta.ema(close,50)))+","+j("atr14",fmt(ta.atr(14)))+","+j("rsi14",fmt(ta.rsi(close,14)))+","+j("macd",fmt(macdLine))+","+j("macdSignal",fmt(signalLine))+","+j("macdHist",fmt(histLine))+","+j("adx14",fmt(adx14))+","+j("rvol20",fmt(rvol20))+"}"
+if enabled and barstate.isconfirmed and (not onlyLast or barstate.islastconfirmedhistory or barstate.islast)
+    log.info("LONG_AI_PARITY|"+payload)
+plot(ta.rsi(close,14),"RSI 14",color=color.new(color.blue,0))
