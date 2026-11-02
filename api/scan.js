@@ -1,6 +1,8 @@
+import {snapshot as paritySnapshot} from '../lib/long-ai-515-parity.js';
 import {momentumDiagnostic,weeklyDiagnostic,momentumPhase,momentumContext,earlyMomentumTurn} from './_momentum.js';
 
 const ALPACA = 'https://data.alpaca.markets/v2/stocks/bars';
+const ALPACA_LATEST = 'https://data.alpaca.markets/v2/stocks/trades/latest';
 const providerCache=new Map();
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function limitedAlpaca(url){
@@ -135,6 +137,10 @@ function latestCompleted(bars, tf){
   const t=new Date(last(bars).t).getTime();
   if(now - t < mins*60*1000*0.9 && bars.length>1) return bars.slice(0,-1);
   return bars;
+}
+async function fetchIexTrades(symbols){
+ const result={};for(let i=0;i<symbols.length;i+=15){const params=new URLSearchParams({symbols:symbols.slice(i,i+15).join(','),feed:'iex'});try{const j=await limitedAlpaca(ALPACA_LATEST+'?'+params);for(const [symbol,trade] of Object.entries(j.trades||{}))if(Number.isFinite(trade?.p)&&trade?.t)result[symbol]={price:trade.p,time:trade.t,feed:'IEX'};}catch(e){/* optional: never substitute historical close for live trade */}}
+ return result;
 }
 async function chooseHistoricalFeed(){
  const cutoff=new Date(Date.now()-20*60*1000).toISOString();
@@ -581,6 +587,14 @@ export { compute, volumeReading };
 
 export default async function handler(req,res){
   try{
+    if(String(req.query.parity||'')==='1'){
+      const symbol=String(req.query.symbol||'').toUpperCase(),frame=String(req.query.tf||'1H').toUpperCase(),tf={'1H':'1Hour','4H':'4Hour','1D':'1Day'}[frame],ms={'1H':3600000,'4H':14400000,'1D':86400000}[frame];
+      if(!/^[A-Z0-9]{2,12}$/.test(symbol)||!tf)return res.status(400).json({error:'Símbol o temporalitat invàlids'});
+      if(!process.env.ALPACA_API_KEY||!process.env.ALPACA_API_SECRET)return res.status(503).json({error:'Credencials Alpaca no configurades'});
+      const feed=await chooseHistoricalFeed(),start=addDays(new Date(),frame==='1D'?-400:-70),found=await fetchBars([symbol],tf,start,10000,feed.feed,feed.cutoff);
+      const bars=(found[symbol]||[]).map(b=>({...b,t:Date.parse(b.t)})).filter(b=>Number.isFinite(b.t)&&b.t+ms<=Date.now());
+      return res.status(200).json({symbol,kind:'stocks',frame,source:'Alpaca '+feed.feed,barCount:bars.length,barTime:bars.at(-1)?.t??null,diagnostics:paritySnapshot(bars),verifiedPine:false,warning:'Sessions i ajustaments Alpaca poden diferir de TradingView.'});
+    }
     if(!process.env.ALPACA_API_KEY || !process.env.ALPACA_API_SECRET){
       return res.status(500).json({error:'Falten ALPACA_API_KEY / ALPACA_API_SECRET a Vercel'});
     }
@@ -640,12 +654,19 @@ export default async function handler(req,res){
     const top30=raw.map(symbol=>({symbol,pre:compute(symbol,d[symbol]||[],h4[symbol]||[],h1[symbol]||[],bh1[BENCHMARK[symbol]||'QQQ']||bh1.QQQ||[])})).filter(x=>Number.isFinite(x.pre.radarScore)).sort((a,b)=>b.pre.radarScore-a.pre.radarScore).slice(0,20).map(x=>x.symbol);
     let m30={};
     try{m30=await fetchBars(top30,'30Min',addDays(new Date(),-14),5000,feedInfo.feed,feedInfo.cutoff)}catch(_){m30={}}
+    const liveTrades=await fetchIexTrades(raw);
     const out=raw.map(s=>{
       const preferred = BENCHMARK[s] || 'QQQ';
       const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
       const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars,m30[s]||[]);
       r.dataCounts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
       r.historicalFeed=feedInfo.feed;
+      r.analysisPrice=r.price;
+      r.liveTrade=liveTrades[s]||null;
+      r.livePrice=liveTrades[s]?.price??null;
+      r.liveTradeTime=liveTrades[s]?.time??null;
+      r.analysisBarTime=r.technicalBarTime||null;
+      r.analysisDelayMinutes=feedInfo.feed==='sip'?20:null;
       r.dataCompleteness=[r.dataCounts.d,r.dataCounts.h4,r.dataCounts.h1].every(n=>n>=25)?'COBERTURA BÀSICA':'COBERTURA PARCIAL';
       if(r.status==='SENSE DADES'){
         const counts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
@@ -661,3 +682,5 @@ export default async function handler(req,res){
     return res.status(500).json({error:e.message||String(e)});
   }
 }
+
+export { fetchBars as parityFetchBars, chooseHistoricalFeed as parityChooseFeed };
