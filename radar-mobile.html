@@ -82,7 +82,12 @@ const dual=text('div','','metrics');dual.append(text('strong','Qualitat entrada:
 card.append(text('div','Dues mesures independents: potencial NO és rendibilitat prevista; qualitat NO és una ordre de compra.','detail'));
 const diag=earlyDiagnosis(x),risk=evaluateRisk(x);
 card.append(text('div','Patró: '+diag.type+' · Volum: '+diag.vol.status+(diag.early?' · DETECCIÓ ANTICIPADA':''),'detail'));
-const riskBox=text('details','','detail');riskBox.append(text('summary','Pla de risc · '+(risk.valid?'orientatiu':'incomplet'));riskBox.append(text('p',risk.reason+(risk.entry?' · Entrada '+fmt(risk.entry)+' · Stop '+fmt(risk.stop)+' · TP1 '+fmt(risk.tp1)+' · R:R '+(risk.rr1===null?'—':fmt(risk.rr1))+' · Mida exemple 10.000 € / risc 0,5%: '+fmt(risk.units)+' unitats':''),'muted'));card.append(riskBox);
+const riskBox=text('details','','detail');
+riskBox.append(text('summary','Pla de risc · '+(risk.valid?'orientatiu':'incomplet')));
+let riskDescription=risk.reason;
+if(risk.entry){riskDescription+=' · Entrada '+fmt(risk.entry)+' · Stop '+fmt(risk.stop)+' · TP1 '+fmt(risk.tp1)+' · R:R '+(risk.rr1===null?'—':fmt(risk.rr1))+' · Mida exemple 10.000 € / risc 0,5%: '+fmt(risk.units)+' unitats';}
+riskBox.append(text('p',riskDescription,'muted'));
+card.append(riskBox);
 const hist=text('details','','detail');hist.append(text('summary','Evolució observada · '+ace.earlyState),text('p',historySummary(type,String(x.symbol||'').toUpperCase()),'muted'));card.append(hist);
 if(type==='stocks'){const live=x.liveTrade,liveTime=live?.time?new Date(live.time).toLocaleString('ca-ES'):'no disponible';card.append(text('div',live?'IEX últim trade: '+fmt(live.price)+' · '+liveTime+' · cobertura parcial':'IEX últim trade: no disponible (no s’infereix del tancament)','detail'));card.append(text('div','Anàlisi: '+(x.historicalFeed==='sip'?'SIP consolidat, mínim 15–20 min de retard':'IEX parcial')+' · espelmes tancades · ajustament split','detail'))}
 const badges=text('div','');badges.append(text('span','Tendència '+trend(x),'pill'),text('span',fresh,'pill '+fc));if(e.score!==null)badges.append(text('span','Anticipació '+fmt(e.score),'pill'));card.append(badges);if(ace.leadingMotor){card.append(text('div','A '+(ace.motors.A??'—')+' · C '+(ace.motors.C??'—')+' · E '+(ace.motors.E??'—')+' · F '+(ace.motors.F??'—')+' · Confluència exploratòria '+ace.confluence+'/4 · Motor '+ace.leadingMotor+' · NO VALIDAT AMB PINE','ace'))}
