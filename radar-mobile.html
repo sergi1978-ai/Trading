@@ -37,6 +37,7 @@ button:focus-visible,a:focus-visible,select:focus-visible,textarea:focus-visible
 footer{border-top:1px solid var(--line);margin-top:25px}
 @media(max-width:600px){main{padding:10px 12px 90px}header{padding:15px;border-radius:17px}header h1{font-size:23px}#refresh{padding:9px 12px;font-size:12px}.tabs{top:0;margin:12px -3px 0}.tabs button{font-size:11px;padding:9px 3px;min-height:42px}.controls{display:grid;grid-template-columns:1fr 1fr}.toolbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:thin}.toolbar button{white-space:nowrap;flex:0 0 auto}.cards{grid-template-columns:1fr}.card{padding:15px}.labgrid{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){button{transition:none}}
+.card .metrics strong{font-size:13px;color:#1e4e80}.card details summary{cursor:pointer;font-weight:650}.card details p{margin:7px 0}
 </style></head><body><main>
 <header><div><h1>LONG AI · RADAR</h1><div class="muted">Radar d'oportunitats · vista clara · versió experimental</div></div><button id="refresh">Actualitza</button></header>
 <div class="notice"><strong>Radar experimental · dades i motors en validació.</strong> Utilitza el motor web existent (v6.6/Trading 2026), encara no equivalent al Pine v5.27.1. Cap etiqueta implica autorització de compra.</div>
@@ -45,11 +46,13 @@ footer{border-top:1px solid var(--line);margin-top:25px}
 <section class="cards" id="results" aria-live="polite"></section></section>
 <footer>Només espelmes disponibles del proveïdor. Accions: SIP històric retardat quan és accessible, IEX en cas contrari; últim trade IEX separat. Cripto: Coinbase/Kraken. Confirma sempre la mateixa borsa, temporalitat i espelma a TradingView.</footer>
 </main><script type="module">
-import {classifyCandidate} from './lib/long-ai-515-candidates.js';
+import {classifyCandidate,evaluateOpportunity,appendObservation} from './lib/long-ai-515-candidates.js';
 const stockDefaults=['NVDA','PLTR','PANW','MU','ETN','RKLB','AVGO','CRDO','ANET','BE','CRM','SNOW','NOW','HIMS','CRWD'];
 const discoverStocks=['FTNT','NET','DDOG','ZS','MDB','APP','ALAB','TEM','IONQ','RGTI','ASTS','LUNR','RTX','EME','VRT','GEV','CRWD','CAVA','UBER','HOOD'];const discoverCrypto=['TAO','FET','AKT','INJ','STX','PYTH','ENA','JASMY','HBAR','FARTCOIN','API3','CYBER','C98','BICO','ORCA','MET','HNT','SYRUP','BONK','AERO'];
 const cryptoDefaults=['SOL','LINK','ONDO','SUI','NEAR','AAVE','INJ','RENDER','MORPHO','HYPE'];
-let type='stocks',seq=0,filter='all',allRows=[],lastLabAsset=null,lastLabData=null,labKind='stocks',discoverySeq=0;const universeKey='long-ai-universe-v1';let universes={stocks:[...stockDefaults],crypto:[...cryptoDefaults]};try{const u=JSON.parse(localStorage.getItem(universeKey)||'null');for(const k of ['stocks','crypto'])if(Array.isArray(u?.[k]))universes[k]=u[k].filter(v=>typeof v==='string'&&/^[A-Z0-9]{2,12}$/.test(v)).slice(0,30)}catch(_){}const watchKey='long-ai-radar-watch-v1';let watch=[];try{const w=JSON.parse(localStorage.getItem(watchKey)||'[]');watch=Array.isArray(w)?w.filter(x=>/^(stocks|crypto):[A-Z0-9]{2,12}$/.test(x)).slice(0,150):[]}catch(_){}
+let type='stocks',seq=0,filter='all',allRows=[],lastLabAsset=null,lastLabData=null,labKind='stocks',discoverySeq=0;const universeKey='long-ai-universe-v1';let universes={stocks:[...stockDefaults],crypto:[...cryptoDefaults]};try{const u=JSON.parse(localStorage.getItem(universeKey)||'null');for(const k of ['stocks','crypto'])if(Array.isArray(u?.[k]))universes[k]=u[k].filter(v=>typeof v==='string'&&/^[A-Z0-9]{2,12}$/.test(v)).slice(0,30)}catch(_){}const historyKey='long-ai-radar-history-v1';let history=[];try{const h=JSON.parse(localStorage.getItem(historyKey)||'[]');if(Array.isArray(h))history=h.filter(x=>x&&typeof x.key==='string'&&typeof x.barTime==='string').slice(-1500)}catch(_){}const watchKey='long-ai-radar-watch-v1';let watch=[];try{const w=JSON.parse(localStorage.getItem(watchKey)||'[]');watch=Array.isArray(w)?w.filter(x=>/^(stocks|crypto):[A-Z0-9]{2,12}$/.test(x)).slice(0,150):[]}catch(_){}
+function recordObservations(kind,rows){const stamp=new Date().toISOString();let next=history;for(const x of rows)next=appendObservation(next,kind,x,stamp);if(next.length!==history.length){history=next;try{localStorage.setItem(historyKey,JSON.stringify(history))}catch(_){}}}
+function historySummary(kind,symbol){const h=history.filter(x=>x.key===kind+':'+symbol).sort((a,b)=>a.barTime.localeCompare(b.barTime));if(!h.length)return 'Sense historial local: es comença a registrar a partir d’ara.';const last=h.at(-1),first=h[0];const changes=h.filter((x,i)=>i>0&&x.earlyState!==h[i-1].earlyState);const variation=first.price>0&&h.length>1?(last.price/first.price-1)*100:null;return h.length+' observacions · '+(changes.length?changes.slice(-4).map(x=>x.earlyState).join(' → '):last.earlyState)+' · variació observada '+(variation===null?'pendent':variation.toFixed(2)+'%')+' · des de '+new Date(first.barTime).toLocaleString('ca-ES')+'. Historial local, no és backtest.'}
 function persistUniverses(){try{const payload=JSON.stringify(universes);localStorage.setItem(universeKey,payload);if(localStorage.getItem(universeKey)!==payload)throw Error('La lectura no coincideix amb el valor desat');return {ok:true}}catch(e){return {ok:false,error:String(e.message||e)}}}
 function showSaveStatus(result,action){const node=document.querySelector('#saveStatus');if(node)node.textContent=result.ok?action+' · Guardat en aquest navegador.':action+' · NO s’ha pogut desar permanentment: '+result.error+'. Fes servir «Copia còpia de seguretat».'}
 const $=s=>document.querySelector(s);
@@ -69,7 +72,10 @@ function visible(x){const [state]=statusOf(x),e=early(x);if(filter==='watch')ret
 function display(){render(allRows.filter(visible).sort((a,b)=>rank(b)-rank(a)).slice(0,filter==='watch'?100:10))}
 function render(items){const root=$('#results');root.replaceChildren();if(!items.length){root.append(text('p','Cap candidat compleix el filtre o encara no hi ha dades.','empty'));return}
 items.forEach(x=>{const card=text('article','','card'),head=text('div','','row'),left=text('div',x.symbol||'—','ticker'),right=text('div','','row'),[label,cls]=statusOf(x),badge=text('span',label,'tag '+cls),star=text('button',watch.includes(keyOf(x))?'★':'☆','star');star.title='Afegir o treure de seguiment';star.setAttribute('aria-label','Seguiment '+x.symbol);star.onclick=()=>{const k=keyOf(x);watch=watch.includes(k)?watch.filter(v=>v!==k):[...watch,k].slice(0,150);try{localStorage.setItem(watchKey,JSON.stringify(watch))}catch(_){}display()};right.append(badge,star);head.append(left,right);card.append(head);
-const [fresh,fc]=freshness(x),e=early(x),ace=classifyCandidate(x),metrics=text('div','','metrics');['Qualitat '+(quality(x)??'—')+'/100','Anàlisi '+fmt(x.analysisPrice??x.price),'Vol 1H '+(finite(x.rvol)?fmt(x.rvol)+'x':'—')].forEach(v=>metrics.append(text('span',v)));card.append(metrics);
+const [fresh,fc]=freshness(x),e=early(x),ace=evaluateOpportunity(x),metrics=text('div','','metrics');['Qualitat '+(quality(x)??'—')+'/100','Anàlisi '+fmt(x.analysisPrice??x.price),'Vol 1H '+(finite(x.rvol)?fmt(x.rvol)+'x':'—')].forEach(v=>metrics.append(text('span',v)));card.append(metrics);
+const dual=text('div','','metrics');dual.append(text('strong','Qualitat entrada: '+(ace.entryScore??'—')+'/100'),text('strong','Potencial exploratori: '+(ace.potentialScore??'—')+'/100'));card.append(dual);
+card.append(text('div','Dues mesures independents: potencial NO és rendibilitat prevista; qualitat NO és una ordre de compra.','detail'));
+const hist=text('details','','detail');hist.append(text('summary','Evolució observada · '+ace.earlyState),text('p',historySummary(type,String(x.symbol||'').toUpperCase()),'muted'));card.append(hist);
 if(type==='stocks'){const live=x.liveTrade,liveTime=live?.time?new Date(live.time).toLocaleString('ca-ES'):'no disponible';card.append(text('div',live?'IEX últim trade: '+fmt(live.price)+' · '+liveTime+' · cobertura parcial':'IEX últim trade: no disponible (no s’infereix del tancament)','detail'));card.append(text('div','Anàlisi: '+(x.historicalFeed==='sip'?'SIP consolidat, mínim 15–20 min de retard':'IEX parcial')+' · espelmes tancades · ajustament split','detail'))}
 const badges=text('div','');badges.append(text('span','Tendència '+trend(x),'pill'),text('span',fresh,'pill '+fc));if(e.score!==null)badges.append(text('span','Anticipació '+fmt(e.score),'pill'));card.append(badges);if(ace.leadingMotor){card.append(text('div','A '+(ace.motors.A??'—')+' · C '+(ace.motors.C??'—')+' · E '+(ace.motors.E??'—')+' · F '+(ace.motors.F??'—')+' · Confluència exploratòria '+ace.confluence+'/4 · Motor '+ace.leadingMotor+' · NO VALIDAT AMB PINE','ace'))}
 if(ace.preImpulse||ace.initialBreak)card.append(text('div',(ace.initialBreak?'RUPTURA INICIAL':'PRE-IMPULS')+' · hipòtesi exploratòria, pendent de confirmació 1H/4H/1D','ace'));
@@ -78,7 +84,7 @@ card.append(text('div','Diagnòstic v5.27.1: '+ace.reason,'detail'));
 card.append(text('p',x.primaryBlocker||x.reason||'Validar context i entrada a TradingView.','muted'));
 if(e.distance!==null)card.append(text('div','Distància al nivell: '+fmt(e.distance)+' (unitat segons motor web)','detail'));
 const d=barDate(x);card.append(text('div','Última espelma: '+(d?new Date(d).toLocaleString('ca-ES'):'no informada')+' · '+(type==='stocks'?(x.historicalFeed||'Alpaca IEX/SIP'):(x.source||'Coinbase/Kraken')),'detail'));
-const labBtn=text('button','Comparar amb Pine');labBtn.onclick=()=>{lastLabAsset=x;showSection('lab');fillLab(x)};card.append(labBtn);const checks=text('details','','compare');checks.append(text('summary','Paritat Pine v5.27.1: NO VALIDADA'),text('p','Motor web independent: comprova 1D, 4H, 1H, motor A/C/E, filtre AUTO i stop al Pine. Sense paritat validada no és un senyal v5.27.1.','muted'));card.append(checks);
+const labBtn=text('button','Comparar amb Pine');labBtn.onclick=()=>{lastLabAsset=x;showSection('lab');fillLab(x)};card.append(labBtn);const checks=text('details','','compare');checks.append(text('summary','Paritat Pine v5.27.1: NO VALIDADA'),text('p','Motor web independent: comprova 1D, 4H, 1H, motor A/C/E/F, filtre AUTO i stop al Pine. Sense paritat validada no és un senyal v5.27.1.','muted'));card.append(checks);
 const a=text('a','Obrir gràfic 1H a TradingView');a.href=link(x);a.target='_blank';a.rel='noopener noreferrer';card.append(a);root.append(card)})}
 async function getJson(url,signal){const response=await fetch(url,{signal,cache:'no-store'});let data=null;try{data=await response.json()}catch(_){}if(!response.ok)throw Error('HTTP '+response.status+(data?.error?' · '+String(data.error).slice(0,120):''));return data||{}}
 async function load(){
@@ -94,7 +100,7 @@ async function load(){
     $('#meta').textContent='Altcoins · lot '+(i+1)+'/'+batches.length;
     try{const data=await getJson('/api/crypto-scan?symbols='+batches[i].join(','),controller.signal);generatedAt=data.generatedAt||generatedAt;for(const x of data.results||[])if(finite(x.price))rows.push(x);for(const e of data.errors||[])errors.push(e.symbol+': '+e.message)}
     catch(e){errors.push(batches[i].join(',')+': '+e.message)}
-    if(my!==seq)return;allRows=[...rows];display();
+    if(my!==seq)return;recordObservations('crypto',rows);allRows=[...rows];display();
    }
    $('#meta').textContent=rows.length+' altcoins amb dades · '+(generatedAt?new Date(generatedAt).toLocaleString('ca-ES'):'Hora no disponible')+' · Coinbase/Kraken'+(errors.length?' · '+errors.length+' errors':'');
    if(errors.length){const details=text('details','','notice');details.append(text('summary','Incidències de dades ('+errors.length+')'));errors.forEach(e=>details.append(text('p',e,'muted')));$('#results').append(details)}
@@ -112,7 +118,7 @@ async function load(){
      for(const x of (Array.isArray(data.results)?data.results:[]))if(finite(x.price)&&x.status!=='SENSE DADES')all.push(x);
     }catch(e){errors.push(batches[i].join(',')+': '+e.message)}
     if(my!==seq)return;
-    allRows=[...all];display();
+    recordObservations('stocks',all);allRows=[...all];display();
    }
    if(my!==seq)return;
    const last=all.map(x=>x.technicalBarTime||x.lastBarTime).filter(Boolean).sort().at(-1);
