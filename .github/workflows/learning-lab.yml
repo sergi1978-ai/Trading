@@ -9,6 +9,7 @@ on:
       - 'tests/learning-lab.test.js'
       - 'tests/learning-lab-candles.test.js'
       - 'tests/learning-lab-ui.test.js'
+      - 'tests/learning-lab-sources.test.js'
       - 'learning-lab.html'
       - 'lib/learning-lab/**'
       - '.github/workflows/learning-lab.yml'
