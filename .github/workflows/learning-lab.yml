@@ -1,0 +1,21 @@
+name: Learning Lab validation
+on:
+  push:
+    branches:
+      - feat/learning-lab-v1-20261103
+  pull_request:
+    paths:
+      - 'api/backtest.js'
+      - 'tests/learning-lab.test.js'
+      - '.github/workflows/learning-lab.yml'
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/learning-lab.test.js
