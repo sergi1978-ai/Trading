@@ -15,7 +15,7 @@ test('detects a closed-bar breakout A and E without claiming volume confirmation
  assert.equal(r.motors.E.pattern,null);assert.equal(r.motors.F.pattern,null);
  assert.equal(r.status,'partial_patterns_only');
 });
-test('C retest is unresolved rather than guessed',()=>{
+test('C retest is replayed from prior breakout bars',()=>{
  const {bars,indicators}=fixture();const r=evaluatePatterns(bars,indicators);
- assert.equal(r.motors.C.retest,null);assert.equal(r.motors.C.pattern,null);
+ assert.equal(r.motors.C.retest,false);assert.equal(r.motors.C.pattern,false);
 });
