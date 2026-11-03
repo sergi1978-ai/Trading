@@ -86,6 +86,7 @@ async function candlePreview(req,res,symbol){
  const url=new URL(ALPACA);
  for(const [k,v] of Object.entries({symbols:symbol,timeframe:'30Min',start,end,limit:'10000',sort:'asc',adjustment:'split',feed:'iex'}))url.searchParams.set(k,v);
  const source=[];let pageToken=null;const pageTokens=new Set();let pages=0;
+ const startedAt=Date.now();const maxPages=32;const timeBudgetMs=18000;
  do{
   if(pageToken){if(pageTokens.has(pageToken))throw Error('Paginació Alpaca repetida');pageTokens.add(pageToken);url.searchParams.set('page_token',pageToken);}
   const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET},signal:AbortSignal.timeout(9000)});
@@ -94,7 +95,7 @@ async function candlePreview(req,res,symbol){
   source.push(...(payload.bars?.[symbol]||[]));
   pageToken=payload.next_page_token||null;
   pages++;
-  if(pageToken&&pages>=4)throw Error('Històric incomplet: límit de 4 pàgines; reduïu els dies');
+  if(pageToken&&(pages>=maxPages||Date.now()-startedAt>timeBudgetMs))throw Error('Històric incomplet: límit de '+maxPages+' pàgines o '+timeBudgetMs/1000+' s. Proveu menys dies; no es calculen indicadors parcials');
  }while(pageToken);
  const hourly=fromThirtyMinuteBars(source);
  const aggregated=aggregateBars(hourly);
