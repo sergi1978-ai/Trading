@@ -12,6 +12,7 @@ on:
       - 'tests/learning-lab-sources.test.js'
       - 'tests/learning-lab-quality.test.js'
       - 'tests/learning-lab-indicators.test.js'
+      - 'tests/learning-lab-pine-spec.test.js'
       - 'learning-lab.html'
       - 'lib/learning-lab/**'
       - '.github/workflows/learning-lab.yml'
