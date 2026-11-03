@@ -22,8 +22,8 @@ function patternPanel(d){
 }
 function indicatorPanel(d){
  const indicators=d.indicators;if(!indicators)return '';
- return '<h3>Indicadors calculats · només espelmes tancades</h3><div style="overflow-x:auto"><table><thead><tr><th>Marc</th><th>EMA20</th><th>EMA50</th><th>RSI14</th><th>ATR14</th><th>MACD</th></tr></thead><tbody>'+
- [['1H',indicators.hourly],['4H',indicators.fourHour],['1D',indicators.daily]].map(([name,x])=>'<tr><td>'+name+'</td>'+['ema20','ema50','rsi14','atr14'].map(k=>'<td>'+(x?.[k]==null?'Històric insuficient':fmt(x[k]))+'</td>').join('')+'<td>'+(x?.macd?.line==null?'Històric insuficient':fmt(x.macd.line))+'</td></tr>').join('')+'</tbody></table></div><p class="muted">Els indicadors necessiten prou espelmes completes a cada marc; els valors són provisionals fins a la comparació amb TradingView. No s’activen senyals ni operacions.</p>';
+ return '<h3>Indicadors calculats · només espelmes tancades</h3><div style="overflow-x:auto"><table><thead><tr><th>Marc</th><th>Última espelma (UTC)</th><th>Tancament</th><th>EMA20</th><th>EMA50</th><th>RSI14</th><th>ATR14</th><th>MACD</th></tr></thead><tbody>'+
+ [['1H',indicators.hourly],['4H',indicators.fourHour],['1D',indicators.daily]].map(([name,x])=>'<tr><td>'+name+'</td><td>'+escapeText(x?.t||'—')+'</td><td>'+(x?.close==null?'—':fmt(x.close))+'</td>'+['ema20','ema50','rsi14','atr14'].map(k=>'<td>'+(x?.[k]==null?'Històric insuficient':fmt(x[k]))+'</td>').join('')+'<td>'+(x?.macd?.line==null?'Històric insuficient':fmt(x.macd.line))+'</td></tr>').join('')+'</tbody></table></div><p class="muted">Els indicadors necessiten prou espelmes completes a cada marc; els valors són provisionals fins a la comparació amb TradingView. No s’activen senyals ni operacions.</p>';
 }
 function qualityPanel(d){
  const q=d.quality;if(!q)return '';
