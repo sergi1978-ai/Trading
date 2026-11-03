@@ -10,6 +10,7 @@ on:
       - 'tests/learning-lab-candles.test.js'
       - 'tests/learning-lab-ui.test.js'
       - 'tests/learning-lab-sources.test.js'
+      - 'tests/learning-lab-quality.test.js'
       - 'learning-lab.html'
       - 'lib/learning-lab/**'
       - '.github/workflows/learning-lab.yml'
