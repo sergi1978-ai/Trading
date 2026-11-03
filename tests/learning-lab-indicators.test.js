@@ -40,3 +40,10 @@ test('Pine MACD has no artificial 33-bar initialization gap',()=>{
  const bars=x.map((c,i)=>({t:String(i),o:c,h:c+1,l:c-1,c,v:100}));
  assert.equal(indicatorSeries(bars)[0].ema20,100);
 });
+
+test('snapshot and pattern series agree on Pine EMA and MACD',()=>{
+ const bars=Array.from({length:90},(_,i)=>({t:String(i),o:100+i/2,h:102+i/2,l:99+i/2,c:101+i/2,v:100}));
+ const snap=indicatorSnapshot(bars),last=indicatorSeries(bars).at(-1);
+ assert.equal(snap.ema20,last.ema20);assert.equal(snap.ema50,last.ema50);
+ assert.equal(snap.macd.line,last.macdLine);assert.equal(snap.macd.histogram,last.macdHistogram);
+});
