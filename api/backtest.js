@@ -88,7 +88,7 @@ async function candlePreview(req,res,symbol){
  const source=[];let pageToken=null;const pageTokens=new Set();let pages=0;
  do{
   if(pageToken){if(pageTokens.has(pageToken))throw Error('Paginació Alpaca repetida');pageTokens.add(pageToken);url.searchParams.set('page_token',pageToken);}
-  const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET'},signal:AbortSignal.timeout(9000)});
+  const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET},signal:AbortSignal.timeout(9000)});
   if(!response.ok)throw Error('Alpaca HTTP '+response.status);
   const payload=await response.json();
   source.push(...(payload.bars?.[symbol]||[]));
