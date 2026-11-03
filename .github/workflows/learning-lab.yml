@@ -14,6 +14,7 @@ on:
       - 'tests/learning-lab-indicators.test.js'
       - 'tests/learning-lab-pine-spec.test.js'
       - 'tests/learning-lab-pine-patterns.test.js'
+      - 'tests/learning-lab-dmi.test.js'
       - 'learning-lab.html'
       - 'lib/learning-lab/**'
       - '.github/workflows/learning-lab.yml'
