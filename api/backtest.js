@@ -1,3 +1,4 @@
+import {compareDaily,parseYahooDaily} from '../lib/learning-lab/compare-sources.js';
 import {aggregateBars,fromThirtyMinuteBars} from '../lib/learning-lab/candles.js';
 // Trading 2026 backtesting pilot. DAILY proxy only, NOT a replay of Pine 1D/4H/1H.
 // Signals use only previously CLOSED candles and are entered at the next daily open.
@@ -65,6 +66,15 @@ async function getBars(symbol){
  if(obj.next_page_token)throw Error('Històric incomplet: paginació pendent');
  return bars.filter(x=>[x.o,x.h,x.l,x.c].every(Number.isFinite)).sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
 }
+async function independentDaily(symbol,days){
+ const start=Math.floor((Date.now()-(days+7)*86400000)/1000);
+ const end=Math.floor(Date.now()/1000);
+ const u=new URL('https://query1.finance.yahoo.com/v8/finance/chart/'+encodeURIComponent(symbol));
+ for(const [k,v] of Object.entries({period1:start,period2:end,interval:'1d',events:'div,splits'}))u.searchParams.set(k,v);
+ const response=await fetch(u,{headers:{'User-Agent':'Mozilla/5.0 (compatible; LearningLab/0.2)','Accept':'application/json'},signal:AbortSignal.timeout(7000)});
+ if(!response.ok)throw Error('Yahoo Finance HTTP '+response.status);
+ return parseYahooDaily(await response.json());
+}
 async function candlePreview(req,res,symbol){
  const days=Math.min(30,Math.max(5,Number(req.query.days)||14));
  if(!Number.isInteger(days))return res.status(400).json({error:'Dies invàlids'});
@@ -79,8 +89,17 @@ async function candlePreview(req,res,symbol){
  const source=payload.bars?.[symbol]||[];
  const hourly=fromThirtyMinuteBars(source);
  const aggregated=aggregateBars(hourly);
+ let independent={status:'not_requested'};
+ if(req.query.verify==='1'){
+  try{
+   const secondary=await independentDaily(symbol,days);
+   const compared=compareDaily(aggregated.daily.slice(-10),secondary);
+   independent={status:'ok',provider:'Yahoo Finance chart (no és TradingView)',compared,
+     matched:compared.filter(x=>x.status==='compared').length,flagged:compared.filter(x=>x.flagged).length};
+  }catch(e){independent={status:'unavailable',reason:String(e.message||e)};}
+ }
  return res.status(200).json({symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
-  sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
+  independent,sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
   timezone:aggregated.timezone,session:aggregated.session,
   samples:{hourly:hourly.slice(-8),fourHour:aggregated.fourHour.slice(-8),daily:aggregated.daily.slice(-8)},
   warnings:['Mostra de dades, no equivalència amb TradingView','Feed IEX pot diferir del feed consolidat','Sessions escurçades i dades incompletes es poden excloure','No hi ha motors A/C/E/F ni operacions']});
