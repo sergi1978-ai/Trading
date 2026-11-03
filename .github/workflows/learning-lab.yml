@@ -8,6 +8,8 @@ on:
       - 'api/backtest.js'
       - 'tests/learning-lab.test.js'
       - 'tests/learning-lab-candles.test.js'
+      - 'tests/learning-lab-ui.test.js'
+      - 'learning-lab.html'
       - 'lib/learning-lab/**'
       - '.github/workflows/learning-lab.yml'
 jobs:
