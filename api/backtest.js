@@ -1,3 +1,4 @@
+import {assessSourceQuality} from '../lib/learning-lab/source-quality.js';
 import {compareDaily,parseYahooDaily} from '../lib/learning-lab/compare-sources.js';
 import {aggregateBars,fromThirtyMinuteBars} from '../lib/learning-lab/candles.js';
 // Trading 2026 backtesting pilot. DAILY proxy only, NOT a replay of Pine 1D/4H/1H.
@@ -99,7 +100,7 @@ async function candlePreview(req,res,symbol){
   }catch(e){independent={status:'unavailable',reason:String(e.message||e)};}
  }
  return res.status(200).json({symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
-  independent,sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
+  independent,quality:assessSourceQuality({provider:'Alpaca IEX',independent}),sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
   timezone:aggregated.timezone,session:aggregated.session,
   samples:{hourly:hourly.slice(-8),fourHour:aggregated.fourHour.slice(-8),daily:aggregated.daily.slice(-8)},
   warnings:['Mostra de dades, no equivalència amb TradingView','Feed IEX pot diferir del feed consolidat','Sessions escurçades i dades incompletes es poden excloure','No hi ha motors A/C/E/F ni operacions']});
