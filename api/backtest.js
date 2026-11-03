@@ -79,17 +79,23 @@ async function independentDaily(symbol,days){
  return parseYahooDaily(await response.json());
 }
 async function candlePreview(req,res,symbol){
- const days=Math.min(30,Math.max(5,Number(req.query.days)||14));
+ const days=Math.min(365,Math.max(5,Number(req.query.days)||14));
  if(!Number.isInteger(days))return res.status(400).json({error:'Dies invàlids'});
  const start=new Date(Date.now()-days*86400000).toISOString();
  const end=new Date(Date.now()-20*60000).toISOString(); // do not use still-forming bars
  const url=new URL(ALPACA);
  for(const [k,v] of Object.entries({symbols:symbol,timeframe:'30Min',start,end,limit:'10000',sort:'asc',adjustment:'split',feed:'iex'}))url.searchParams.set(k,v);
- const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET}});
- if(!response.ok)throw Error('Alpaca HTTP '+response.status);
- const payload=await response.json();
- if(payload.next_page_token)throw Error('Dades incompletes: paginació Alpaca pendent');
- const source=payload.bars?.[symbol]||[];
+ const source=[];let pageToken=null;const pageTokens=new Set();let pages=0;
+ do{
+  if(pageToken){if(pageTokens.has(pageToken))throw Error('Paginació Alpaca repetida');pageTokens.add(pageToken);url.searchParams.set('page_token',pageToken);}
+  const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET'},signal:AbortSignal.timeout(9000)});
+  if(!response.ok)throw Error('Alpaca HTTP '+response.status);
+  const payload=await response.json();
+  source.push(...(payload.bars?.[symbol]||[]));
+  pageToken=payload.next_page_token||null;
+  pages++;
+  if(pageToken&&pages>=4)throw Error('Històric incomplet: límit de 4 pàgines; reduïu els dies');
+ }while(pageToken);
  const hourly=fromThirtyMinuteBars(source);
  const aggregated=aggregateBars(hourly);
  let independent={status:'not_requested'};
@@ -103,7 +109,7 @@ async function candlePreview(req,res,symbol){
  }
  return res.status(200).json({symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
   independent,quality:assessSourceQuality({provider:'Alpaca IEX',independent}),indicators:{hourly:indicatorSnapshot(hourly),fourHour:indicatorSnapshot(aggregated.fourHour),daily:indicatorSnapshot(aggregated.daily)},
-  pinePatterns: evaluatePatterns(hourly,indicatorSeries(hourly)),sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
+  pinePatterns: evaluatePatterns(hourly,indicatorSeries(hourly)),sourceBars:source.length,sourcePages:pages,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
   timezone:aggregated.timezone,session:aggregated.session,
   samples:{hourly:hourly.slice(-8),fourHour:aggregated.fourHour.slice(-8),daily:aggregated.daily.slice(-8)},
   warnings:['Mostra de dades, no equivalència amb TradingView','Feed IEX pot diferir del feed consolidat','Sessions escurçades i dades incompletes es poden excloure','No hi ha motors A/C/E/F ni operacions']});
