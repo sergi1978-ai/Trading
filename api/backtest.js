@@ -1,3 +1,4 @@
+import {aggregateBars,fromThirtyMinuteBars} from '../lib/learning-lab/candles.js';
 // Trading 2026 backtesting pilot. DAILY proxy only, NOT a replay of Pine 1D/4H/1H.
 // Signals use only previously CLOSED candles and are entered at the next daily open.
 const ALPACA='https://data.alpaca.markets/v2/stocks/bars';
@@ -64,13 +65,34 @@ async function getBars(symbol){
  if(obj.next_page_token)throw Error('Històric incomplet: paginació pendent');
  return bars.filter(x=>[x.o,x.h,x.l,x.c].every(Number.isFinite)).sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
 }
+async function candlePreview(req,res,symbol){
+ const days=Math.min(30,Math.max(5,Number(req.query.days)||14));
+ if(!Number.isInteger(days))return res.status(400).json({error:'Dies invàlids'});
+ const start=new Date(Date.now()-days*86400000).toISOString();
+ const end=new Date(Date.now()-20*60000).toISOString(); // do not use still-forming bars
+ const url=new URL(ALPACA);
+ for(const [k,v] of Object.entries({symbols:symbol,timeframe:'30Min',start,end,limit:'10000',sort:'asc',adjustment:'split',feed:'iex'}))url.searchParams.set(k,v);
+ const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET}});
+ if(!response.ok)throw Error('Alpaca HTTP '+response.status);
+ const payload=await response.json();
+ if(payload.next_page_token)throw Error('Dades incompletes: paginació Alpaca pendent');
+ const source=payload.bars?.[symbol]||[];
+ const hourly=fromThirtyMinuteBars(source);
+ const aggregated=aggregateBars(hourly);
+ return res.status(200).json({symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
+  sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
+  timezone:aggregated.timezone,session:aggregated.session,
+  samples:{hourly:hourly.slice(-8),fourHour:aggregated.fourHour.slice(-8),daily:aggregated.daily.slice(-8)},
+  warnings:['Mostra de dades, no equivalència amb TradingView','Feed IEX pot diferir del feed consolidat','Sessions escurçades i dades incompletes es poden excloure','No hi ha motors A/C/E/F ni operacions']});
+}
 async function backtestHandler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='GET')return res.status(405).json({error:'Mètode no permès'});
  if(!process.env.ALPACA_API_KEY||!process.env.ALPACA_API_SECRET)return res.status(503).json({error:'Alpaca no configurat'});
  const symbol=String(req.query.symbol||'').trim().toUpperCase(),mode=String(req.query.mode||'both');
- if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','compare'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
- try{const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','compare','candles'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
+ try{if(mode==='candles')return await candlePreview(req,res,symbol);
+ const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
  const common={symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length};
  if(mode==='compare')return res.status(200).json({...common,comparisons:['both','breakout','retest','recovery'].map(m=>({mode:m,...run(bars,m)}))});
  const result=run(bars,mode);
