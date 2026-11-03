@@ -7,11 +7,21 @@ const providerCache=new Map();
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function limitedAlpaca(url){
  const cached=providerCache.get(url);if(cached&&Date.now()-cached.at<120000)return cached.data;
- for(let attempt=0;attempt<3;attempt++){
-  const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
-  if(response.status===429){if(attempt<2){await sleep(700*(attempt+1));continue;}throw new Error('Alpaca 429: límit de peticions; dades no actualitzades');}
-  const body=await response.text();if(!response.ok)throw new Error('Alpaca '+response.status+': '+body.slice(0,220));
-  const data=JSON.parse(body);providerCache.set(url,{at:Date.now(),data});if(providerCache.size>75)providerCache.delete(providerCache.keys().next().value);return data;
+ for(let attempt=0;attempt<4;attempt++){
+  let response;
+  try {
+   response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''},signal:AbortSignal.timeout(12000)});
+  }catch(e){
+   if(attempt===3)throw new Error('Alpaca NETWORK/TIMEOUT: '+String(e.message||e).slice(0,100));
+   await sleep(450*Math.pow(2,attempt));continue;
+  }
+  if(response.status===429||response.status>=500){
+   if(attempt<3){const retry=Number(response.headers.get('retry-after'));await sleep(Number.isFinite(retry)&&retry>0?Math.min(retry*1000,5000):450*Math.pow(2,attempt));continue;}
+  }
+  const body=await response.text();
+  if(!response.ok)throw new Error('Alpaca HTTP '+response.status+': '+body.slice(0,160));
+  let data;try{data=JSON.parse(body)}catch(e){throw new Error('Alpaca JSON invalid: '+String(e.message||e))}
+  providerCache.set(url,{at:Date.now(),data});if(providerCache.size>75)providerCache.delete(providerCache.keys().next().value);return data;
  }
 }
 
@@ -152,22 +162,34 @@ async function chooseHistoricalFeed(){
   return {feed:'iex',cutoff,fallback:true,reason:'SIP no disponible amb les credencials actuals'};
  }catch(e){return {feed:'iex',cutoff,fallback:true,reason:'Error comprovant SIP: '+String(e.message||e)};}
 }
-async function fetchBars(symbols,timeframe,start,limit=10000,historyFeed='iex',historyCutoff=null){
- const merged={},CHUNK=7;
- for(let i=0;i<symbols.length;i+=CHUNK){
-  const batch=symbols.slice(i,i+CHUNK);
+async function fetchBars(symbols,timeframe,start,limit=10000,historyFeed='iex',historyCutoff=null,diagnostics=[]){
+ const merged={},CHUNK=5;
+ async function loadBatch(batch){
   let pageToken=null,page=0;
-  do{
-   const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'split',feed:historyFeed,sort:'asc'});
-   if(historyFeed==='sip'&&historyCutoff)params.set('end',historyCutoff);
-   if(pageToken)params.set('page_token',pageToken);
-   const j=await limitedAlpaca(`${ALPACA}?${params}`);
-   for(const [sym,bars] of Object.entries(j.bars||{}))merged[sym]=(merged[sym]||[]).concat(bars||[]);
-   pageToken=j.next_page_token||null;
-   page++;
-  }while(pageToken&&page<8);
-  // A cap avoids unbounded serverless execution. Missing symbols remain diagnosable.
+  try {
+   do {
+    const params=new URLSearchParams({symbols:batch.join(','),timeframe,start,limit:String(limit),adjustment:'split',feed:historyFeed,sort:'asc'});
+    if(historyFeed==='sip'&&historyCutoff)params.set('end',historyCutoff);
+    if(pageToken)params.set('page_token',pageToken);
+    const j=await limitedAlpaca(ALPACA+'?'+params);
+    for(const [sym,bars] of Object.entries(j.bars||{}))merged[sym]=(merged[sym]||[]).concat(bars||[]);
+    pageToken=j.next_page_token||null;
+    page++;
+   }while(pageToken&&page<8);
+   if(pageToken)diagnostics.push({timeframe,symbols:batch,code:'PAGINATION_LIMIT',message:'Limit de 8 pagines; cobertura possiblement parcial'});
+  }catch(e){
+   const message=String(e.message||e).slice(0,180);
+   if(batch.length>1){
+    const middle=Math.ceil(batch.length/2);
+    await loadBatch(batch.slice(0,middle));
+    await loadBatch(batch.slice(middle));
+   }else{
+    diagnostics.push({timeframe,symbols:batch,code:(message.match(/HTTP (\\d+)/)||[])[1]||'NETWORK',message});
+    console.warn('RADAR_PROVIDER_FAILURE',JSON.stringify({timeframe,symbol:batch[0],message}));
+   }
+  }
  }
+ for(let i=0;i<symbols.length;i+=CHUNK)await loadBatch(symbols.slice(i,i+CHUNK));
  for(const sym of Object.keys(merged)){
   const byTime=new Map(merged[sym].map(x=>[x.t,x]));
   merged[sym]=[...byTime.values()].sort((a,b)=>new Date(a.t)-new Date(b.t));
@@ -608,10 +630,11 @@ export default async function handler(req,res){
     // v2.6.1: benchmarks per separat.
     // Alpaca aplica el límit al conjunt de símbols i, amb ETFs, podia
     // truncar la resposta i deixar RS buit. Els demanem individualment.
+    const providerErrors=[];
     const [d,h4,h1] = await Promise.all([
-      fetchBars(raw,'1Day',startDay,10000,feedInfo.feed,feedInfo.cutoff),
-      fetchBars(raw,'4Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff),
-      fetchBars(raw,'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff)
+      fetchBars(raw,'1Day',startDay,10000,feedInfo.feed,feedInfo.cutoff,providerErrors),
+      fetchBars(raw,'4Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff,providerErrors),
+      fetchBars(raw,'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff,providerErrors)
     ]);
 
     const bh1 = {};
@@ -677,7 +700,7 @@ export default async function handler(req,res){
       return r;
     });
     res.setHeader('Cache-Control','no-store');
-    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.5 · SIP retardat amb alternativa IEX',coverage:{historicalFeed:feedInfo.feed,sipAvailable:feedInfo.feed==='sip',feedReason:feedInfo.reason||null,requested:raw.length,analyzed:out.filter(x=>x.status!=='SENSE DADES').length,missing:out.filter(x=>x.status==='SENSE DADES').length,retryRequests:retryTasks.length,retryErrors:retryErrors.slice(0,12)},results:out});
+    return res.status(200).json({generatedAt:new Date().toISOString(),engine:'Trading 2026 v3.5 · SIP retardat amb alternativa IEX',coverage:{historicalFeed:feedInfo.feed,sipAvailable:feedInfo.feed==='sip',feedReason:feedInfo.reason||null,requested:raw.length,analyzed:out.filter(x=>x.status!=='SENSE DADES').length,missing:out.filter(x=>x.status==='SENSE DADES').length,retryRequests:retryTasks.length,retryErrors:retryErrors.slice(0,12),providerErrors:providerErrors.slice(0,24),failedBatches:providerErrors.filter(e=>e.code!=='PAGINATION_LIMIT').length},results:out});
   }catch(e){
     return res.status(500).json({error:e.message||String(e)});
   }
