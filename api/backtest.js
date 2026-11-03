@@ -1,3 +1,4 @@
+import {indicatorSnapshot} from '../lib/learning-lab/indicators.js';
 import {assessSourceQuality} from '../lib/learning-lab/source-quality.js';
 import {compareDaily,parseYahooDaily} from '../lib/learning-lab/compare-sources.js';
 import {aggregateBars,fromThirtyMinuteBars} from '../lib/learning-lab/candles.js';
@@ -100,7 +101,7 @@ async function candlePreview(req,res,symbol){
   }catch(e){independent={status:'unavailable',reason:String(e.message||e)};}
  }
  return res.status(200).json({symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
-  independent,quality:assessSourceQuality({provider:'Alpaca IEX',independent}),sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
+  independent,quality:assessSourceQuality({provider:'Alpaca IEX',independent}),indicators:{hourly:indicatorSnapshot(hourly),fourHour:indicatorSnapshot(aggregated.fourHour),daily:indicatorSnapshot(aggregated.daily)},sourceBars:source.length,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
   timezone:aggregated.timezone,session:aggregated.session,
   samples:{hourly:hourly.slice(-8),fourHour:aggregated.fourHour.slice(-8),daily:aggregated.daily.slice(-8)},
   warnings:['Mostra de dades, no equivalència amb TradingView','Feed IEX pot diferir del feed consolidat','Sessions escurçades i dades incompletes es poden excloure','No hi ha motors A/C/E/F ni operacions']});
