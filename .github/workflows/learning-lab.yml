@@ -7,6 +7,8 @@ on:
     paths:
       - 'api/backtest.js'
       - 'tests/learning-lab.test.js'
+      - 'tests/learning-lab-candles.test.js'
+      - 'lib/learning-lab/**'
       - '.github/workflows/learning-lab.yml'
 jobs:
   unit-tests:
@@ -18,4 +20,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/learning-lab.test.js
+      - run: node --test tests/learning-lab*.test.js
