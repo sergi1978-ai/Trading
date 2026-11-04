@@ -21,15 +21,38 @@ let stocks=[],coins=[],coinErrors=[],cryptoBusy=false,stockBusy=false,lastCrypto
 
 // Watchlists are stored locally; never imply cloud synchronization or broker orders.
 const watchKeys={stock:'longai.saved.stocks.v1',crypto:'longai.saved.crypto.v1'};
-const watchLimits={stock:12,crypto:15};
+const watchLimits={stock:200,crypto:200};
 const watchDefaults={stock:['NVDA','PLTR','AVGO','ETN','NOW','ANET'],crypto:['BTC','ETH','SOL','LINK','ONDO','SUI','NEAR','AAVE']};
+// Durable per-browser watchlists with a recovery copy. No silent fallback to defaults
+// after a corrupt write: warn and recover from the previous successful snapshot.
+const watchBackupKeys={stock:'longai.saved.stocks.backup.v2',crypto:'longai.saved.crypto.backup.v2'};
+const watchMetaKey='longai.saved.meta.v2';
+function parseWatch(raw,kind){
+ if(raw===null)return null;
+ try{const value=JSON.parse(raw);return Array.isArray(value)&&value.every(x=>typeof x==='string'&&/^[A-Z0-9]{2,12}$/.test(x))?cleanSymbols(value.join(','),watchLimits[kind]):null}catch{return null}
+}
 function loadWatch(kind){
- try{const raw=localStorage.getItem(watchKeys[kind]);if(raw===null)return watchDefaults[kind];const data=JSON.parse(raw);return Array.isArray(data)?cleanSymbols(data.join(','),watchLimits[kind]):watchDefaults[kind]}
- catch{return watchDefaults[kind]}
+ try{
+  const primary=localStorage.getItem(watchKeys[kind]);
+  const parsed=parseWatch(primary,kind);
+  if(parsed!==null)return parsed;
+  const backup=parseWatch(localStorage.getItem(watchBackupKeys[kind]),kind);
+  if(backup!==null)return backup;
+  return primary===null?watchDefaults[kind]:[];
+ }catch{return watchDefaults[kind]}
 }
 function persistWatch(kind,symbols){
- try{localStorage.setItem(watchKeys[kind],JSON.stringify(symbols));return true}
- catch{return false}
+ try{
+  const valid=cleanSymbols(symbols.join(','),watchLimits[kind]);
+  if(valid.length!==symbols.length)return false;
+  const previous=localStorage.getItem(watchKeys[kind]);
+  if(previous!==null&&parseWatch(previous,kind)!==null)localStorage.setItem(watchBackupKeys[kind],previous);
+  localStorage.setItem(watchKeys[kind],JSON.stringify(valid));
+  if(localStorage.getItem(watchKeys[kind])!==JSON.stringify(valid))return false;
+  localStorage.setItem(watchBackupKeys[kind],JSON.stringify(valid));
+  localStorage.setItem(watchMetaKey,JSON.stringify({updatedAt:new Date().toISOString(),kind}));
+  return true;
+ }catch{return false}
 }
 function watchIds(kind){return kind==='stock'?['stockSymbols','savedStocks','stockSavedNote']:['cryptoSymbols','savedCrypto','cryptoSavedNote']}
 function renderWatch(kind){
@@ -39,14 +62,14 @@ function renderWatch(kind){
   b.addEventListener('click',()=>{const next=loadWatch(kind).filter(s=>s!==symbol);if(persistWatch(kind,next)){$(input).value=next.join(',');renderWatch(kind)}else $(note).textContent='No es pot desar: emmagatzematge del navegador no disponible.'});
   return b;
  }));
- $(note).textContent=symbols.length+' actius desats localment · màxim '+watchLimits[kind]+'. No se sincronitzen entre dispositius.';
+ $(note).textContent=symbols.length+' actius desats localment · màxim '+watchLimits[kind]+'. No se sincronitzen entre dispositius; exporta una còpia de seguretat.';
 }
 function saveWatch(kind,addSymbol){
  const [input,,note]=watchIds(kind);
- const entered=addSymbol?[...loadWatch(kind),addSymbol]:cleanSymbols($(input).value,100);
- const valid=cleanSymbols(entered.join(','),100);
+ const entered=addSymbol?[...loadWatch(kind),addSymbol]:[...new Set([...loadWatch(kind),...cleanSymbols($(input).value,watchLimits[kind])])];
+ const valid=cleanSymbols(entered.join(','),watchLimits[kind]);
  if(!valid.length){$(note).textContent='Introdueix almenys un símbol vàlid.';return}
- if(valid.length>watchLimits[kind]){$(note).textContent='Límit de '+watchLimits[kind]+' actius. Elimina’n alguns abans de desar.';return}
+ if(entered.length>watchLimits[kind]){$(note).textContent='Límit de '+watchLimits[kind]+' actius. Elimina’n alguns abans de desar.';return}
  if(!persistWatch(kind,valid)){$(note).textContent='No es pot desar: emmagatzematge del navegador no disponible.';return}
  $(input).value=valid.join(',');renderWatch(kind);
 }
@@ -55,6 +78,7 @@ $('cryptoSymbols').value=loadWatch('crypto').join(',');
 $('saveStocks').addEventListener('click',()=>saveWatch('stock'));
 $('saveCrypto').addEventListener('click',()=>saveWatch('crypto'));
 renderWatch('stock');renderWatch('crypto');
+window.addEventListener('storage',event=>{if(Object.values(watchKeys).includes(event.key)){for(const kind of ['stock','crypto']){$(watchIds(kind)[0]).value=loadWatch(kind).join(',');renderWatch(kind)}}});
 
 const backupVersion=1;
 $('exportWatch').addEventListener('click',()=>{
