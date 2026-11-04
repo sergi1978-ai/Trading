@@ -17,14 +17,14 @@ const safe=(v)=>String(v??'—');
 const fmt=(v,d=2)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ca-ES',{maximumFractionDigits:d}):'—';
 const money=(v)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ca-ES',{maximumFractionDigits:v<1?6:2}):'—';
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=safe(text);return n};
-let stocks=[],coins=[],coinErrors=[],cryptoBusy=false,stockBusy=false,lastCryptoSymbols=[];
+let stocks=[],coins=[],coinErrors=[],cryptoBusy=false,stockBusy=false,lastCryptoSymbols=[],livePrices={};
 function metric(label,value){const n=el('div','metric');n.append(el('small','',label),el('b','',value));return n}
 function field(label,value){const n=el('div');n.append(el('small','',label),el('strong','',value));return n}
 function assetCard(a,kind){
  const n=el('article','asset'),top=el('div','top'),title=el('h3','',a.symbol||a.ticker||'—'),state=el('span','state',a.status||a.pineState||'SENSE DADES');
  if(/READY|A\+|^A$/.test(safe(a.status)))state.classList.add('good');else if(/WATCH|PRE/.test(safe(a.status)))state.classList.add('warn');
  top.append(title,state);n.append(top,el('div','pair',kind==='crypto'?(safe(a.pair||'USD')+' · '+safe(a.timeframe||'1H')):'Acció · motor web independent'));
- n.append(el('div','price',money(a.price)));
+ const live=kind==='stock'?livePrices[a.symbol||a.ticker]:null;n.append(el('div','price',money(live?.price??a.price)));if(live)n.append(el('div','pair','Última operació '+live.feed.toUpperCase()+' · '+live.ageMinutes+' min · '+(live.delayed?'retardada / indicativa':'feed IEX')+' · '+new Date(live.time).toLocaleString('ca-ES')));
  const d=el('div','details');
  if(kind==='crypto'){d.append(field('Puntuació web',fmt(a.score,0)+'/100'),field('Anticipació',fmt(a.anticipationScore,0)),field('Volum relatiu 4H',fmt(a.rvol4h,2)+'x'),field('RSI 1H',fmt(a.rsi,1)),field('Tendència 1D',a.trend1D?'Alcista':'No alcista'),field('Tendència 4H',a.trend4H?'Alcista':'No alcista'))}
  else{d.append(field('Puntuació web',fmt(a.score,0)),field('Entrada',fmt(a.entryScore??a.entryQuality??a.score,0)),field('Potencial',fmt(a.potentialScore,0)),field('RSI',fmt(a.rsi,1)),field('Volum 4H',fmt(a.rvol4h,2)+'x'),field('Trigger',money(a.trigger)))}
@@ -45,7 +45,7 @@ async function fetchJson(url,timeout=24000){const ctl=new AbortController(),time
 $('scanStocks').addEventListener('click',async()=>{
  if(stockBusy)return;const syms=cleanSymbols($('stockSymbols').value,12);if(!syms.length){$('stockStatus').textContent='Introdueix almenys un ticker vàlid.';return}
  stockBusy=true;$('scanStocks').disabled=true;$('stockStatus').textContent='Consultant '+syms.length+' accions…';
- try{const data=await fetchJson('/api/scan?symbols='+encodeURIComponent(syms.join(',')),50000);stocks=Array.isArray(data.results)?data.results:[];renderStocks();$('stockStatus').textContent=stocks.length+' resultats · font '+safe(data.coverage?.historicalFeed||'no indicada')+' · '+safe(data.generatedAt||'');if(data.error)$('stockStatus').textContent+=' · '+data.error}
+ try{const data=await fetchJson('/api/scan?symbols='+encodeURIComponent(syms.join(',')),50000);stocks=Array.isArray(data.results)?data.results:[];renderStocks();try{const quotes=await fetchJson('/api/stock-24h?symbols='+encodeURIComponent(syms.join(',')),11000);livePrices=quotes.results||{};renderStocks();$('stockStatus').textContent='Preus 24/5: '+quotes.received+'/'+quotes.requested+' · '+(quotes.errors||[]).join(' · ')+' | ';}catch(e){$('stockStatus').textContent='Preus 24/5 no disponibles: '+safe(e.message)+' | ';}$('stockStatus').textContent+=stocks.length+' resultats · font '+safe(data.coverage?.historicalFeed||'no indicada')+' · '+safe(data.generatedAt||'');if(data.error)$('stockStatus').textContent+=' · '+data.error}
  catch(e){$('stockStatus').textContent='Error en l’escaneig: '+safe(e.message)+'. No s’han substituït els resultats anteriors.'}
  finally{stockBusy=false;$('scanStocks').disabled=false}
 });
