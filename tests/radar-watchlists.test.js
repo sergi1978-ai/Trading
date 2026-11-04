@@ -32,3 +32,11 @@ test('stock discovery exposes filtering and radar analysis',()=>{
  assert.ok(script.includes("$('scanStocks').click()"));
  assert.ok(script.includes("view!=='discover'"));
 });
+
+test('saved discoveries are merged and recoverable after reload',()=>{
+ assert.ok(script.includes("const watchLimits={stock:200,crypto:200}"));
+ assert.ok(script.includes("watchBackupKeys"));
+ assert.ok(script.includes("const previous=localStorage.getItem(watchKeys[kind])"));
+ assert.ok(script.includes("...loadWatch(kind),...cleanSymbols"));
+ assert.ok(script.includes("window.addEventListener('storage'"));
+});
