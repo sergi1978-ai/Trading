@@ -24,3 +24,20 @@ test('web-only market data never authorizes trades even if patterns appear',()=>
  assert.equal(x.verifiedSignal,false);
  assert.ok(x.missing.includes('consolidated_volume'));
 });
+
+test('unix-second timestamps produce same diagnostics as millisecond timestamps',()=>{
+ const daily=bars(120,86400000),four=bars(120,14400000),hour=bars(120,3600000);
+ const a=commonMotor({market:'crypto',daily,four,hour});
+ const secs=rows=>rows.map(x=>({...x,t:x.t/1000}));
+ const b=commonMotor({market:'crypto',daily:secs(daily),four:secs(four),hour:secs(hour)});
+ assert.equal(a.status,b.status);
+ assert.equal(a.checks.closed1H,b.checks.closed1H);
+ assert.equal(a.checks.trend1D,b.checks.trend1D);
+});
+test('invalid OHLCV or duplicate candle timestamps block candidate selection',()=>{
+ const daily=bars(120,86400000),four=bars(120,14400000),hour=bars(120,3600000);
+ hour[2]={...hour[2],h:hour[2].l-1};
+ const x=commonMotor({market:'stock',daily,four,hour});
+ assert.equal(x.status,'INSUFFICIENT_DATA');
+ assert.equal(x.selectedMotor,null);
+});
