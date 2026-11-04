@@ -47,3 +47,9 @@ test('watchlist import merges existing and imported symbols without deleting dis
  assert.ok(script.includes("...loadWatch('crypto'),...importedCrypto"));
  assert.ok(script.includes("a.download='longai-watchlists-'"));
 });
+
+test('watchlist recovery rejects oversized and duplicate snapshots',()=>{
+ assert.ok(script.includes("value.length<=watchLimits[kind]"));
+ assert.ok(script.includes("new Set(value).size===value.length"));
+ assert.ok(script.includes("...new Set([...loadWatch(kind),addSymbol])"));
+});
