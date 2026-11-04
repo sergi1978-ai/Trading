@@ -602,15 +602,16 @@ export default async function handler(req,res){
       fetchBars(raw,'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff)
     ]);
 
+    // Fetch benchmark series concurrently: sequential provider calls could stall scans.
     const bh1 = {};
-    for(const b of benchSymbols){
+    await Promise.all(benchSymbols.map(async b=>{
       try {
         const one = await fetchBars([b],'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff);
         bh1[b] = one[b] || [];
       } catch (_) {
         bh1[b] = [];
       }
-    }
+    }));
 
     // Fallback: si el benchmark específic té poca cobertura IEX
     // (p. ex. algun ETF sectorial), fem servir QQQ.
@@ -629,7 +630,7 @@ export default async function handler(req,res){
       }
     }
     const retryErrors=[];
-    for(let i=0;i<Math.min(retryTasks.length,12);i+=2){
+    for(let i=0;i<Math.min(retryTasks.length,4);i+=2){
       await Promise.all(retryTasks.slice(i,i+2).map(async t=>{
         try{
           const result=await fetchBars([t.sym],t.tf,addDays(new Date(),t.tf==='1Day'?-240:-160),10000,feedInfo.feed,feedInfo.cutoff);
@@ -637,7 +638,7 @@ export default async function handler(req,res){
         }catch(e){retryErrors.push(t.sym+' '+t.tf+': '+String(e.message||e).slice(0,80))}
       }));
     }
-    if(retryTasks.length>12)retryErrors.push((retryTasks.length-12)+' intents addicionals ajornats per limitar peticions');
+    if(retryTasks.length>4)retryErrors.push((retryTasks.length-4)+' intents addicionals ajornats per limitar peticions');
     // Limit extra provider requests: 30m confirmation only for leading 20 candidates.
     const top30=raw.map(symbol=>({symbol,pre:compute(symbol,d[symbol]||[],h4[symbol]||[],h1[symbol]||[],bh1[BENCHMARK[symbol]||'QQQ']||bh1.QQQ||[])})).filter(x=>Number.isFinite(x.pre.radarScore)).sort((a,b)=>b.pre.radarScore-a.pre.radarScore).slice(0,20).map(x=>x.symbol);
     let m30={};
