@@ -1,3 +1,9 @@
+import {pineSpec,parityPrerequisites} from '../lib/learning-lab/pine-v5281-spec.js';
+import {indicatorSnapshot,indicatorSeries} from '../lib/learning-lab/indicators.js';
+import {evaluatePatterns} from '../lib/learning-lab/pine-patterns.js';
+import {assessSourceQuality} from '../lib/learning-lab/source-quality.js';
+import {compareDaily,parseYahooDaily} from '../lib/learning-lab/compare-sources.js';
+import {aggregateBars,fromThirtyMinuteBars} from '../lib/learning-lab/candles.js';
 // Trading 2026 backtesting pilot. DAILY proxy only, NOT a replay of Pine 1D/4H/1H.
 // Signals use only previously CLOSED candles and are entered at the next daily open.
 const ALPACA='https://data.alpaca.markets/v2/stocks/bars';
@@ -64,16 +70,104 @@ async function getBars(symbol){
  if(obj.next_page_token)throw Error('Històric incomplet: paginació pendent');
  return bars.filter(x=>[x.o,x.h,x.l,x.c].every(Number.isFinite)).sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));
 }
-export default async function handler(req,res){
+async function independentDaily(symbol,days){
+ const start=Math.floor((Date.now()-(days+7)*86400000)/1000);
+ const end=Math.floor(Date.now()/1000);
+ const u=new URL('https://query1.finance.yahoo.com/v8/finance/chart/'+encodeURIComponent(symbol));
+ for(const [k,v] of Object.entries({period1:start,period2:end,interval:'1d',events:'div,splits'}))u.searchParams.set(k,v);
+ const response=await fetch(u,{headers:{'User-Agent':'Mozilla/5.0 (compatible; LearningLab/0.2)','Accept':'application/json'},signal:AbortSignal.timeout(7000)});
+ if(!response.ok)throw Error('Yahoo Finance HTTP '+response.status);
+ return parseYahooDaily(await response.json());
+}
+async function candlePreview(req,res,symbol){
+ const days=Math.min(365,Math.max(5,Number(req.query.days)||14));
+ if(!Number.isInteger(days))return res.status(400).json({error:'Dies invàlids'});
+ const start=new Date(Date.now()-days*86400000).toISOString();
+ const end=new Date(Date.now()-20*60000).toISOString(); // do not use still-forming bars
+ const url=new URL(ALPACA);
+ for(const [k,v] of Object.entries({symbols:symbol,timeframe:'30Min',start,end,limit:'10000',sort:'asc',adjustment:'split',feed:'iex'}))url.searchParams.set(k,v);
+ const source=[];let pageToken=null;const pageTokens=new Set();let pages=0;
+ const startedAt=Date.now();const maxPages=32;const timeBudgetMs=18000;
+ do{
+  if(pageToken){if(pageTokens.has(pageToken))throw Error('Paginació Alpaca repetida');pageTokens.add(pageToken);url.searchParams.set('page_token',pageToken);}
+  const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY,'APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET},signal:AbortSignal.timeout(9000)});
+  if(!response.ok)throw Error('Alpaca HTTP '+response.status);
+  const payload=await response.json();
+  source.push(...(payload.bars?.[symbol]||[]));
+  pageToken=payload.next_page_token||null;
+  pages++;
+  if(pageToken&&(pages>=maxPages||Date.now()-startedAt>timeBudgetMs))throw Error('Històric incomplet: límit de '+maxPages+' pàgines o '+timeBudgetMs/1000+' s. Proveu menys dies; no es calculen indicadors parcials');
+ }while(pageToken);
+ const hourly=fromThirtyMinuteBars(source);
+ const aggregated=aggregateBars(hourly);
+ let independent={status:'not_requested'};
+ if(req.query.verify==='1'){
+  try{
+   const secondary=await independentDaily(symbol,days);
+   const compared=compareDaily(aggregated.daily.slice(-10),secondary);
+   independent={status:'ok',provider:'Yahoo Finance chart (no és TradingView)',compared,
+     matched:compared.filter(x=>x.status==='compared').length,flagged:compared.filter(x=>x.flagged).length};
+  }catch(e){independent={status:'unavailable',reason:String(e.message||e)};}
+ }
+ return res.status(200).json({pineReference:{version:pineSpec.version,entryPriority:pineSpec.entryPriority,scoreMinimum:pineSpec.scoreMinimum,parity:parityPrerequisites(),status:'partial_patterns_only'},symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
+  independent,quality:assessSourceQuality({provider:'Alpaca IEX',independent}),indicators:{hourly:indicatorSnapshot(hourly),fourHour:indicatorSnapshot(aggregated.fourHour),daily:indicatorSnapshot(aggregated.daily)},
+  pinePatterns: evaluatePatterns(hourly,indicatorSeries(hourly)),sourceBars:source.length,sourcePages:pages,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
+  timezone:aggregated.timezone,session:aggregated.session,
+  samples:{hourly:hourly.slice(-8),fourHour:aggregated.fourHour.slice(-8),daily:aggregated.daily.slice(-8)},
+  warnings:['Mostra de dades, no equivalència amb TradingView','Feed IEX pot diferir del feed consolidat','Sessions escurçades i dades incompletes es poden excloure','No hi ha motors A/C/E/F ni operacions']});
+}
+async function backtestHandler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='GET')return res.status(405).json({error:'Mètode no permès'});
  if(!process.env.ALPACA_API_KEY||!process.env.ALPACA_API_SECRET)return res.status(503).json({error:'Alpaca no configurat'});
  const symbol=String(req.query.symbol||'').trim().toUpperCase(),mode=String(req.query.mode||'both');
- if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','compare'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
- try{const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
+ if(!/^[A-Z][A-Z0-9.]{0,8}$/.test(symbol)||!['both','breakout','retest','recovery','compare','candles'].includes(mode))return res.status(400).json({error:'Ticker o estratègia invàlids'});
+ try{if(mode==='candles')return await candlePreview(req,res,symbol);
+ const bars=await getBars(symbol);if(bars.length<130)return res.status(422).json({error:'Històric insuficient: '+bars.length+' sessions'});
  const common={symbol,mode,firstBar:bars[0].t,lastBar:bars.at(-1).t,barCount:bars.length};
  if(mode==='compare')return res.status(200).json({...common,comparisons:['both','breakout','retest','recovery'].map(m=>({mode:m,...run(bars,m)}))});
  const result=run(bars,mode);
  return res.status(200).json({...common,...result});
  }catch(e){return res.status(502).json({error:String(e.message||e)})}
+}
+
+// Learning Lab v0.1 — descriptive analysis only; no parameter optimisation or live orders.
+const finite = n => typeof n === 'number' && Number.isFinite(n);
+const round = (n,d=2) => n == null ? null : Number(n.toFixed(d));
+function analyse(trades) {
+  const valid = trades.filter(t => finite(t.returnPct));
+  const returns = valid.map(t=>t.returnPct);
+  const wins = returns.filter(n=>n>0), losses=returns.filter(n=>n<0);
+  const total = returns.reduce((a,b)=>a+b,0);
+  const grossWin=wins.reduce((a,b)=>a+b,0), grossLoss=-losses.reduce((a,b)=>a+b,0);
+  let equity=1, peak=1, drawdown=0;
+  for(const r of returns){ equity*=Math.max(0,1+r/100); peak=Math.max(peak,equity); drawdown=Math.max(drawdown,1-equity/peak); }
+  const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const expectancy=returns.length?total/returns.length:null;
+  return {count:returns.length,winRatePct:returns.length?round(100*wins.length/returns.length):null,
+    expectancyPct:round(expectancy),averageWinPct:round(mean(wins)),averageLossPct:round(mean(losses)),
+    profitFactor:grossLoss?round(grossWin/grossLoss):grossWin>0?null:0,
+    compoundedReturnPct:round((equity-1)*100),maxDrawdownPct:round(drawdown*100),
+    insufficientSample:returns.length<30};
+}
+async function learningHandler(req,res){
+  res.setHeader('Cache-Control','no-store');
+  if(req.method!=='POST')return res.status(405).json({error:'Use POST'});
+  try {
+    const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
+    if(!body || !Array.isArray(body.trades) || body.trades.length>5000) return res.status(400).json({error:'Cal una llista trades de màxim 5000 operacions'});
+    if(body.trades.some(t=>!t || !finite(t.returnPct) || Math.abs(t.returnPct)>1000 || (t.motor!=null && typeof t.motor!=='string'))) return res.status(400).json({error:'Operacions invàlides: returnPct ha de ser numèric'});
+    const trades=body.trades;
+    const motors=['A','C','E','F','TACTICA','PROVA','SENSE_MOTOR'];
+    const groups=Object.fromEntries(motors.map(m=>[m,analyse(trades.filter(t=>(t.motor||'SENSE_MOTOR').toUpperCase()===m))]));
+    const unknown=[...new Set(trades.map(t=>(t.motor||'SENSE_MOTOR').toUpperCase()).filter(m=>!motors.includes(m)))];
+    for(const m of unknown.slice(0,30))groups[m]=analyse(trades.filter(t=>(t.motor||'SENSE_MOTOR').toUpperCase()===m));
+    return res.status(200).json({version:'learning-lab-v0.1',source:body.source||'manual',total:analyse(trades),byMotor:groups,
+      warnings:['Anàlisi descriptiva; no aprenentatge automàtic','Sense validació fora de mostra ni ajust per selecció de paràmetres','Les rendibilitats es calculen amb returnPct subministrat; comprovar comissions, exposició i ordre temporal','El drawdown pressuposa operacions seqüencials i sense solapament'],
+      next:'Integrar replay 1D/4H/1H i registrar indicadors en el moment de cada entrada'});
+  } catch(e){return res.status(400).json({error:'JSON invàlid o dades incorrectes'});}
+}
+export default async function handler(req,res){
+ if(req.method==='POST')return learningHandler(req,res);
+ return backtestHandler(req,res);
 }

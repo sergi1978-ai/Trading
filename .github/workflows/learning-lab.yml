@@ -1,0 +1,31 @@
+name: Learning Lab validation
+on:
+  push:
+    branches:
+      - feat/learning-lab-v1-20261103
+  pull_request:
+    paths:
+      - 'api/backtest.js'
+      - 'tests/learning-lab.test.js'
+      - 'tests/learning-lab-candles.test.js'
+      - 'tests/learning-lab-ui.test.js'
+      - 'tests/learning-lab-sources.test.js'
+      - 'tests/learning-lab-quality.test.js'
+      - 'tests/learning-lab-indicators.test.js'
+      - 'tests/learning-lab-pine-spec.test.js'
+      - 'tests/learning-lab-pine-patterns.test.js'
+      - 'tests/learning-lab-dmi.test.js'
+      - 'learning-lab.html'
+      - 'lib/learning-lab/**'
+      - '.github/workflows/learning-lab.yml'
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/learning-lab*.test.js
