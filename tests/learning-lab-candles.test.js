@@ -59,3 +59,13 @@ test('incomplete 30m pair is excluded',()=>{
  ];
  assert.equal(fromThirtyMinuteBars(bars).length,0);
 });
+
+test('rejects off-anchor hourly timestamps instead of treating seven bars as a full session',()=>{
+ const bars=fixture('2026-01-12',5);
+ bars[2]={...bars[2],t:'2026-01-12T16:00:00Z'};
+ assert.throws(()=>aggregateBars(bars),/1H bar misaligned/);
+});
+test('rejects half-hour source bars passed directly as hourly bars',()=>{
+ const bars=[{t:'2026-01-12T15:00:00Z',o:100,h:102,l:99,c:101,v:100}];
+ assert.throws(()=>aggregateBars(bars),/1H bar misaligned/);
+});
