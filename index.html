@@ -121,6 +121,16 @@ function assetCard(a,kind){
   panel.append(el('div','quality-label','Paritat TradingView: NO VERIFICADA · Ordres: NO autoritzades · '+safe(cm.source)));
   n.append(panel);
  }
+ const comparison=a.motorComparison;
+ if(comparison){
+  const cmp=el('details'),head=el('summary','','Comparador automàtic · web vs motor comú'),body=el('div','details');
+  for(const check of comparison.checks||[]){
+   const result=!check.comparable?'No comparable':check.matches?'Coincideix':'DIFERÈNCIA';
+   body.append(field(check.name,result+' · web: '+safe(check.webValue)+' · comú: '+safe(check.referenceValue)+(Number.isFinite(check.deltaPct)?' · Δ '+fmt(check.deltaPct,2)+'%':'')));
+  }
+  cmp.append(head,body,el('div','quality-label','TradingView/Pine real: NO VERIFICAT · '+safe(comparison.status)));
+  n.append(cmp);
+ }
  const more=el('details'),summary=el('summary','','Indicadors i diagnòstic'),extra=el('div','details');
  if(kind==='crypto'){
   extra.append(field('RSI 1H',numberOrDash(a.rsi,1)),field('Tendència 1D',a.trend1D===true?'Alcista':a.trend1D===false?'No alcista':'—'),field('Tendència 4H',a.trend4H===true?'Alcista':a.trend4H===false?'No alcista':'—'),field('Entrada / stop',finite(a.trigger)&&finite(a.stop)?money(a.trigger)+' / '+money(a.stop):'—'));
