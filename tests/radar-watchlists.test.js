@@ -24,3 +24,11 @@ test('watchlist backups validate format, size and both lists',()=>{
  assert.ok(script.includes("validate(data.stocks,'stock')"));
  assert.ok(script.includes("validate(data.crypto,'crypto')"));
 });
+
+test('stock discovery exposes filtering and radar analysis',()=>{
+ for(const id of ['discover','discoverStocks','discoverSort','discoverFilter','discoverCards','discoverStatus'])assert.ok(html.includes('id="'+id+'"'),id);
+ assert.ok(script.includes('/api/discover?count=15&offset='));
+ assert.ok(script.includes("saveWatch('stock',a.symbol)"));
+ assert.ok(script.includes("$('scanStocks').click()"));
+ assert.ok(script.includes("view!=='discover'"));
+});
