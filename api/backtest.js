@@ -1,3 +1,4 @@
+import {pineSpec,parityPrerequisites} from '../lib/learning-lab/pine-v5281-spec.js';
 import {indicatorSnapshot,indicatorSeries} from '../lib/learning-lab/indicators.js';
 import {evaluatePatterns} from '../lib/learning-lab/pine-patterns.js';
 import {assessSourceQuality} from '../lib/learning-lab/source-quality.js';
@@ -108,7 +109,7 @@ async function candlePreview(req,res,symbol){
      matched:compared.filter(x=>x.status==='compared').length,flagged:compared.filter(x=>x.flagged).length};
   }catch(e){independent={status:'unavailable',reason:String(e.message||e)};}
  }
- return res.status(200).json({symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
+ return res.status(200).json({pineReference:{version:pineSpec.version,entryPriority:pineSpec.entryPriority,scoreMinimum:pineSpec.scoreMinimum,parity:parityPrerequisites(),status:'partial_patterns_only'},symbol,mode:'candles',provider:'Alpaca IEX',sourceTimeframe:'30Min',rangeDays:days,
   independent,quality:assessSourceQuality({provider:'Alpaca IEX',independent}),indicators:{hourly:indicatorSnapshot(hourly),fourHour:indicatorSnapshot(aggregated.fourHour),daily:indicatorSnapshot(aggregated.daily)},
   pinePatterns: evaluatePatterns(hourly,indicatorSeries(hourly)),sourceBars:source.length,sourcePages:pages,hourlyBars:hourly.length,fourHourBars:aggregated.fourHour.length,dailyBars:aggregated.daily.length,
   timezone:aggregated.timezone,session:aggregated.session,
