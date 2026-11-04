@@ -9,7 +9,7 @@
 <div class="warning"><strong>Important:</strong> aquesta interfície està orientada a Pine v5.28.1, però els endpoints d'escaneig encara fan servir motors web independents. Les puntuacions i els estats NO són senyals Pine v5.28.1 verificats. No operis sense confirmar espelma, proveïdor i senyal a TradingView.</div>
 <section id="stocks" class="panel"><div class="section-head"><h2>Escaneig d'accions</h2><span class="hint">1D · 4H · 1H</span></div><div class="controls"><input id="stockSymbols" aria-label="Tickers d'accions" value="NVDA,PLTR,AVGO,ETN,NOW,ANET" placeholder="NVDA, PLTR, AVGO"><button class="primary" id="scanStocks">Analitzar accions</button><button class="secondary" id="saveStocks">Desar llista</button></div><div class="saved-note" id="stockSavedNote">Desa els teus actius en aquest navegador. No se sincronitzen entre dispositius.</div><div class="saved-list" id="savedStocks" aria-label="Accions desades"></div><div class="controls"><select id="stockFilter" aria-label="Filtrar estats"><option value="">Tots els estats</option><option value="READY">READY</option><option value="WATCH">WATCH</option><option value="PRE">PRE-READY</option><option value="A">A / A+</option></select><span class="hint">Els resultats no són equivalents a Pine.</span></div><div class="status" id="stockStatus" role="status">Preparat per analitzar.</div><div class="metrics" id="stockMetrics"></div><div class="cards" id="stockCards"><div class="empty">Prem «Analitzar accions» per consultar les dades.</div></div></section>
 <section id="crypto" class="panel hidden"><div class="section-head"><h2>Escàner d'altcoins</h2><span class="hint">Coinbase / Kraken · espelmes tancades</span></div><p>Consultes per lots petits, amb resultats progressius i diagnòstic d'errors per cada actiu.</p><div class="controls"><input id="cryptoSymbols" aria-label="Símbols d'altcoins" value="BTC,ETH,SOL,LINK,ONDO,SUI,NEAR,AAVE" placeholder="BTC, ETH, SOL"><button class="primary" id="scanCrypto">Escanejar altcoins</button><button class="secondary" id="retryCrypto">Reintentar errors</button><button class="secondary" id="saveCrypto">Desar llista</button></div><div class="saved-note" id="cryptoSavedNote">Desa els teus actius en aquest navegador. No se sincronitzen entre dispositius.</div><div class="saved-list" id="savedCrypto" aria-label="Altcoins desades"></div><div class="progress" aria-hidden="true"><span id="cryptoProgress"></span></div><div class="status" id="cryptoStatus" role="status">Preparat per escanejar.</div><div class="metrics" id="cryptoMetrics"></div><div class="error-list" id="cryptoErrors"></div><div class="cards" id="cryptoCards"><div class="empty">Prem «Escanejar altcoins» per començar.</div></div></section>
-<div class="legacy"><a href="/legacy-radar.html">Obrir l'aplicació anterior (arxivada)</a></div></main>
+<section class="panel"><div class="section-head"><h2>Còpia de seguretat de les llistes</h2><span class="hint">Transferència manual entre dispositius</span></div><p>Exporta les teves accions i altcoins a un fitxer JSON o importa una còpia anterior. No inclou ordres ni dades del broker.</p><div class="controls"><button class="secondary" id="exportWatch">Exportar llistes</button><button class="secondary" id="importWatch">Importar llistes</button><input id="importWatchFile" type="file" accept=".json,application/json" class="hidden" aria-label="Fitxer de llistes JSON"></div><div class="status" id="watchBackupStatus" role="status"></div></section><div class="legacy"><a href="/legacy-radar.html">Obrir l'aplicació anterior (arxivada)</a></div></main>
 <script>
 const $=id=>document.getElementById(id);
 const cleanSymbols=(s,max=20)=>[...new Set(s.toUpperCase().split(/[\s,;]+/).map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)))].slice(0,max);
@@ -55,6 +55,39 @@ $('cryptoSymbols').value=loadWatch('crypto').join(',');
 $('saveStocks').addEventListener('click',()=>saveWatch('stock'));
 $('saveCrypto').addEventListener('click',()=>saveWatch('crypto'));
 renderWatch('stock');renderWatch('crypto');
+
+const backupVersion=1;
+$('exportWatch').addEventListener('click',()=>{
+ const payload={format:'longai-watchlists',version:backupVersion,exportedAt:new Date().toISOString(),stocks:loadWatch('stock'),crypto:loadWatch('crypto')};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='longai-watchlists.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ $('watchBackupStatus').textContent='Còpia exportada. Guarda-la en un lloc segur.';
+});
+$('importWatch').addEventListener('click',()=>$('importWatchFile').click());
+$('importWatchFile').addEventListener('change',async()=>{
+ const file=$('importWatchFile').files?.[0];if(!file)return;
+ try{
+  if(file.size>100000)throw Error('Fitxer massa gran (màxim 100 KB).');
+  const data=JSON.parse(await file.text());
+  if(data?.format!=='longai-watchlists'||data.version!==backupVersion||!Array.isArray(data.stocks)||!Array.isArray(data.crypto))throw Error('Format de còpia no reconegut.');
+  const validate=(items,kind)=>{
+   if(items.some(x=>typeof x!=='string'||!/^[A-Z0-9]{2,12}$/.test(x)))throw Error('Símbols invàlids a '+kind);
+   const unique=[...new Set(items)];
+   if(unique.length!==items.length||unique.length>watchLimits[kind])throw Error('Duplicats o massa actius a '+kind);
+   return unique;
+  };
+  const stocks=validate(data.stocks,'stock'),crypto=validate(data.crypto,'crypto');
+  // Validate both lists before replacing either; report storage failures explicitly.
+  const oldStocks=loadWatch('stock'),oldCrypto=loadWatch('crypto');
+  if(!persistWatch('stock',stocks)){throw Error('No es pot escriure al navegador.')}
+  if(!persistWatch('crypto',crypto)){persistWatch('stock',oldStocks);throw Error('No es pot desar la llista de criptomonedes.')}
+  $('stockSymbols').value=stocks.join(',');$('cryptoSymbols').value=crypto.join(',');
+  renderWatch('stock');renderWatch('crypto');
+  $('watchBackupStatus').textContent='Llistes importades: '+stocks.length+' accions i '+crypto.length+' criptomonedes. Les llistes anteriors s’han substituït.';
+ }catch(e){$('watchBackupStatus').textContent='Importació cancel·lada: '+safe(e.message)}
+ finally{$('importWatchFile').value=''}
+});
+
 
 function metric(label,value){const n=el('div','metric');n.append(el('small','',label),el('b','',value));return n}
 function field(label,value){const n=el('div');n.append(el('small','',label),el('strong','',value));return n}
