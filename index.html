@@ -29,7 +29,7 @@ const watchBackupKeys={stock:'longai.saved.stocks.backup.v2',crypto:'longai.save
 const watchMetaKey='longai.saved.meta.v2';
 function parseWatch(raw,kind){
  if(raw===null)return null;
- try{const value=JSON.parse(raw);return Array.isArray(value)&&value.every(x=>typeof x==='string'&&/^[A-Z0-9]{2,12}$/.test(x))?cleanSymbols(value.join(','),watchLimits[kind]):null}catch{return null}
+ try{const value=JSON.parse(raw);return Array.isArray(value)&&value.length<=watchLimits[kind]&&value.every(x=>typeof x==='string'&&/^[A-Z0-9]{2,12}$/.test(x))&&new Set(value).size===value.length?value:null}catch{return null}
 }
 function loadWatch(kind){
  try{
@@ -66,7 +66,7 @@ function renderWatch(kind){
 }
 function saveWatch(kind,addSymbol){
  const [input,,note]=watchIds(kind);
- const entered=addSymbol?[...loadWatch(kind),addSymbol]:[...new Set([...loadWatch(kind),...cleanSymbols($(input).value,watchLimits[kind])])];
+ const entered=addSymbol?[...new Set([...loadWatch(kind),addSymbol])]:[...new Set([...loadWatch(kind),...cleanSymbols($(input).value,watchLimits[kind]+1)])];
  const valid=cleanSymbols(entered.join(','),watchLimits[kind]);
  if(!valid.length){$(note).textContent='Introdueix almenys un símbol vàlid.';return}
  if(entered.length>watchLimits[kind]){$(note).textContent='Límit de '+watchLimits[kind]+' actius. Elimina’n alguns abans de desar.';return}
@@ -82,10 +82,11 @@ window.addEventListener('storage',event=>{if(Object.values(watchKeys).includes(e
 
 const backupVersion=1;
 $('exportWatch').addEventListener('click',()=>{
- const payload={format:'longai-watchlists',version:backupVersion,exportedAt:new Date().toISOString(),stocks:loadWatch('stock'),crypto:loadWatch('crypto')};
+ const stocks=loadWatch('stock'),crypto=loadWatch('crypto');
+ const payload={format:'longai-watchlists',version:backupVersion,exportedAt:new Date().toISOString(),stocks,crypto};
  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='longai-watchlists-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
- $('watchBackupStatus').textContent='Còpia exportada. Guarda-la en un lloc segur.';
+ $('watchBackupStatus').textContent='Descàrrega sol·licitada: '+stocks.length+' accions i '+crypto.length+' altcoins. Comprova que el fitxer apareix a Descàrregues o Fitxers.';
 });
 $('importWatch').addEventListener('click',()=>$('importWatchFile').click());
 $('importWatchFile').addEventListener('change',async()=>{
@@ -107,7 +108,7 @@ $('importWatchFile').addEventListener('change',async()=>{
   // Validate both lists before replacing either; report storage failures explicitly.
   const oldStocks=loadWatch('stock'),oldCrypto=loadWatch('crypto');
   if(!persistWatch('stock',stocks)){throw Error('No es pot escriure al navegador.')}
-  if(!persistWatch('crypto',crypto)){persistWatch('stock',oldStocks);throw Error('No es pot desar la llista de criptomonedes.')}
+  if(!persistWatch('crypto',crypto)){const rolledBack=persistWatch('stock',oldStocks);throw Error(rolledBack?'No es pot desar la llista de criptomonedes; s’ha restaurat la llista anterior d’accions.':'Error en desar criptomonedes i restaurar accions. Recupera la còpia JSON abans de continuar.')}
   $('stockSymbols').value=stocks.join(',');$('cryptoSymbols').value=crypto.join(',');
   renderWatch('stock');renderWatch('crypto');
   $('watchBackupStatus').textContent='Llistes importades: '+stocks.length+' accions i '+crypto.length+' criptomonedes. S’han fusionat amb les llistes existents, sense eliminar cap actiu.';
