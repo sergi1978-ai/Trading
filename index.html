@@ -112,6 +112,15 @@ function assetCard(a,kind){
  n.append(d);
  const info=el('div','quality-note',kind==='crypto'?'Anticipació i qualitat són mètriques diferents: una anticipació alta no implica una entrada vàlida.':'Qualitat web no validada amb Pine 5.28.1; no confondre absència de dades amb zero.');
  n.append(info);
+ const cm=a.commonMotor;
+ if(cm){
+  const panel=el('div','lab-diagnostics');
+  panel.append(el('strong','','Motor comú A/C/E/F · '+safe(cm.version)+' · diagnòstic'));
+  panel.append(el('div','','Motor candidat: '+safe(cm.proposedMotor||'cap')+' · Motor qualificat: '+safe(cm.selectedMotor||'cap')));
+  for(const key of ['E','F','C','A']){const m=cm.motors?.[key];panel.append(el('div','',key+': '+(m?.qualified?'qualificat (web)':m?.pattern?'patró observat':'sense patró verificable')))}
+  panel.append(el('div','quality-label','Paritat TradingView: NO VERIFICADA · Ordres: NO autoritzades · '+safe(cm.source)));
+  n.append(panel);
+ }
  const more=el('details'),summary=el('summary','','Indicadors i diagnòstic'),extra=el('div','details');
  if(kind==='crypto'){
   extra.append(field('RSI 1H',numberOrDash(a.rsi,1)),field('Tendència 1D',a.trend1D===true?'Alcista':a.trend1D===false?'No alcista':'—'),field('Tendència 4H',a.trend4H===true?'Alcista':a.trend4H===false?'No alcista':'—'),field('Entrada / stop',finite(a.trigger)&&finite(a.stop)?money(a.trigger)+' / '+money(a.stop):'—'));
