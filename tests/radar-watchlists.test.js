@@ -53,3 +53,10 @@ test('watchlist recovery rejects oversized and duplicate snapshots',()=>{
  assert.ok(script.includes("new Set(value).size===value.length"));
  assert.ok(script.includes("...new Set([...loadWatch(kind),addSymbol])"));
 });
+
+test('stock and crypto scan recover from API errors and avoid oversized stock requests',()=>{
+ assert.ok(script.includes("i+=3"));
+ assert.ok(script.includes("batchErrors.push"));
+ assert.ok(script.includes("Resposta no JSON del servidor"));
+ assert.ok(script.includes("encodeURIComponent(symbol),45000"));
+});
