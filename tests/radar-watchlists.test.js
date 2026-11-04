@@ -40,3 +40,10 @@ test('saved discoveries are merged and recoverable after reload',()=>{
  assert.ok(script.includes("...loadWatch(kind),...cleanSymbols"));
  assert.ok(script.includes("window.addEventListener('storage'"));
 });
+
+test('watchlist import merges existing and imported symbols without deleting discoveries',()=>{
+ assert.ok(script.includes("const importedStocks=validate(data.stocks,'stock')"));
+ assert.ok(script.includes("...loadWatch('stock'),...importedStocks"));
+ assert.ok(script.includes("...loadWatch('crypto'),...importedCrypto"));
+ assert.ok(script.includes("a.download='longai-watchlists-'"));
+});
