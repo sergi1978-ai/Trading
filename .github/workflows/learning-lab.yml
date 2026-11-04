@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feat/learning-lab-v1-20261103
+      - fix/learning-lab-candle-integrity-20261104
   pull_request:
     paths:
       - 'api/backtest.js'
@@ -16,6 +17,7 @@ on:
       - 'tests/learning-lab-pine-patterns.test.js'
       - 'tests/learning-lab-dmi.test.js'
       - 'learning-lab.html'
+      - 'index.html'
       - 'lib/learning-lab/**'
       - '.github/workflows/learning-lab.yml'
 jobs:
