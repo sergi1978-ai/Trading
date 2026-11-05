@@ -8,7 +8,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function limitedAlpaca(url){
  const cached=providerCache.get(url);if(cached&&Date.now()-cached.at<120000)return cached.data;
  for(let attempt=0;attempt<3;attempt++){
-  const response=await fetch(url,{headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
+  const response=await fetch(url,{signal:AbortSignal.timeout(8000),headers:{'APCA-API-KEY-ID':process.env.ALPACA_API_KEY||'','APCA-API-SECRET-KEY':process.env.ALPACA_API_SECRET||''}});
   if(response.status===429){if(attempt<2){await sleep(700*(attempt+1));continue;}throw new Error('Alpaca 429: límit de peticions; dades no actualitzades');}
   const body=await response.text();if(!response.ok)throw new Error('Alpaca '+response.status+': '+body.slice(0,220));
   const data=JSON.parse(body);providerCache.set(url,{at:Date.now(),data});if(providerCache.size>75)providerCache.delete(providerCache.keys().next().value);return data;
