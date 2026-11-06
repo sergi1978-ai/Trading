@@ -1,3 +1,4 @@
+import {evaluate5291,benchmark5291} from './_pine5291.js';
 import {momentumDiagnostic,weeklyDiagnostic,momentumPhase,momentumContext,earlyMomentumTurn} from './_momentum.js';
 // Trading 2026 v2.8 - crypto technical screening; closed candles only.
 // Coinbase Exchange public candles (300 max/request), Kraken OHLC fallback.
@@ -255,5 +256,19 @@ function scanOne(symbol,pack){
  const estimatedSuccessProbability=null; // requires out-of-sample event-based backtesting, not an invented likelihood
  return {symbol,type:'cripto',status,reason,momentum:momentumIndicators,vwap24h,priceAboveVwap,btcReturn24h,assetReturn24h,relativeStrengthBTC,historicalAccumulation,providerConsistency,historicalStudyCaution,liquidityTier,dollarVolumeDay,rvol4h,watchRvolThreshold,accumulationWatch,strongVolumeWatch,obvRecent,obvPrevious,source:[D,H,F,M].map(x=>x.source).join('/'),pair:F.pair,price:last.c,quoteTime:new Date(last.t).toISOString(),timeframe:'1H tancada',pattern,score,setupQuality,operationalQuality,operationalDecision,criticalBlocks,anticipationScore,primaryBlocker,volumeTimeframe,volumeText,volumeCandleDirection,candleMovePct,patternPhase,tradeDecision,watchLevel,watchSupport,watchDistance,planAvailable,setupLabel,trigger,stop,tp1:target,tp2,riskPct:stopPct,rr:target&&risk>0?(target-trigger)/risk:null,rvol:c.rvol,volumeDirection:bearish?'BAIXISTA FORT':last.c<last.o?'BAIXISTA':'ALCISTA',rsi:c.rsi,ema20:c.ema20,trend1D:dailyTrend,trend4H:fourTrend,liquid,extended,coverage:{day:d.length,four:h.length,hour:f.length,half:m.length},dataQuality:tfQuality,confidenceGrade,confidenceChecks:successFactors,thirtyConfirm,thirtyRvol,volumeSupport4H,support4h,estimatedSuccessProbability,roomPct,atrPct,riskRewardToResistance,eligibleForEntry:!hardFail&&trend&&volumeOk&&canPlan,pineState,executionState,explosiveDirection,explosiveWatchScore,bearishWatchScore,bullishWatchScore,earlyScore,earlyStage,earlyCompression,earlyNear,earlyVolume,earlyTrend,pineReferenceVersion:'6.6.20',scannerReferenceVersion:'2.6',signalEngine:'WEB-INDEPENDENT',volumeBarClosedAt:new Date(last.t+3600000).toISOString(),pineReferenceState,pineReferenceRoute,pineReferenceEntry:pineReferencePlan?.entry??null,pineReferenceStop:pineReferencePlan?.stop??null,pineReferenceTarget:pineReferencePlan?.goal??null,pineReferenceNetRR:pineReferencePlan?.netRR??null,verifiedSignal:false,warning:'Motor web independent, referències Pine Assistant 6.6.19 i Scanner 2.5; comparar mateixa espelma i exchange. Els TP no són resistències validades.'}
 }
-async function single(s,btcHour){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);return scanOne(s,{daily,four,hour,half,btcHour:s==='BTC'?hour.rows:btcHour})}
-export default async function handler(req,res){const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);const result=[],errors=[];let btcHour=null;try{btcHour=(await candles('BTC',3600)).rows}catch(_){}for(let i=0;i<syms.length;i++){const symbol=syms[i];try{result.push(await single(symbol,btcHour))}catch(e){errors.push({symbol,message:String(e.message||e)})}if(i<syms.length-1)await wait(250)}res.setHeader('Cache-Control','no-store');return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'})}
+async function single(s,btcHour,btcDaily,fx){const [daily,four,hour,half]=await Promise.all([candles(s,86400),candles(s,21600),candles(s,3600),candles(s,1800)]);const r=scanOne(s,{daily,four,hour,half,btcHour:s==='BTC'?hour.rows:btcHour});r.pine5291=evaluate5291({daily:daily.rows,four:four.rows,hour:hour.rows,crypto:true,eurToQuote:fx,marketDaily:{btc:benchmark5291(btcDaily||[])}});r.status=r.pine5291.status;r.reason=r.pine5291.reason;return r}
+export default async function handler(req,res){
+ const syms=String(req.query.symbols||'BTC,ETH,SOL,ONDO,LINK,RENDER,HYPE,AAVE,NEAR,SUI').toUpperCase().split(',').map(x=>x.trim()).filter(x=>/^[A-Z0-9]{2,12}$/.test(x)).slice(0,10);
+ const result=[],errors=[];let btcHour=null,btcDaily=null,fx=null;
+ try{btcHour=(await candles('BTC',3600)).rows}catch(e){errors.push({symbol:'BTC benchmark 1H',message:String(e.message||e)})}
+ try{btcDaily=(await candles('BTC',86400)).rows}catch(e){errors.push({symbol:'BTC benchmark 1D',message:String(e.message||e)})}
+ try{const x=await json('https://api.frankfurter.app/latest?from=EUR&to=USD');fx=Number(x.rates?.USD)||null}catch(_){}
+ for(let i=0;i<syms.length;i++){
+  const symbol=syms[i];
+  try{result.push(await single(symbol,btcHour,btcDaily,fx))}
+  catch(e){const message=String(e.message||e);errors.push({symbol,message});result.push({symbol,status:'SENSE DADES',pine5291:{status:'SENSE DADES',decision:'SENSE DADES',reason:message,readyA:false,readyB:false},reason:message})}
+  if(i<syms.length-1)await wait(250);
+ }
+ res.setHeader('Cache-Control','no-store');
+ return res.status(200).json({results:result,errors,generatedAt:new Date().toISOString(),warning:'Dades de tancaments; revisa a TradingView abans de cap ordre.'});
+}
