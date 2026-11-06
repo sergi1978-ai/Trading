@@ -1,3 +1,4 @@
+import {evaluate5291,benchmark5291} from './_pine5291.js';
 import {momentumDiagnostic,weeklyDiagnostic,momentumPhase,momentumContext,earlyMomentumTurn} from './_momentum.js';
 
 const ALPACA = 'https://data.alpaca.markets/v2/stocks/bars';
@@ -590,14 +591,16 @@ export default async function handler(req,res){
     const startDay=addDays(new Date(),-450); // ~64 closed weeks; weekly EMA50 research context
     const startIntraday=addDays(new Date(),-60);
     const benchSymbols=[...new Set(raw.map(s=>BENCHMARK[s]||'QQQ'))];
+    let fxEURUSD=null;try{const fxRes=await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD');if(fxRes.ok)fxEURUSD=Number((await fxRes.json()).rates?.USD)||null}catch(_){}
 
     // v2.6.1: benchmarks per separat.
     // Alpaca aplica el límit al conjunt de símbols i, amb ETFs, podia
     // truncar la resposta i deixar RS buit. Els demanem individualment.
-    const [d,h4,h1] = await Promise.all([
+    const [d,h4,h1,marketD] = await Promise.all([
       fetchBars(raw,'1Day',startDay,10000,feedInfo.feed,feedInfo.cutoff),
       fetchBars(raw,'4Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff),
-      fetchBars(raw,'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff)
+      fetchBars(raw,'1Hour',startIntraday,10000,feedInfo.feed,feedInfo.cutoff),
+      fetchBars(['SPY','QQQ'],'1Day',startDay,10000,feedInfo.feed,feedInfo.cutoff)
     ]);
 
     const bh1 = {};
@@ -644,6 +647,9 @@ export default async function handler(req,res){
       const preferred = BENCHMARK[s] || 'QQQ';
       const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
       const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars,m30[s]||[]);
+      r.pine5291=evaluate5291({daily:d[s]||[],four:h4[s]||[],hour:h1[s]||[],crypto:false,eurToQuote:fxEURUSD,marketDaily:{spy:benchmark5291(marketD.SPY||[]),qqq:benchmark5291(marketD.QQQ||[])}});
+      r.status=r.pine5291.status;
+      r.reason=r.pine5291.reason;
       r.dataCounts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
       r.historicalFeed=feedInfo.feed;
       r.dataCompleteness=[r.dataCounts.d,r.dataCounts.h4,r.dataCounts.h1].every(n=>n>=25)?'COBERTURA BÀSICA':'COBERTURA PARCIAL';
