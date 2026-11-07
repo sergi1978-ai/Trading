@@ -648,8 +648,6 @@ export default async function handler(req,res){
       const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
       const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars,m30[s]||[]);
       r.pine5292=evaluate5292({daily:d[s]||[],four:h4[s]||[],hour:h1[s]||[],crypto:false,eurToQuote:fxEURUSD,marketDaily:{spy:benchmark5292(marketD.SPY||[]),qqq:benchmark5292(marketD.QQQ||[])}});
-      r.status=r.pine5292.status;
-      r.reason=r.pine5292.reason;
       r.dataCounts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
       r.historicalFeed=feedInfo.feed;
       r.dataCompleteness=[r.dataCounts.d,r.dataCounts.h4,r.dataCounts.h1].every(n=>n>=25)?'COBERTURA BÀSICA':'COBERTURA PARCIAL';
