@@ -647,7 +647,16 @@ export default async function handler(req,res){
       const preferred = BENCHMARK[s] || 'QQQ';
       const benchBars = (bh1[preferred]?.length || 0) >= 21 ? bh1[preferred] : (bh1.QQQ || []);
       const r=compute(s,d[s]||[],h4[s]||[],h1[s]||[],benchBars,m30[s]||[]);
-      r.pine5292=evaluate5292({daily:d[s]||[],four:h4[s]||[],hour:h1[s]||[],crypto:false,eurToQuote:fxEURUSD,marketDaily:{spy:benchmark5292(marketD.SPY||[]),qqq:benchmark5292(marketD.QQQ||[])}});
+      const closedDaily=latestCompleted(d[s]||[],'1Day');
+      const closedHour=latestCompleted(h1[s]||[],'1Hour');
+      let closedFour=latestCompleted(h4[s]||[],'4Hour');
+      if(closedFour.length<55){const rebuiltFour=aggregateFourHourFromHourly(h1[s]||[]);if(rebuiltFour.length>=55)closedFour=rebuiltFour;}
+      r.pine5292=evaluate5292({daily:closedDaily,four:closedFour,hour:closedHour,crypto:false,eurToQuote:fxEURUSD,marketDaily:{spy:benchmark5292(latestCompleted(marketD.SPY||[],'1Day')),qqq:benchmark5292(latestCompleted(marketD.QQQ||[],'1Day'))}});
+      r.pine5292.priceBasis='ALPACA_SPLIT_ADJUSTED';
+      r.pine5292.barTime=closedHour.at(-1)?.t||null;
+      r.pine5292.barCloseTime=closedHour.length?new Date(Date.parse(closedHour.at(-1).t)+3600000).toISOString():null;
+      r.pine5292.feed=feedInfo.feed;
+      r.pine5292.priceWarning='Preu històric ajustat per splits; pot diferir del gràfic TradingView sense ajustaments. Sense dades en temps real.';
       r.dataCounts={d:(d[s]||[]).length,h4:(h4[s]||[]).length,h1:(h1[s]||[]).length};
       r.historicalFeed=feedInfo.feed;
       r.dataCompleteness=[r.dataCounts.d,r.dataCounts.h4,r.dataCounts.h1].every(n=>n>=25)?'COBERTURA BÀSICA':'COBERTURA PARCIAL';
